@@ -17,8 +17,11 @@ import {
   type GameState,
 } from './world';
 
-/** Test keys only work on the dev server (`npm run dev`), never in a real build. */
-export const TEST_KEYS_ENABLED = import.meta.env.DEV;
+/**
+ * Test keys work on the dev server (`npm run dev`), and in a build made with
+ * VITE_TEST_KEYS=true (the online GitHub Pages version sets this).
+ */
+export const TEST_KEYS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_TEST_KEYS === 'true';
 
 /** Numbers shown on screen by React. */
 export interface HudInfo {
