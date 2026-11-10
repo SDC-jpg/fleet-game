@@ -1,0 +1,20 @@
+{
+  "_readme": "Lists every piece of art the game uses. See README.md in this folder for how to swap in your own art.",
+  "sprites": {
+    "ship.fighter.player": { "file": "ships/fighter-player.png" },
+    "ship.fighter.enemy": { "file": "ships/fighter-enemy.png" },
+    "ship.fighter.wreck": { "file": "ships/fighter-wreck.png" },
+
+    "projectile.player": { "file": "projectiles/bullet-player.png" },
+    "projectile.enemy": { "file": "projectiles/bullet-enemy.png" },
+
+    "vfx.explosion": { "file": "vfx/explosion.png", "frameWidth": 32, "frameHeight": 32, "frames": 8, "fps": 16, "loop": false },
+    "vfx.hit": { "file": "vfx/hit.png", "frameWidth": 16, "frameHeight": 16, "frames": 4, "fps": 20, "loop": false },
+    "vfx.recruit": { "file": "vfx/recruit.png", "frameWidth": 48, "frameHeight": 48, "frames": 6, "fps": 15, "loop": false },
+
+    "ui.command-ring": { "file": "ui/command-ring.png" },
+
+    "bg.stars-far": { "file": "backgrounds/stars-far.png" },
+    "bg.stars-near": { "file": "backgrounds/stars-near.png" }
+  }
+}

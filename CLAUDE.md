@@ -23,6 +23,14 @@
 - Keep LF line endings in `.devcontainer` files (enforced by `.gitattributes`).
 - `.devcontainer/init-firewall.sh` uses `ipset add -exist` to fix a duplicate-IP startup error. This is the user's own fix. Don't revert it.
 
+## Code layout
+- `src/engine/`: the small homegrown engine (asset loading from the manifest, pixel renderer with whole-number zoom, input, fixed 60 Hz game loop).
+- `src/game/config.ts`: every tuning number (speeds, health, waves, zoom steps, ship types and their hit sizes).
+- `src/game/world.ts`: game rules (no drawing). `src/game/render.ts`: drawing. `src/game/Game.ts`: connects input, rules and drawing.
+- `src/App.tsx`: React canvas and HUD.
+- `public/assets/`: all art, plus `manifest.json` (sprite names → files) and `README.md` (art guide for the user).
+- `tools/make-placeholder-art.mjs` (`npm run make-art`): generates placeholder PNGs and never overwrites existing files unless run with `--force`.
+
 ## Decisions
 <!-- Things the user asked to remember, or asked Claude not to suggest again. -->
 - **Art must be easy to swap.** The user is a digital artist and will eventually replace all placeholder art with their own: images with transparency (alpha), flipbook (frame-by-frame) animations, VFX such as explosions, and characters. Build with this in mind from the start:

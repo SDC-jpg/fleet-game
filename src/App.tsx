@@ -1,35 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useRef, useState } from 'react';
+import { Assets } from './engine/assets';
+import { Game, type HudInfo } from './game/Game';
 
-function App() {
-  const [count, setCount] = useState(0)
+const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+
+export default function App() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gameRef = useRef<Game | null>(null);
+  const [hud, setHud] = useState<HudInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load the art, then start the game. Stop it when the page closes.
+  useEffect(() => {
+    let cancelled = false;
+    Assets.load()
+      .then((assets) => {
+        if (cancelled || !canvasRef.current) return;
+        const game = new Game(canvasRef.current, assets, setHud);
+        gameRef.current = game;
+        game.start();
+      })
+      .catch((e: Error) => setError(e.message));
+    return () => {
+      cancelled = true;
+      gameRef.current?.stop();
+      gameRef.current = null;
+    };
+  }, []);
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+      <canvas ref={canvasRef} className="game-canvas" />
 
-export default App
+      {error && <div className="panel center">Couldn't start: {error}</div>}
+      {!hud && !error && <div className="panel center">Loading…</div>}
+
+      {hud && (
+        <div className="hud">
+          <div>Fleet: {hud.fleetSize}</div>
+          <div>Best: {hud.maxFleetSize}</div>
+          <div>Wave: {hud.wave}</div>
+          <div>Time: {formatTime(hud.time)}</div>
+          <div className="hint">WASD move · mouse aim · click/space fire · fly into wrecks to recruit</div>
+          {hud.assetProblems.length > 0 && (
+            <div className="warn">
+              Art problems:
+              {hud.assetProblems.map((p) => (
+                <div key={p}>· {p}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {hud?.gameOver && (
+        <div className="panel center">
+          <h1>Fleet destroyed</h1>
+          <p>Max fleet size: {hud.maxFleetSize}</p>
+          <p>Survived: {formatTime(hud.time)}</p>
+          <button onClick={() => gameRef.current?.restart()}>Play again (R)</button>
+        </div>
+      )}
+    </>
+  );
+}
