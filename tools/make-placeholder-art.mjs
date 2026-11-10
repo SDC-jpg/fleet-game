@@ -274,22 +274,25 @@ function edgeArrow(fill, dark) {
 }
 
 // ---------- Backgrounds (tile seamlessly) ----------
+// The two star layers use different, large tile sizes (512 and 768) so their
+// repeats rarely line up and the eye can't spot a grid.
+// Star counts keep the same density as the original 128×128 tiles.
 function starsFar() {
-  const S = 128;
+  const S = 512;
   const img = new Img(S, S);
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) img.set(x, y, hex('#05060d'));
   const r = rng(7);
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < Math.round(70 * (S / 128) ** 2); i++) {
     const x = Math.floor(r() * S), y = Math.floor(r() * S);
     img.set(x, y, hex(['#262a40', '#3a3f5c', '#5a6080'][Math.floor(r() * 3)]));
   }
   return img;
 }
 function starsNear() {
-  const S = 128;
+  const S = 768;
   const img = new Img(S, S);
   const r = rng(99);
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < Math.round(18 * (S / 128) ** 2); i++) {
     const x = Math.floor(r() * S), y = Math.floor(r() * S);
     const c = hex(['#cfd8ff', '#ffffff', '#ffe6b0', '#b0d8ff'][Math.floor(r() * 4)]);
     img.set(x, y, c);
