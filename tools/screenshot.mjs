@@ -41,6 +41,9 @@ try {
     if (m.type() === 'error' || m.type() === 'warning') console.log(`[browser ${m.type()}] ${m.text()}`);
   });
   page.on('pageerror', (e) => console.log(`[page error] ${e.message}`));
+  page.on('response', (r) => {
+    if (r.status() >= 400) console.log(`[missing file] ${r.status()} ${r.url()}`);
+  });
   await page.goto(url, { waitUntil: 'networkidle' });
   await page.mouse.move(width / 2 + 100, height / 2);
 

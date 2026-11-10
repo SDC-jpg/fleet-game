@@ -92,7 +92,6 @@ export class Game {
     // Spawn enemies a bit outside the visible area.
     const spawnDistance = Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2 + CONFIG.spawnMargin;
     updateGame(this.state, this.readControls(), dt, spawnDistance);
-    i.clearPresses();
   }
 
   private handleTestKeys() {

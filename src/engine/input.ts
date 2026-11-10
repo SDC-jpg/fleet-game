@@ -2,8 +2,8 @@
 
 export class Input {
   private keys = new Set<string>();
-  /** Keys pressed since they were last checked with `wasPressed`. */
-  private presses = new Set<string>();
+  /** How many times each key was pressed and not yet handled by `wasPressed`. */
+  private presses = new Map<string, number>();
   /** Mouse position in CSS pixels, relative to the game canvas. */
   mouseX = 0;
   mouseY = 0;
@@ -16,7 +16,8 @@ export class Input {
     this.listen(window, 'keydown', (e) => {
       const ev = e as KeyboardEvent;
       this.keys.add(ev.code);
-      this.presses.add(ev.code);
+      // Count presses so fast repeats aren't lost (capped so unused keys can't pile up).
+      this.presses.set(ev.code, Math.min((this.presses.get(ev.code) ?? 0) + 1, 20));
       if (ev.code === 'Space' || ev.code.startsWith('Arrow')) ev.preventDefault();
     });
     this.listen(window, 'keyup', (e) => this.keys.delete((e as KeyboardEvent).code));
@@ -50,17 +51,19 @@ export class Input {
 
   /**
    * True once per key press (holding the key repeats it, like typing).
+   * Each call handles one press, so 10 quick presses are handled over 10 calls.
    * Use for one-off actions; use `isDown` for things like movement.
    */
   wasPressed(...codes: string[]) {
-    let hit = false;
-    for (const c of codes) if (this.presses.delete(c)) hit = true;
-    return hit;
-  }
-
-  /** Forget presses nobody asked about. Call once per game step. */
-  clearPresses() {
-    this.presses.clear();
+    for (const c of codes) {
+      const n = this.presses.get(c) ?? 0;
+      if (n > 0) {
+        if (n === 1) this.presses.delete(c);
+        else this.presses.set(c, n - 1);
+        return true;
+      }
+    }
+    return false;
   }
 
   destroy() {
