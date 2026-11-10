@@ -24,6 +24,11 @@
 - Keep LF line endings in `.devcontainer` files (enforced by `.gitattributes`).
 - `.devcontainer/init-firewall.sh` uses `ipset add -exist` to fix a duplicate-IP startup error. This is the user's own fix. Don't revert it.
 
+## Publishing (GitHub Pages)
+- Public repo: https://github.com/SDC-jpg/fleet-game. Live game: https://sdc-jpg.github.io/fleet-game/ (the user shares this with a teammate).
+- Every push to `main` rebuilds and republishes through `.github/workflows/deploy.yml`, with test keys on (`VITE_TEST_KEYS`). Pushing publishes publicly, so ask the user before pushing.
+- Commits use the user's GitHub noreply email (set in this repo's git config). Never commit with their personal email.
+
 ## Seeing the game (for Claude)
 - The container has Chromium (installed by the Dockerfile at build time, no firewall change needed). `tools/screenshot.mjs` drives it with `playwright-core` and saves screenshots that Claude can view with the Read tool. It also prints browser errors.
 - Example (dev server must be running): `node tools/screenshot.mjs --out <scratchpad>/shots 'wait:1500' 'press:Equal*10' 'hold:KeyD:800' 'shot:fleet'`. Quote the steps, because the shell (zsh) treats `*` as a filename wildcard. Run it with no steps for a single screenshot.
