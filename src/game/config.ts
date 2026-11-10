@@ -29,7 +29,7 @@ export interface ShipType {
 
 export const SHIP_TYPES = {
   fighter: {
-    radius: 11,
+    radius: 14,
     maxHp: 4,
     maxSpeed: 150,
     accel: 520,
@@ -41,8 +41,12 @@ export const SHIP_TYPES = {
     bulletLife: 1.1,
     bulletDamage: 1,
     gunOffset: 14,
-    sprites: { player: 'ship.fighter.player', enemy: 'ship.fighter.enemy', wreck: 'ship.fighter.wreck' },
-    bulletSprites: { player: 'projectile.player', enemy: 'projectile.enemy' },
+    sprites: {
+      player: "ship.fighter.player",
+      enemy: "ship.fighter.enemy",
+      wreck: "ship.fighter.wreck",
+    },
+    bulletSprites: { player: "projectile.player", enemy: "projectile.enemy" },
   },
 } satisfies Record<string, ShipType>;
 
@@ -51,6 +55,23 @@ export type ShipTypeId = keyof typeof SHIP_TYPES;
 export const CONFIG = {
   /** Distance between rings in a formation. */
   formationSpacing: 40,
+  /** Seconds before the first ring of followers reacts to the leader... */
+  followDelay: 0.12,
+  /** ...plus this much more for each ring further out... */
+  followDelayPerRing: 0.1,
+  /** ...plus up to this much random extra per ship. */
+  followDelayRandom: 0.08,
+  /** How much leader history to keep (must cover the slowest follower). */
+  followDelayMaxTotal: 1.5,
+  /** How firmly followers pull toward their spot (higher = snappier, lower = floatier). */
+  followStiffness: 2.2,
+  /** How far (pixels) each ship drifts around its spot. */
+  driftAmount: 5,
+  /** Drift loop speed range, in loops per second (each ship picks its own). */
+  driftSpeedMin: 0.15,
+  driftSpeedMax: 0.4,
+  /** How much (radians) idle ships sway their nose. */
+  idleSway: 0.08,
   /** AI ships in your fleet shoot a bit slower than you do. */
   allyFireCooldownMultiplier: 1.4,
   /** Enemies are slower and shoot less often, so the player has a chance. */

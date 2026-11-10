@@ -25,6 +25,8 @@ export interface Ship {
   dead: boolean;
   /** What the engine is doing. Picks the image: normal, ".move" or ".boost". */
   thrust: Thrust;
+  /** Personal randomness so ships in a formation don't move in perfect sync. */
+  quirk: { phaseX: number; phaseY: number; speedX: number; speedY: number; delay: number };
 }
 
 /** A group of ships that fly together. The leader decides where the fleet goes. */
@@ -32,7 +34,23 @@ export interface Fleet {
   team: Team;
   leader: Ship | null;
   members: Ship[];
+  /** Recent leader positions, oldest first, so followers can react with a delay. */
+  trail: LeaderSample[];
+  /** Which ship the trail belongs to (reset when the leader changes). */
+  trailLeaderId: number;
 }
+
+/** Where the leader was, and what it was doing, at one moment. */
+interface LeaderSample {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  angle: number;
+  boosting: boolean;
+}
+
+const newFleet = (team: Team): Fleet => ({ team, leader: null, members: [], trail: [], trailLeaderId: 0 });
 
 export interface Bullet {
   team: Team;
@@ -110,7 +128,7 @@ export function createGame(effectDuration: (sprite: string) => number): GameStat
     bullets: [],
     wrecks: [],
     effects: [],
-    playerFleet: { team: 'player', leader: null, members: [] },
+    playerFleet: newFleet('player'),
     enemyFleets: [],
     wave: 0,
     waveTimer: CONFIG.firstWaveDelay,
@@ -141,6 +159,13 @@ function addShip(state: GameState, team: Team, type: ShipTypeId, fleet: Fleet, x
     fleet,
     dead: false,
     thrust: 'idle',
+    quirk: {
+      phaseX: Math.random() * Math.PI * 2,
+      phaseY: Math.random() * Math.PI * 2,
+      speedX: randRange(CONFIG.driftSpeedMin, CONFIG.driftSpeedMax),
+      speedY: randRange(CONFIG.driftSpeedMin, CONFIG.driftSpeedMax),
+      delay: Math.random() * CONFIG.followDelayRandom,
+    },
   };
   state.ships.push(ship);
   fleet.members.push(ship);
@@ -165,7 +190,25 @@ function slotOffset(i: number) {
   const count = ring * 6;
   const a = (i / count) * Math.PI * 2 + (ring % 2 === 0 ? Math.PI / count : 0) - Math.PI / 2;
   const r = ring * CONFIG.formationSpacing;
-  return { x: Math.cos(a) * r, y: Math.sin(a) * r };
+  return { x: Math.cos(a) * r, y: Math.sin(a) * r, ring };
+}
+
+/** Remember where the leader is this step. Starts fresh when the leader changes. */
+function recordTrail(fleet: Fleet, leader: Ship, dt: number) {
+  const sample = { x: leader.x, y: leader.y, vx: leader.vx, vy: leader.vy, angle: leader.angle, boosting: leader.thrust === 'boost' };
+  if (fleet.trailLeaderId !== leader.id) {
+    fleet.trail = [];
+    fleet.trailLeaderId = leader.id;
+  }
+  fleet.trail.push(sample);
+  const keep = Math.ceil(CONFIG.followDelayMaxTotal / dt) + 1;
+  if (fleet.trail.length > keep) fleet.trail.splice(0, fleet.trail.length - keep);
+}
+
+/** Where the leader was `delay` seconds ago (or as far back as we remember). */
+function trailAt(fleet: Fleet, delay: number, dt: number): LeaderSample {
+  const back = Math.min(Math.round(delay / dt), fleet.trail.length - 1);
+  return fleet.trail[fleet.trail.length - 1 - back];
 }
 
 // ---------- Update ----------
@@ -246,21 +289,30 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
   const leader = fleet.leader;
   if (!leader) return;
   if (fleet.team === 'enemy') updateEnemyLeader(state, leader, dt);
+  recordTrail(fleet, leader, dt);
 
   let slot = 0;
   for (const ship of fleet.members) {
     if (ship === leader) continue;
     const t = typeOf(ship);
+    const q = ship.quirk;
     const speedMul = ship.team === 'enemy' ? CONFIG.enemySpeedMultiplier : 1;
-    // Fly toward this ship's slot in the formation, matching the leader's speed.
     const off = slotOffset(slot++);
-    const tx = leader.x + off.x - ship.x;
-    const ty = leader.y + off.y - ship.y;
-    let wantVx = leader.vx + tx * 3;
-    let wantVy = leader.vy + ty * 3;
+    // React to where the leader was a moment ago. Outer rings react later,
+    // so turns ripple outward through the formation.
+    const delay = CONFIG.followDelay + (off.ring - 1) * CONFIG.followDelayPerRing + q.delay;
+    const past = trailAt(fleet, delay, dt);
+    // Each ship drifts gently around its spot in its own slow loop.
+    const driftX = Math.sin(state.time * q.speedX * Math.PI * 2 + q.phaseX) * CONFIG.driftAmount;
+    const driftY = Math.sin(state.time * q.speedY * Math.PI * 2 + q.phaseY) * CONFIG.driftAmount;
+    // Fly toward the spot, matching the (delayed) leader's speed.
+    const tx = past.x + off.x + driftX - ship.x;
+    const ty = past.y + off.y + driftY - ship.y;
+    let wantVx = past.vx + tx * CONFIG.followStiffness;
+    let wantVy = past.vy + ty * CONFIG.followStiffness;
     const wantLen = Math.hypot(wantVx, wantVy);
     // When the leader boosts, the whole formation boosts to keep up.
-    const boosting = leader.thrust === 'boost';
+    const boosting = past.boosting;
     const boostMul = boosting ? t.boostMultiplier : 1;
     const maxV = t.maxSpeed * speedMul * 1.5 * boostMul;
     if (wantLen > maxV) {
@@ -270,7 +322,9 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     steer(ship, wantVx, wantVy, t.accel * boostMul, dt);
     const moving = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED;
     ship.thrust = !moving ? 'idle' : boosting ? 'boost' : 'move';
-    aimAndShoot(state, ship, dt, leader.angle);
+    // With nothing to shoot, face where the leader faced, swaying a little.
+    const sway = Math.sin(state.time * q.speedX * Math.PI * 2 + q.phaseY) * CONFIG.idleSway;
+    aimAndShoot(state, ship, dt, past.angle + sway);
   }
 }
 
@@ -498,7 +552,7 @@ function spawnEnemyFleet(state: GameState, near: Ship, distance: number, size: n
   const x = near.x + Math.cos(a) * distance;
   const y = near.y + Math.sin(a) * distance;
   const facing = a + Math.PI;
-  const fleet: Fleet = { team: 'enemy', leader: null, members: [] };
+  const fleet = newFleet('enemy');
   fleet.leader = addShip(state, 'enemy', 'fighter', fleet, x, y, facing);
   for (let i = 0; i < size - 1; i++) {
     const off = slotOffset(i);
