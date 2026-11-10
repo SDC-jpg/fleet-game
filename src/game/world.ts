@@ -379,7 +379,11 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
   ship.thrust = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED ? 'move' : 'idle';
 }
 
-/** Gently push apart ships of the same team that overlap. */
+/**
+ * Gently push apart ships of the same team that overlap. A fleet's leader is
+ * never pushed by its own followers: they move aside instead, so the ship you
+ * fly always goes exactly where you steer.
+ */
 function separateShips(state: GameState, dt: number) {
   const ships = state.ships;
   for (let i = 0; i < ships.length; i++)
@@ -394,10 +398,16 @@ function separateShips(state: GameState, dt: number) {
       const push = ((minD - d) / d) * 200 * dt;
       const px = (a.x - b.x) * push;
       const py = (a.y - b.y) * push;
-      a.vx += px;
-      a.vy += py;
-      b.vx -= px;
-      b.vy -= py;
+      const sameFleet = a.fleet === b.fleet;
+      const aLeads = sameFleet && a.fleet.leader === a;
+      const bLeads = sameFleet && b.fleet.leader === b;
+      // Normally both share the push. If one is the leader, the other takes all of it.
+      const aShare = aLeads ? 0 : bLeads ? 2 : 1;
+      const bShare = bLeads ? 0 : aLeads ? 2 : 1;
+      a.vx += px * aShare;
+      a.vy += py * aShare;
+      b.vx -= px * bShare;
+      b.vy -= py * bShare;
     }
 }
 
