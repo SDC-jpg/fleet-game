@@ -26,7 +26,7 @@
 
 ## Publishing (GitHub Pages)
 - Public repo: https://github.com/SDC-jpg/fleet-game. Live game: https://sdc-jpg.github.io/fleet-game/ (the user shares this with a teammate).
-- Every push to `main` rebuilds and republishes through `.github/workflows/deploy.yml`, with test keys on (`VITE_TEST_KEYS`). Pushing publishes publicly, so ask the user before pushing.
+- Every push to `main` rebuilds and republishes through `.github/workflows/deploy.yml`, with test keys on (`VITE_TEST_KEYS`). Pushing publishes publicly. **Only push when the user says to.** Don't ask after each change, because the user will say when.
 - Commits use the user's GitHub noreply email (set in this repo's git config). Never commit with their personal email.
 
 ## Seeing the game (for Claude)

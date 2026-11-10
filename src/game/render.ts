@@ -3,7 +3,7 @@
 import type { Assets, Sprite } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { SHIP_TYPES, CONFIG } from './config';
-import { controlledShip, maxHpOf, typeOf, type GameState } from './world';
+import { controlledShip, maxHpOf, typeOf, type GameState, type Thrust } from './world';
 
 export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   r.drawTiled(assets.get('bg.stars-far'), 0.3);
@@ -20,7 +20,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
 
   for (const s of state.ships) {
     const t = typeOf(s);
-    r.drawSprite(assets.get(t.sprites[s.team]), s.x, s.y, s.angle, state.time);
+    r.drawSprite(assets.get(shipSprite(assets, t.sprites[s.team], s.thrust)), s.x, s.y, s.angle, state.time);
     // Small health bar under damaged ships.
     const maxHp = maxHpOf(s);
     if (s.hp < maxHp) {
@@ -41,6 +41,16 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   for (const w of state.wrecks) drawEdgeArrow(r, wreckArrow, w.x, w.y, state.time);
   const enemyArrow = assets.get('ui.arrow.enemy');
   for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, enemyArrow, s.x, s.y, state.time);
+}
+
+/**
+ * Picks the image for a ship's engine state: "<name>.boost", then "<name>.move",
+ * then plain "<name>", using the first one that exists in the manifest.
+ */
+function shipSprite(assets: Assets, base: string, thrust: Thrust) {
+  const options = thrust === 'boost' ? ['.boost', '.move'] : thrust === 'move' ? ['.move'] : [];
+  for (const suffix of options) if (assets.has(base + suffix)) return base + suffix;
+  return base;
 }
 
 /** If (x, y) is off-screen, draw `sprite` at the screen edge, pointing toward it. */

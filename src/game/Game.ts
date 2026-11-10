@@ -85,6 +85,7 @@ export class Game {
       aimX: aim.x,
       aimY: aim.y,
       fire: i.mouseDown || i.isDown('Space'),
+      boost: i.isDown('ShiftLeft', 'ShiftRight'),
     };
   }
 

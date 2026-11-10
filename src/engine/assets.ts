@@ -112,6 +112,11 @@ export class Assets {
     });
   }
 
+  /** True if the manifest has a sprite with this name (and it loaded). */
+  has(name: string) {
+    return this.sprites.has(name);
+  }
+
   /** Get a sprite by name. Returns the pink "missing" sprite if it doesn't exist. */
   get(name: string): Sprite {
     const s = this.sprites.get(name);

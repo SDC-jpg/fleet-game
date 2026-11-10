@@ -34,6 +34,22 @@ names, never the file paths, so you can swap art without touching code.
 flicker by turning its single image into a sheet and adding `frameWidth`,
 `frameHeight` and `fps`.
 
+## Engine states for ships
+
+A ship can have extra images for when its engine is running. Add manifest
+entries named after the ship's sprite plus `.move` or `.boost`:
+
+```json
+"ship.fighter.player":       { "file": "ships/fighter-player.png" },
+"ship.fighter.player.move":  { "file": "ships/fighter-player-move.png" },
+"ship.fighter.player.boost": { "file": "ships/fighter-player-boost.png" }
+```
+
+- `.move` shows while the ship is flying, and `.boost` while boosting (Shift).
+- Any of them can be missing. Boost falls back to move, and move falls back to
+  the normal image. Enemy ships (`ship.fighter.enemy.move` etc.) work the same way.
+- Each one can be a flipbook too (e.g. a flickering flame).
+
 ## Conventions
 
 - **Ships face right** in the image. The game rotates them.

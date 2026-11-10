@@ -5,6 +5,10 @@ import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../en
 import { CONFIG, SHIP_TYPES, type ShipType, type ShipTypeId } from './config';
 
 export type Team = 'player' | 'enemy';
+export type Thrust = 'idle' | 'move' | 'boost';
+
+/** Ships slower than this count as idle (engine off) for picking their image. */
+const MOVING_SPEED = 25;
 
 export interface Ship {
   id: number;
@@ -19,6 +23,8 @@ export interface Ship {
   fireTimer: number;
   fleet: Fleet;
   dead: boolean;
+  /** What the engine is doing. Picks the image: normal, ".move" or ".boost". */
+  thrust: Thrust;
 }
 
 /** A group of ships that fly together. The leader decides where the fleet goes. */
@@ -86,6 +92,7 @@ export interface Controls {
   aimX: number;
   aimY: number;
   fire: boolean;
+  boost: boolean;
 }
 
 export const typeOf = (ship: Ship): ShipType => SHIP_TYPES[ship.type];
@@ -133,6 +140,7 @@ function addShip(state: GameState, team: Team, type: ShipTypeId, fleet: Fleet, x
     fireTimer: Math.random() * 0.5,
     fleet,
     dead: false,
+    thrust: 'idle',
   };
   state.ships.push(ship);
   fleet.members.push(ship);
@@ -211,7 +219,11 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   const len = Math.hypot(c.moveX, c.moveY);
   const mx = len > 0 ? c.moveX / len : 0;
   const my = len > 0 ? c.moveY / len : 0;
-  steer(ship, mx * t.maxSpeed, my * t.maxSpeed, t.accel, dt);
+  // Boost only counts while you're actually steering somewhere.
+  const boosting = c.boost && len > 0;
+  const mul = boosting ? t.boostMultiplier : 1;
+  steer(ship, mx * t.maxSpeed * mul, my * t.maxSpeed * mul, t.accel * mul, dt);
+  ship.thrust = boosting ? 'boost' : len > 0 ? 'move' : 'idle';
   ship.angle = turnToward(ship.angle, Math.atan2(c.aimY - ship.y, c.aimX - ship.x), t.turnRate * dt);
   if (c.fire && ship.fireTimer <= 0) fire(state, ship, t.fireCooldown, 0);
 }
@@ -247,12 +259,17 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     let wantVx = leader.vx + tx * 3;
     let wantVy = leader.vy + ty * 3;
     const wantLen = Math.hypot(wantVx, wantVy);
-    const maxV = t.maxSpeed * speedMul * 1.5;
+    // When the leader boosts, the whole formation boosts to keep up.
+    const boosting = leader.thrust === 'boost';
+    const boostMul = boosting ? t.boostMultiplier : 1;
+    const maxV = t.maxSpeed * speedMul * 1.5 * boostMul;
     if (wantLen > maxV) {
       wantVx *= maxV / wantLen;
       wantVy *= maxV / wantLen;
     }
-    steer(ship, wantVx, wantVy, t.accel, dt);
+    steer(ship, wantVx, wantVy, t.accel * boostMul, dt);
+    const moving = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED;
+    ship.thrust = !moving ? 'idle' : boosting ? 'boost' : 'move';
     aimAndShoot(state, ship, dt, leader.angle);
   }
 }
@@ -305,6 +322,7 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
     steer(ship, -ny * speed * 0.6 * dir, nx * speed * 0.6 * dir, t.accel, dt);
   }
   aimAndShoot(state, ship, dt, Math.atan2(dy, dx));
+  ship.thrust = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED ? 'move' : 'idle';
 }
 
 /** Gently push apart ships of the same team that overlap. */

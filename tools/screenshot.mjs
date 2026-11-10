@@ -7,6 +7,8 @@
 //   wait:1500          wait 1.5 seconds
 //   press:Equal*10     press a key (here 10 times). Key names: KeyW, Space, Equal, Minus, KeyG...
 //   hold:KeyD:800      hold a key for 0.8 seconds
+//   keydown:KeyD       start holding a key (screenshots taken now show it held)
+//   keyup:KeyD         let go of a key
 //   mouse:900,300      move the mouse to x,y (pixels from the top-left of the page)
 //   down / up          press / release the left mouse button
 //   shot:name          save a screenshot as <out>/name.png
@@ -59,7 +61,9 @@ try {
       await page.keyboard.down(key);
       await page.waitForTimeout(Number(ms));
       await page.keyboard.up(key);
-    } else if (cmd === 'mouse') {
+    } else if (cmd === 'keydown') await page.keyboard.down(arg);
+    else if (cmd === 'keyup') await page.keyboard.up(arg);
+    else if (cmd === 'mouse') {
       const [x, y] = arg.split(',').map(Number);
       await page.mouse.move(x, y);
     } else if (cmd === 'down') await page.mouse.down();

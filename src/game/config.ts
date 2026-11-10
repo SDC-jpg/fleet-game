@@ -7,6 +7,8 @@ export interface ShipType {
   maxHp: number;
   maxSpeed: number;
   accel: number;
+  /** Speed and acceleration multiplier while boosting (Shift). */
+  boostMultiplier: number;
   /** Radians per second. */
   turnRate: number;
   fireCooldown: number;
@@ -17,7 +19,10 @@ export interface ShipType {
   bulletDamage: number;
   /** Where bullets come out, measured forward from the ship's centre. */
   gunOffset: number;
-  /** Sprite names from public/assets/manifest.json. */
+  /**
+   * Sprite names from public/assets/manifest.json. Optional engine-state
+   * versions are found by adding ".move" or ".boost" to the name.
+   */
   sprites: { player: string; enemy: string; wreck: string };
   bulletSprites: { player: string; enemy: string };
 }
@@ -28,6 +33,7 @@ export const SHIP_TYPES = {
     maxHp: 4,
     maxSpeed: 150,
     accel: 520,
+    boostMultiplier: 1.8,
     turnRate: 9,
     fireCooldown: 0.25,
     range: 240,

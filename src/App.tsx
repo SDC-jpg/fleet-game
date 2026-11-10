@@ -41,7 +41,7 @@ export default function App() {
           <div>Best: {hud.maxFleetSize}</div>
           <div>Wave: {hud.wave}</div>
           <div>Time: {formatTime(hud.time)}</div>
-          <div className="hint">WASD move · mouse aim · click/space fire · fly into wrecks to recruit</div>
+          <div className="hint">WASD move · Shift boost · mouse aim · click/space fire · fly into wrecks to recruit</div>
           {TEST_KEYS_ENABLED && (
             <div className="hint">
               Test keys: = / - add/remove ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
