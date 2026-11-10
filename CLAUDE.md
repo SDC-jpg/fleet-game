@@ -31,3 +31,22 @@
   - Support flipbook animations from sprite sheets or numbered frame files, with frame size, frame count, frame rate and looping set in the manifest, not in code.
   - Don't let gameplay depend on the exact pixel size of the art. Use separate collision sizes and anchor points.
   - Placeholder art should follow the same conventions, so swapping in real art means replacing files (and maybe editing the manifest), not changing code.
+
+### Game concept: pixel-art spaceship fleet combat
+- The player starts as a single spaceship and grows a fleet. As the fleet grows, the camera zooms out and the fights get bigger, eventually fleet against fleet.
+- **Fleet control:** the player flies one ship directly (WASD/arrows to move, mouse to aim and fire). The other ships follow in formation and shoot nearby enemies on their own. Simple fleet orders (formation spacing, attack target, hold back) come later.
+- **Zoom:** in steps at whole-number pixel scales (e.g. 4× → 3× → 2× → 1×) so pixel art stays crisp, with a quick smooth transition between steps. Steps trigger at fleet-size thresholds.
+- **Getting new ships:** start with flying into wrecks to recruit them. Other ways (buying, capturing enemies) may come later.
+- **Flagship death:** command passes to another ship in the fleet, and it's game over only when the whole fleet is gone. Later, the player should be able to switch to any owned ship at will, because ships will eventually have different modules and weapons.
+- **Mode:** endless survival for now. Track a "max fleet size reached" stat to measure how well a run went.
+- **Ship size:** the starter ship is about 32×32 pixels. Larger ships must be possible, so don't assume a fixed sprite size.
+- **Ship types:** all ships are the same type for now. Different types are a nice-to-have for later.
+
+### First prototype scope
+1. Fly a ship around empty space and shoot.
+2. Enemy ships come in waves. Some leave wrecks you can fly into to recruit them.
+3. Recruited ships follow in a simple formation and shoot automatically.
+4. The camera zooms out a step when the fleet reaches a size threshold.
+5. A small enemy fleet appears once the player's fleet is big enough.
+
+Not in the first prototype: upgrades, ship types, menus, sound, story.
