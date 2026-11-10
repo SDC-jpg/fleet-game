@@ -25,4 +25,9 @@
 
 ## Decisions
 <!-- Things the user asked to remember, or asked Claude not to suggest again. -->
-- (none yet)
+- **Art must be easy to swap.** The user is a digital artist and will eventually replace all placeholder art with their own: images with transparency (alpha), flipbook (frame-by-frame) animations, VFX such as explosions, and characters. Build with this in mind from the start:
+  - Draw everything visual from image or sprite assets. Don't hard-code shapes into game logic.
+  - Keep art files in one clear folder, and list them in a single asset manifest (a file mapping names like `player.idle` or `vfx.explosion` to their files and frame settings).
+  - Support flipbook animations from sprite sheets or numbered frame files, with frame size, frame count, frame rate and looping set in the manifest, not in code.
+  - Don't let gameplay depend on the exact pixel size of the art. Use separate collision sizes and anchor points.
+  - Placeholder art should follow the same conventions, so swapping in real art means replacing files (and maybe editing the manifest), not changing code.
