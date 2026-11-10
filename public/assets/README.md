@@ -6,6 +6,10 @@ names, never the file paths, so you can swap art without touching code.
 
 ## Swapping in your own art
 
+> **Edit art here, in `public/assets/`, never in `dist/`.** `dist/` is a
+> temporary copy made by `npm run build`. The game doesn't read from it, and
+> it's wiped and rebuilt every time.
+
 1. Save your PNG (transparency is supported) somewhere in this folder.
 2. Either overwrite the placeholder file with the same name, or point the
    manifest entry at your new file.
