@@ -2,6 +2,8 @@
 
 export class Input {
   private keys = new Set<string>();
+  /** Keys pressed since they were last checked with `wasPressed`. */
+  private presses = new Set<string>();
   /** Mouse position in CSS pixels, relative to the game canvas. */
   mouseX = 0;
   mouseY = 0;
@@ -14,6 +16,7 @@ export class Input {
     this.listen(window, 'keydown', (e) => {
       const ev = e as KeyboardEvent;
       this.keys.add(ev.code);
+      this.presses.add(ev.code);
       if (ev.code === 'Space' || ev.code.startsWith('Arrow')) ev.preventDefault();
     });
     this.listen(window, 'keyup', (e) => this.keys.delete((e as KeyboardEvent).code));
@@ -43,6 +46,21 @@ export class Input {
   /** True if any of the given keys is held (uses KeyboardEvent.code, e.g. "KeyW"). */
   isDown(...codes: string[]) {
     return codes.some((c) => this.keys.has(c));
+  }
+
+  /**
+   * True once per key press (holding the key repeats it, like typing).
+   * Use for one-off actions; use `isDown` for things like movement.
+   */
+  wasPressed(...codes: string[]) {
+    let hit = false;
+    for (const c of codes) if (this.presses.delete(c)) hit = true;
+    return hit;
+  }
+
+  /** Forget presses nobody asked about. Call once per game step. */
+  clearPresses() {
+    this.presses.clear();
   }
 
   destroy() {

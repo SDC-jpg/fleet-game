@@ -48,7 +48,9 @@ export const CONFIG = {
   /** AI ships in your fleet shoot a bit slower than you do. */
   allyFireCooldownMultiplier: 1.4,
   /** Enemies are slower and shoot less often, so the player has a chance. */
-  enemyFireCooldownMultiplier: 4,
+  enemyFireCooldownMultiplier: 6,
+  /** Your ships get extra health compared to the same ship type flown by enemies. */
+  playerHpMultiplier: 1.5,
   enemySpeedMultiplier: 0.8,
   /** Random aim error in radians. */
   allyAimSpread: 0.08,
@@ -60,14 +62,23 @@ export const CONFIG = {
   enemyPreferredDistance: 160,
 
   /** Chance a destroyed enemy leaves a wreck you can recruit. */
-  wreckChance: 0.4,
-  wreckLifetime: 25,
+  wreckChance: 0.75,
+  wreckLifetime: 40,
   /** Wrecks blink during their last few seconds. */
   wreckBlinkTime: 5,
+  /** Wrecks drift toward your ships when one is this close... */
+  wreckMagnetRange: 70,
+  /** ...with this much pull. */
+  wreckMagnetAccel: 400,
 
   firstWaveDelay: 2,
-  waveInterval: 10,
+  waveInterval: 12,
+  /** Lone enemies per wave = 1 + wave number × this. */
+  loneEnemiesPerWave: 0.25,
+  maxLoneEnemiesPerWave: 12,
   maxEnemies: 120,
+  /** How far outside the visible area enemies appear. */
+  spawnMargin: 150,
   /** Enemy fleets start appearing once your fleet is at least this big... */
   enemyFleetMinPlayerSize: 6,
   /** ...on every Nth wave. */
@@ -77,9 +88,8 @@ export const CONFIG = {
 
   /** Camera zoom steps: the biggest `minFleet` you've reached picks the zoom. */
   zoomSteps: [
-    { minFleet: 1, zoom: 4 },
-    { minFleet: 5, zoom: 3 },
-    { minFleet: 12, zoom: 2 },
-    { minFleet: 25, zoom: 1 },
+    { minFleet: 1, zoom: 3 },
+    { minFleet: 8, zoom: 2 },
+    { minFleet: 20, zoom: 1 },
   ],
 };

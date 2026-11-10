@@ -72,6 +72,8 @@ export interface GameState {
   maxFleetSize: number;
   zoom: number;
   gameOver: boolean;
+  /** Test mode: your ships take no damage. */
+  invincible: boolean;
   nextId: number;
   /** How long an effect's animation lasts. Comes from the art, so it's passed in. */
   effectDuration: (sprite: string) => number;
@@ -87,6 +89,10 @@ export interface Controls {
 }
 
 export const typeOf = (ship: Ship): ShipType => SHIP_TYPES[ship.type];
+
+/** Full health for a ship. Your ships get a bonus over enemies. */
+export const maxHpOf = (ship: Pick<Ship, 'type' | 'team'>) =>
+  Math.round(SHIP_TYPES[ship.type].maxHp * (ship.team === 'player' ? CONFIG.playerHpMultiplier : 1));
 
 // ---------- Setup ----------
 
@@ -104,6 +110,7 @@ export function createGame(effectDuration: (sprite: string) => number): GameStat
     maxFleetSize: 1,
     zoom: CONFIG.zoomSteps[0].zoom,
     gameOver: false,
+    invincible: false,
     nextId: 1,
     effectDuration,
   };
@@ -122,7 +129,7 @@ function addShip(state: GameState, team: Team, type: ShipTypeId, fleet: Fleet, x
     vx: 0,
     vy: 0,
     angle,
-    hp: SHIP_TYPES[type].maxHp,
+    hp: maxHpOf({ type, team }),
     fireTimer: Math.random() * 0.5,
     fleet,
     dead: false,
@@ -347,7 +354,7 @@ function updateBullets(state: GameState, dt: number) {
       if (s.team === b.team || s.dead) continue;
       const r = typeOf(s).radius;
       if (distSq(b.x, b.y, s.x, s.y) > r * r) continue;
-      s.hp -= b.damage;
+      if (!(s.team === 'player' && state.invincible)) s.hp -= b.damage;
       b.life = 0;
       addEffect(state, 'vfx.hit', b.x, b.y);
       if (s.hp <= 0) s.dead = true;
@@ -397,10 +404,29 @@ function pickNewLeader(fleet: Fleet, old: Ship): Ship | null {
 
 function updateWrecks(state: GameState, dt: number) {
   for (const w of state.wrecks) {
+    // Find the closest ship in your fleet.
+    let nearest: Ship | null = null;
+    let nearestD = Infinity;
+    for (const s of state.playerFleet.members) {
+      const d = distSq(s.x, s.y, w.x, w.y);
+      if (d < nearestD) {
+        nearestD = d;
+        nearest = s;
+      }
+    }
+    const magnetR = CONFIG.wreckMagnetRange;
+    if (nearest && nearestD < magnetR * magnetR) {
+      // Close enough: the wreck drifts toward that ship.
+      const d = Math.sqrt(nearestD) || 1;
+      w.vx += ((nearest.x - w.x) / d) * CONFIG.wreckMagnetAccel * dt;
+      w.vy += ((nearest.y - w.y) / d) * CONFIG.wreckMagnetAccel * dt;
+    } else {
+      // Otherwise it slowly comes to a stop.
+      w.vx = approach(w.vx, 0, 10 * dt);
+      w.vy = approach(w.vy, 0, 10 * dt);
+    }
     w.x += w.vx * dt;
     w.y += w.vy * dt;
-    w.vx = approach(w.vx, 0, 10 * dt);
-    w.vy = approach(w.vy, 0, 10 * dt);
     w.angle += w.spin * dt;
     w.life -= dt;
     // Any ship in your fleet that touches a wreck recruits it.
@@ -439,7 +465,11 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
     spawnEnemyFleet(state, center, spawnDistance, size);
   } else {
     // A handful of lone fighters from random directions.
-    const count = Math.min(1 + Math.floor(state.wave / 2), 12, room);
+    const count = Math.min(
+      1 + Math.floor(state.wave * CONFIG.loneEnemiesPerWave),
+      CONFIG.maxLoneEnemiesPerWave,
+      room,
+    );
     for (let i = 0; i < count; i++) spawnEnemyFleet(state, center, spawnDistance, 1);
   }
 }
@@ -457,6 +487,34 @@ function spawnEnemyFleet(state: GameState, near: Ship, distance: number, size: n
     addShip(state, 'enemy', 'fighter', fleet, x + off.x, y + off.y, facing);
   }
   state.enemyFleets.push(fleet);
+}
+
+// ---------- Test tools (only reachable from dev-mode keys) ----------
+
+/** Adds a ship to your fleet right next to the flagship. */
+export function testAddShip(state: GameState) {
+  const leader = controlledShip(state);
+  if (!leader) return;
+  const a = Math.random() * Math.PI * 2;
+  const x = leader.x + Math.cos(a) * 50;
+  const y = leader.y + Math.sin(a) * 50;
+  addShip(state, 'player', leader.type, state.playerFleet, x, y, leader.angle);
+  addEffect(state, 'vfx.recruit', x, y);
+  state.maxFleetSize = Math.max(state.maxFleetSize, state.playerFleet.members.length);
+}
+
+/** Destroys one ship of your fleet (never the one you're flying). */
+export function testRemoveShip(state: GameState) {
+  const leader = controlledShip(state);
+  const victim = [...state.playerFleet.members].reverse().find((s) => s !== leader);
+  if (victim) victim.dead = true;
+}
+
+/** Destroys every enemy inside the given area (they can still leave wrecks). */
+export function testKillEnemies(state: GameState, view: { x: number; y: number; w: number; h: number }) {
+  for (const s of state.ships)
+    if (s.team === 'enemy' && s.x >= view.x && s.x <= view.x + view.w && s.y >= view.y && s.y <= view.y + view.h)
+      s.dead = true;
 }
 
 function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0) {

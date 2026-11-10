@@ -58,6 +58,11 @@ export class PixelRenderer {
     return this.screen.height / this.scale;
   }
 
+  /** The visible area in world coordinates (as of the last `begin`). */
+  get view() {
+    return { x: this.originX, y: this.originY, w: this.buffer.width, h: this.buffer.height };
+  }
+
   /** Start a new frame. `dt` is the real time since the last frame. */
   begin(dt: number) {
     // Smooth zoom transition between steps.

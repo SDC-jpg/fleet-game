@@ -265,6 +265,14 @@ function commandRing() {
   return img;
 }
 
+// Edge-of-screen arrow, pointing right.
+function edgeArrow(fill, dark) {
+  const img = new Img(11, 11);
+  fillPolygon(img, [[9.5, 5.5], [2, 1.5], [4, 5.5], [2, 9.5]], () => hex(fill));
+  outline(img, hex(dark));
+  return img;
+}
+
 // ---------- Backgrounds (tile seamlessly) ----------
 function starsFar() {
   const S = 128;
@@ -304,6 +312,8 @@ const FILES = {
   'vfx/hit.png': hitSheet,
   'vfx/recruit.png': recruitSheet,
   'ui/command-ring.png': commandRing,
+  'ui/arrow-enemy.png': () => edgeArrow('#ff6b5a', '#2a0b0b'),
+  'ui/arrow-wreck.png': () => edgeArrow('#b8bcc6', '#16171b'),
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,
 };

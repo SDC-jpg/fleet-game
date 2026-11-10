@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Assets } from './engine/assets';
-import { Game, type HudInfo } from './game/Game';
+import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
 
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
@@ -42,6 +42,12 @@ export default function App() {
           <div>Wave: {hud.wave}</div>
           <div>Time: {formatTime(hud.time)}</div>
           <div className="hint">WASD move · mouse aim · click/space fire · fly into wrecks to recruit</div>
+          {TEST_KEYS_ENABLED && (
+            <div className="hint">
+              Test keys: = / - add/remove ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
+              enemies on screen
+            </div>
+          )}
           {hud.assetProblems.length > 0 && (
             <div className="warn">
               Art problems:

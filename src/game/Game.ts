@@ -5,7 +5,20 @@ import { Input } from '../engine/input';
 import { startLoop } from '../engine/loop';
 import { PixelRenderer } from '../engine/renderer';
 import { renderGame } from './render';
-import { controlledShip, createGame, updateGame, type Controls, type GameState } from './world';
+import { CONFIG } from './config';
+import {
+  controlledShip,
+  createGame,
+  testAddShip,
+  testKillEnemies,
+  testRemoveShip,
+  updateGame,
+  type Controls,
+  type GameState,
+} from './world';
+
+/** Test keys only work on the dev server (`npm run dev`), never in a real build. */
+export const TEST_KEYS_ENABLED = import.meta.env.DEV;
 
 /** Numbers shown on screen by React. */
 export interface HudInfo {
@@ -14,6 +27,7 @@ export interface HudInfo {
   wave: number;
   time: number;
   gameOver: boolean;
+  invincible: boolean;
   assetProblems: string[];
 }
 
@@ -72,10 +86,23 @@ export class Game {
   }
 
   private update(dt: number) {
-    if (this.state.gameOver && this.input.isDown('KeyR')) this.restart();
-    // Spawn enemies just outside the visible area.
-    const spawnDistance = Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2 + 40;
+    const i = this.input;
+    if (this.state.gameOver && i.isDown('KeyR')) this.restart();
+    if (TEST_KEYS_ENABLED) this.handleTestKeys();
+    // Spawn enemies a bit outside the visible area.
+    const spawnDistance = Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2 + CONFIG.spawnMargin;
     updateGame(this.state, this.readControls(), dt, spawnDistance);
+    i.clearPresses();
+  }
+
+  private handleTestKeys() {
+    const i = this.input;
+    const s = this.state;
+    if (s.gameOver) return;
+    if (i.wasPressed('Equal', 'NumpadAdd')) testAddShip(s);
+    if (i.wasPressed('Minus', 'NumpadSubtract')) testRemoveShip(s);
+    if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
+    if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
   }
 
   private render(frameDt: number) {
@@ -102,6 +129,7 @@ export class Game {
         wave: this.state.wave,
         time: this.state.time,
         gameOver: this.state.gameOver,
+        invincible: this.state.invincible,
         assetProblems: [...this.assets.problems],
       });
     }

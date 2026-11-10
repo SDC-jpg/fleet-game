@@ -13,6 +13,8 @@
     "vfx.recruit": { "file": "vfx/recruit.png", "frameWidth": 48, "frameHeight": 48, "frames": 6, "fps": 15, "loop": false },
 
     "ui.command-ring": { "file": "ui/command-ring.png" },
+    "ui.arrow.enemy": { "file": "ui/arrow-enemy.png" },
+    "ui.arrow.wreck": { "file": "ui/arrow-wreck.png" },
 
     "bg.stars-far": { "file": "backgrounds/stars-far.png" },
     "bg.stars-near": { "file": "backgrounds/stars-near.png" }
