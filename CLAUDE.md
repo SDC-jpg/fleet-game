@@ -24,6 +24,12 @@
 - Keep LF line endings in `.devcontainer` files (enforced by `.gitattributes`).
 - `.devcontainer/init-firewall.sh` uses `ipset add -exist` to fix a duplicate-IP startup error. This is the user's own fix. Don't revert it.
 
+## Seeing the game (for Claude)
+- The container has Chromium (installed by the Dockerfile at build time, no firewall change needed). `tools/screenshot.mjs` drives it with `playwright-core` and saves screenshots that Claude can view with the Read tool. It also prints browser errors.
+- Example (dev server must be running): `node tools/screenshot.mjs --out <scratchpad>/shots wait:1500 press:Equal*10 hold:KeyD:800 shot:fleet`. Run it with no steps for a single screenshot.
+- Dev-only test keys help set up scenes: `=`/`-` add/remove ship, `G` invincible, `K` destroy on-screen enemies.
+- Use it to check visual changes before handing them to the user. The browser has no graphics card, so it can't judge smoothness or performance. The user does that.
+
 ## Code layout
 - `src/engine/`: the small homegrown engine (asset loading from the manifest, pixel renderer with whole-number zoom, input, fixed 60 Hz game loop).
 - `src/game/config.ts`: every tuning number (speeds, health, waves, zoom steps, ship types and their hit sizes).
