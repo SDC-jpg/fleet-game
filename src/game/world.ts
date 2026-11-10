@@ -391,6 +391,8 @@ function separateShips(state: GameState, dt: number) {
       const a = ships[i];
       const b = ships[j];
       if (a.team !== b.team) continue;
+      // Your ships can pass over/under each other (as if at different heights).
+      if (a.team === 'player' && !CONFIG.playerShipsCollide) continue;
       const minD = typeOf(a).radius + typeOf(b).radius;
       const d2 = distSq(a.x, a.y, b.x, b.y);
       if (d2 >= minD * minD || d2 === 0) continue;

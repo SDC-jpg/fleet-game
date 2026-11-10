@@ -5,6 +5,8 @@
     "ship.fighter.player.move": { "file": "ships/fighter-player-move.png" },
     "ship.fighter.player.boost": { "file": "ships/fighter-player-boost.png" },
     "ship.fighter.enemy": { "file": "ships/fighter-enemy.png" },
+    "ship.fighter.enemy.move": { "file": "ships/fighter-enemy-move.png" },
+    "ship.fighter.enemy.boost": { "file": "ships/fighter-enemy-boost.png" },
     "ship.fighter.wreck": { "file": "ships/fighter-wreck.png" },
 
     "projectile.player": { "file": "projectiles/bullet-player.png" },

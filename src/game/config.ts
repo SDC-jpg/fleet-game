@@ -55,6 +55,11 @@ export type ShipTypeId = keyof typeof SHIP_TYPES;
 export const CONFIG = {
   /** Distance between rings in a formation. */
   formationSpacing: 40,
+  /**
+   * false = your ships fly over/under each other freely (as if at different
+   * heights). true = they gently push apart when they overlap. Enemies always push apart.
+   */
+  playerShipsCollide: false,
   /** Seconds before the first ring of followers reacts to the leader... */
   followDelay: 0.12,
   /** ...plus this much more for each ring further out... */
