@@ -20,6 +20,7 @@
 - The user is on a Windows PC. Claude runs inside Anthropic's reference dev container (Docker), and its firewall only allows npm, GitHub, the Claude API and a few others.
 - Permission prompts stay on. Ask before running commands.
 - Start the dev server with `npm run dev`. It already runs `vite --host`, so the user can open http://localhost:5173 in their Windows browser.
+- File-change alerts don't reliably reach the container from the Windows folder, so `vite.config.ts` uses polling (`server.watch.usePolling`). Keep it. If the browser ever shows stale code, restart the dev server.
 - Keep LF line endings in `.devcontainer` files (enforced by `.gitattributes`).
 - `.devcontainer/init-firewall.sh` uses `ipset add -exist` to fix a duplicate-IP startup error. This is the user's own fix. Don't revert it.
 
