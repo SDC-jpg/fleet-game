@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-11
 
+- Testing setup: bigger ships come 4× faster (4 ships merge into the next tier, starting at fleet value 8), and big enemies leave wrecks more often. Fleet values are smaller numbers for now.
 - New: a **tuning settings page** listing every adjustable number in the game with its current value. It updates itself with each new version.
 - Dash cooldown shortened from 30 to 18 seconds.
 - The dash now goes further when the camera is zoomed out, so it stays useful with a big fleet.

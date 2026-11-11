@@ -82,14 +82,15 @@ export const CONFIG = {
   },
 
   /**
-   * 16 ships of one tier merge into 1 ship of the next tier up. Fleet value counts
-   * what every ship is worth in tier-1 ships (T2 = 16, T3 = 256...).
+   * shipsPerMerge ships of one tier merge into 1 ship of the next tier up. Fleet value
+   * counts what every ship is worth in tier-1 ships (with 4 per merge: T2 = 4, T3 = 16...).
+   * TESTING: merges are set 4× faster than the design (16 per merge, starting at 32).
    */
   tiers: {
-    /** Ships of one tier that merge into one ship of the next tier. */
-    shipsPerMerge: 16,
-    /** Merging only starts once your fleet value reaches this. */
-    mergeStartsAt: 32,
+    /** Ships of one tier that merge into one ship of the next tier (design value 16; 4 for testing). */
+    shipsPerMerge: 4,
+    /** Merging only starts once your fleet value reaches this (design value 32; 8 for testing). */
+    mergeStartsAt: 8,
     /** Each tier up multiplies health and damage per second by this. */
     powerPerTier: 12,
     /** Shots per volley for tier 2 and up (tier 1 fires 1). Damage is split between them. */
@@ -102,8 +103,8 @@ export const CONFIG = {
     rangePerTier: 1.5,
     /** Each tier up fires this many times slower, with harder shots so damage per second is unchanged. */
     fireIntervalPerTier: 1.25,
-    /** Each tier up multiplies an enemy's chance of leaving a wreck by this. */
-    wreckChancePerTier: 0.4,
+    /** Each tier up multiplies an enemy's chance of leaving a wreck by this (was 0.4; 0.6 for testing). */
+    wreckChancePerTier: 0.6,
     /** Longest time (seconds) the merging ships take to fly together. */
     mergeDuration: 1,
     /** Shots fired in a ring when a merge finishes, each as strong as the new ship's normal shot (0 = off). */

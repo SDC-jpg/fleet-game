@@ -77,6 +77,7 @@
 - **Tiers and merging** (numbers in `CONFIG.tiers`):
   - Fleet value = what every ship is worth in tier-1 ships (T2 = 16, T3 = 256...). It's the score.
   - Once fleet value reaches 32, any 16 ships of one tier merge into one of the next tier, so there are never more than 15 per tier. Merging is automatic for now; merging by choice may come later.
+  - **Temporary test values (since 2026-11-11, the user's request):** `shipsPerMerge` 4, `mergeStartsAt` 8, `wreckChancePerTier` 0.6, so tiers come 4× faster. Fleet values shrink accordingly (T2 = 4, T3 = 16). The design values above (16 / 32 / 0.4) return when the user says so.
   - Each tier: 12× health and 12× damage per volley, always 2 shots per volley for T2+ (6× per shot at T2, 72× at T3...), 1.5× size, shots 1.2× faster and travelling 1.5× further.
   - Each tier fires 1.25× slower with harder shots, so damage per second still grows exactly 12× (`fireIntervalPerTier`). Prepares for different shot types later.
   - Merge moment: the ships fly into the core, flash, big ship appears. They can't shoot or be hit meanwhile. The finished merge fires a ring of 16 shots, each as strong as the new ship's normal shot (`mergeBurstShots`).
