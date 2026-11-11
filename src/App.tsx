@@ -46,7 +46,16 @@ export default function App() {
           <div>Best: {hud.maxFleetSize}</div>
           <div>Wave: {hud.wave}</div>
           <div>Time: {formatTime(hud.time)}</div>
-          <div>Dash (right-click): {hud.dashCooldown > 0 ? `${Math.ceil(hud.dashCooldown)} s` : 'ready'}</div>
+          <div>Dash (Space): {hud.dashCooldown > 0 ? `${Math.ceil(hud.dashCooldown)} s` : 'ready'}</div>
+          {hud.ability && (
+            <div>
+              {hud.ability.name} (right-click): {hud.ability.cooldown > 0 ? `${Math.ceil(hud.ability.cooldown)} s` : 'ready'}
+            </div>
+          )}
+          <div>
+            Flying: {hud.build}
+            {hud.switchable > 1 && <span className="hint"> (wheel: switch, {hud.switchable} ships)</span>}
+          </div>
           <div>FPS: {hud.fps}</div>
           <button
             className="sound-toggle"
@@ -58,11 +67,13 @@ export default function App() {
           >
             {hud.soundOn ? '🔊 Sound on' : '🔇 Sound off'} (M)
           </button>
-          <div className="hint">WASD move · Shift boost · right-click dash · mouse aim · click/space fire · Esc pause · fly into wrecks to
-            recruit</div>
+          <div className="hint">
+            WASD move · Shift boost · Space dash · mouse aim · click fire · right-click ability · wheel switch ship · Esc
+            pause · fly into wrecks to recruit
+          </div>
           {TEST_KEYS_ENABLED && (
             <div className="hint">
-              Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
+              Test keys: = / - add/remove ship · 1 2 3 add Lancer/Knight/Ballista · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
               enemies on screen · X end run
             </div>
           )}

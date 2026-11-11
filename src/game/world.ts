@@ -2,7 +2,20 @@
 // No drawing happens here, only updating numbers.
 
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
-import { CONFIG, SHIP_TYPES, type ShipType, type ShipTypeId } from './config';
+import { CONFIG, SHIP_TYPES, type ClassId, type ComboId, type ShipType, type ShipTypeId } from './config';
+import {
+  addModules,
+  computeBuild,
+  hitShip,
+  oneModule,
+  randomClass,
+  randomEnemyModules,
+  startingTimers,
+  steerMissile,
+  updateAbilities,
+  type Build,
+  type Modules,
+} from './abilities';
 
 export type Team = 'player' | 'enemy';
 export type Thrust = 'idle' | 'move' | 'boost';
@@ -33,9 +46,22 @@ export interface Ship {
   id: number;
   team: Team;
   type: ShipTypeId;
-  /** 1 = basic ship. 16 ships of one tier merge into 1 of the next. */
+  /** 1 = basic ship. CONFIG.tiers.shipsPerMerge ships of one tier merge into 1 of the next. */
   tier: number;
   stats: ShipStats;
+  /** How many tier-1 ships of each class went into this ship. */
+  modules: Modules;
+  /** What the modules add up to: abilities, their strength, combo (see abilities.ts). */
+  build: Build;
+  /** Seconds until each ability can be used again. */
+  abilityTimers: Modules;
+  /** Damage an Aegis shield will still absorb, and seconds until it fades. */
+  shield: number;
+  shieldTime: number;
+  /** Combo of the Knight that gave this shield (Mirror Guard or Retaliation), if any. */
+  shieldCombo: ComboId | null;
+  /** Seconds until this ship's shield can fire another Retaliation missile. */
+  retaliationTimer: number;
   x: number;
   y: number;
   vx: number;
@@ -55,7 +81,7 @@ export interface Ship {
   quirk: { phaseX: number; phaseY: number; speedX: number; speedY: number; delay: number };
 }
 
-/** 15 ships flying into a 16th (the core), which then becomes one tier bigger. */
+/** Several ships flying into one (the core), which then becomes one tier bigger. */
 export interface Merge {
   core: Ship;
   parts: Ship[];
@@ -71,7 +97,7 @@ export interface Fleet {
   trail: LeaderSample[];
   /** Which ship the trail belongs to (reset when the leader changes). */
   trailLeaderId: number;
-  /** Seconds left of a dash (right-click), counting down to 0. */
+  /** Seconds left of a dash (Space), counting down to 0. */
   dashTime: number;
   /** Speed multiplier at the start of the current dash (fades to 1). */
   dashPower: number;
@@ -104,6 +130,8 @@ const newFleet = (team: Team): Fleet => ({
 
 export interface Bullet {
   team: Team;
+  /** A normal shot, a Lance (passes through ships) or a homing missile. */
+  kind: 'shot' | 'lance' | 'missile';
   /** Base sprite name; the tier picks the size (see tierSprite in render.ts). */
   sprite: string;
   tier: number;
@@ -114,11 +142,22 @@ export interface Bullet {
   life: number;
   damage: number;
   radius: number;
+  /** For shots that pass through ships: ids of the ships already hit (each is hit once). null = stops at the first hit. */
+  pierce: number[] | null;
+  /** Missiles: how fast they turn toward `target` (0 = fly straight). */
+  homing: number;
+  target: Ship | null;
+  /** Splinter Volley combo: bursts into small lances on impact. */
+  splinter: boolean;
 }
 
 export interface Wreck {
   type: ShipTypeId;
   tier: number;
+  /** The destroyed ship's modules, passed on to the ship you recruit. */
+  modules: Modules;
+  /** Its build, to show its class icons. */
+  build: Build;
   x: number;
   y: number;
   vx: number;
@@ -218,8 +257,12 @@ export interface Controls {
   aimY: number;
   fire: boolean;
   boost: boolean;
-  /** Dash pressed this step (right-click). */
+  /** Dash pressed this step (Space). */
   dash: boolean;
+  /** Flagship ability pressed this step (right-click). */
+  ability: boolean;
+  /** Mouse wheel: switch to the next (1) or previous (-1) of your biggest ships, or 0. */
+  switchShip: number;
 }
 
 export const typeOf = (ship: Ship): ShipType => SHIP_TYPES[ship.type];
@@ -303,7 +346,8 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     nextId: 1,
     effectDuration,
   };
-  const flagship = addShip(state, 'player', 'fighter', 1, state.playerFleet, 0, 0, -Math.PI / 2);
+  // You start with a Lancer.
+  const flagship = addShip(state, 'player', 'fighter', 1, state.playerFleet, 0, 0, -Math.PI / 2, oneModule('lancer'));
   state.playerFleet.leader = flagship;
   return state;
 }
@@ -317,14 +361,23 @@ function addShip(
   x: number,
   y: number,
   angle: number,
+  modules: Modules,
 ) {
-  const stats = statsFor(type, team, tier);
+  const build = computeBuild(modules, tier);
+  const stats = shipStats(type, team, tier, build);
   const ship: Ship = {
     id: state.nextId++,
     team,
     type,
     tier,
     stats,
+    modules,
+    build,
+    abilityTimers: startingTimers(),
+    shield: 0,
+    shieldTime: 0,
+    shieldCombo: null,
+    retaliationTimer: 0,
     x,
     y,
     vx: 0,
@@ -348,6 +401,13 @@ function addShip(
   state.ships.push(ship);
   fleet.members.push(ship);
   return ship;
+}
+
+/** A ship's stats with its build applied (small class shares strengthen the basic gun). */
+function shipStats(type: ShipTypeId, team: Team, tier: number, build: Build) {
+  const stats = statsFor(type, team, tier);
+  stats.bulletDamage *= build.gunBonus;
+  return stats;
 }
 
 /** The ship the player is currently flying (null if the whole fleet is gone). */
@@ -423,8 +483,10 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   state.dashCooldown = Math.max(0, state.dashCooldown - dt);
   for (const f of [state.playerFleet, ...state.enemyFleets]) f.dashTime = Math.max(0, f.dashTime - dt);
 
+  if (controls.switchShip) switchFlagship(state, controls.switchShip);
   updatePlayerLeader(state, controls, dt);
   for (const fleet of [state.playerFleet, ...state.enemyFleets]) updateFleet(state, fleet, dt);
+  updateAbilities(state, controls.ability, dt);
   updateMerges(state, dt);
   separateShips(state, dt);
 
@@ -533,7 +595,7 @@ function useBoostStamina(state: GameState, wants: boolean, dt: number) {
 }
 
 /**
- * Right-click: every ship in the fleet is kicked to 8× speed at once (more when
+ * Space: every ship in the fleet is kicked to 8× speed at once (more when
  * zoomed out), in the direction you're steering or where you face, fading back
  * over half a second.
  */
@@ -560,13 +622,13 @@ function startDash(state: GameState, fleet: Fleet, leader: Ship, mx: number, my:
 }
 
 /** A direction (radians) and how far either side of it a ship may aim. */
-interface FireArc {
+export interface FireArc {
   center: number;
   half: number;
 }
 
 /** Nearest enemy within `maxDist` (and inside `arc`, if given). */
-function findNearestEnemy(state: GameState, ship: Ship, maxDist: number, arc?: FireArc): Ship | null {
+export function findNearestEnemy(state: GameState, ship: Ship, maxDist: number, arc?: FireArc): Ship | null {
   let best: Ship | null = null;
   let bestD = maxDist * maxDist;
   for (const other of state.ships) {
@@ -740,8 +802,9 @@ function fire(state: GameState, ship: Ship, cooldown: number, spread: number) {
 /** One shot from `ship` (with its tier's damage, speed and range), starting at (x, y). */
 function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: number) {
   const st = ship.stats;
-  state.bullets.push({
+  spawnBullet(state, {
     team: ship.team,
+    kind: 'shot',
     sprite: typeOf(ship).sprites.bullet,
     tier: ship.tier,
     x,
@@ -754,21 +817,37 @@ function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: nu
   });
 }
 
+/** Add any kind of shot. Fields left out are a plain shot's (stops at the first hit, flies straight). */
+export function spawnBullet(
+  state: GameState,
+  b: Omit<Bullet, 'pierce' | 'homing' | 'target' | 'splinter'> & Partial<Bullet>,
+) {
+  state.bullets.push({ pierce: null, homing: 0, target: null, splinter: false, ...b });
+}
+
 function updateBullets(state: GameState, dt: number) {
-  for (const b of state.bullets) {
+  // New shots (splinters, reflections) made during this loop move from the next step.
+  for (const b of [...state.bullets]) {
+    if (b.life <= 0) continue;
+    if (b.homing > 0) steerMissile(state, b, dt);
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     b.life -= dt;
     for (const s of state.ships) {
       // Merging ships can't be hit: shots pass through.
       if (s.team === b.team || s.dead || s.merge) continue;
+      if (b.pierce?.includes(s.id)) continue;
       const r = s.stats.radius + b.radius;
       if (distSq(b.x, b.y, s.x, s.y) > r * r) continue;
-      if (!(s.team === 'player' && state.invincible)) s.hp -= b.damage;
-      b.life = 0;
+      hitShip(state, s, b);
       addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
       addSound(state, 'sfx.hit', b, b.tier);
-      if (s.hp <= 0) s.dead = true;
+      // A Lance keeps going through every ship in its path.
+      if (b.pierce) {
+        b.pierce.push(s.id);
+        continue;
+      }
+      b.life = 0;
       break;
     }
   }
@@ -793,6 +872,8 @@ function removeDeadShips(state: GameState) {
       state.wrecks.push({
         type: s.type,
         tier: s.tier,
+        modules: { ...s.modules },
+        build: s.build,
         x: s.x,
         y: s.y,
         vx: s.vx * 0.3,
@@ -847,9 +928,28 @@ function promoteFlagship(state: GameState) {
   fleet.leader = best;
 }
 
+/**
+ * Mouse wheel: fly the next (dir 1) or previous (-1) of your biggest ships, so
+ * you choose whose ability is on right-click.
+ */
+function switchFlagship(state: GameState, dir: number) {
+  const fleet = state.playerFleet;
+  const free = fleet.members.filter((s) => !s.merge);
+  const top = Math.max(0, ...free.map((s) => s.tier));
+  const options = free.filter((s) => s.tier === top).sort((a, b) => a.id - b.id);
+  if (options.length < 2 || !fleet.leader || fleet.leader.merge) return;
+  const i = options.indexOf(fleet.leader);
+  fleet.leader = options[(i + dir + options.length) % options.length];
+  addSound(state, 'sfx.command', fleet.leader, 1, 0.6, true);
+}
+
 // ---------- Merging ----------
 
-/** Once your fleet is big enough, every 16 ships of the same tier start merging. */
+/**
+ * Once your fleet is big enough, every CONFIG.tiers.shipsPerMerge ships of the
+ * same tier start merging. Like merges with like: ships of the most common class
+ * go together first, and only leftovers mix.
+ */
 function startMerges(state: GameState) {
   const fleet = state.playerFleet;
   const per = CONFIG.tiers.shipsPerMerge;
@@ -861,14 +961,24 @@ function startMerges(state: GameState) {
     list.push(s);
     byTier.set(s.tier, list);
   }
-  for (const ships of byTier.values()) {
+  for (let ships of byTier.values()) {
     while (ships.length >= per) {
+      const byClass = new Map<ClassId, Ship[]>();
+      for (const s of ships) byClass.set(s.build.main, [...(byClass.get(s.build.main) ?? []), s]);
+      const classes = [...byClass.keys()].sort((a, b) => byClass.get(b)!.length - byClass.get(a)!.length);
+      const first = byClass.get(classes[0])!;
       // The flagship is the core whenever it's in the group, so you keep flying it.
-      const leaderIndex = fleet.leader ? ships.indexOf(fleet.leader) : -1;
-      const [core] = ships.splice(leaderIndex >= 0 ? leaderIndex : 0, 1);
-      // The closest ships fly in.
-      ships.sort((a, b) => distSq(a.x, a.y, core.x, core.y) - distSq(b.x, b.y, core.x, core.y));
-      const parts = ships.splice(0, per - 1);
+      let core = fleet.leader && first.includes(fleet.leader) ? fleet.leader : first[0];
+      // Take the closest ships of the biggest class, then of the next, until there are enough.
+      const picked: Ship[] = [];
+      for (const c of classes) {
+        const list = byClass.get(c)!.sort((a, b) => distSq(a.x, a.y, core.x, core.y) - distSq(b.x, b.y, core.x, core.y));
+        picked.push(...list.slice(0, per - picked.length));
+        if (picked.length === per) break;
+      }
+      if (fleet.leader && picked.includes(fleet.leader)) core = fleet.leader;
+      ships = ships.filter((s) => !picked.includes(s));
+      const parts = picked.filter((s) => s !== core);
       const merge: Merge = { core, parts, time: 0 };
       core.merge = merge;
       for (const p of parts) p.merge = merge;
@@ -915,7 +1025,10 @@ function finishMerge(state: GameState, m: Merge) {
   core.fleet.members = core.fleet.members.filter((s) => !gone.has(s));
   state.ships = state.ships.filter((s) => !gone.has(s));
   core.tier++;
-  core.stats = statsFor(core.type, core.team, core.tier);
+  // The new ship carries every module of the ships that went into it.
+  for (const p of m.parts) core.modules = addModules(core.modules, p.modules);
+  core.build = computeBuild(core.modules, core.tier);
+  core.stats = shipStats(core.type, core.team, core.tier, core.build);
   core.hp = core.stats.maxHp;
   core.merge = null;
   addEffect(state, 'vfx.merge', core.x, core.y, 0, core.tier);
@@ -962,7 +1075,7 @@ function updateWrecks(state: GameState, dt: number) {
     for (const s of state.playerFleet.members) {
       const reach = r + s.stats.radius;
       if (distSq(s.x, s.y, w.x, w.y) < reach * reach) {
-        const ship = addShip(state, 'player', w.type, w.tier, state.playerFleet, w.x, w.y, w.angle);
+        const ship = addShip(state, 'player', w.type, w.tier, state.playerFleet, w.x, w.y, w.angle, w.modules);
         ship.vx = s.vx;
         ship.vy = s.vy;
         addEffect(state, 'vfx.recruit', w.x, w.y, 0, w.tier);
@@ -1026,7 +1139,11 @@ function spawnEnemyFleet(state: GameState, near: Ship, distance: number, value: 
   const fleet = newFleet('enemy');
   // Biggest ships first, so the biggest one leads.
   for (let t = counts.length - 1; t >= 0; t--)
-    for (let i = 0; i < counts[t]; i++) addShip(state, 'enemy', 'fighter', t + 1, fleet, 0, 0, facing);
+    for (let i = 0; i < counts[t]; i++) {
+      // Classes are equally common. Bigger enemies are mostly one class.
+      const modules = t === 0 ? oneModule(randomClass()) : randomEnemyModules(t + 1);
+      addShip(state, 'enemy', 'fighter', t + 1, fleet, 0, 0, facing, modules);
+    }
   const [leader, ...rest] = fleet.members;
   fleet.leader = leader;
   // Big fleets start further out, so they don't appear on screen.
@@ -1046,15 +1163,15 @@ function spawnEnemyFleet(state: GameState, near: Ship, distance: number, value: 
 
 // ---------- Test tools (only reachable from dev-mode keys) ----------
 
-/** Adds tier-1 ships to your fleet right next to the flagship. */
-export function testAddShips(state: GameState, count: number) {
+/** Adds tier-1 ships (of a random class, or the one given) to your fleet right next to the flagship. */
+export function testAddShips(state: GameState, count: number, cls?: ClassId) {
   const leader = controlledShip(state);
   if (!leader) return;
   for (let i = 0; i < count; i++) {
     const a = Math.random() * Math.PI * 2;
     const x = leader.x + Math.cos(a) * (50 + leader.stats.radius);
     const y = leader.y + Math.sin(a) * (50 + leader.stats.radius);
-    addShip(state, 'player', leader.type, 1, state.playerFleet, x, y, leader.angle);
+    addShip(state, 'player', leader.type, 1, state.playerFleet, x, y, leader.angle, oneModule(cls ?? randomClass()));
     addEffect(state, 'vfx.recruit', x, y);
   }
 }
@@ -1081,11 +1198,11 @@ export function testKillEnemies(state: GameState, view: { x: number; y: number; 
 
 // ---------- Effects and sounds ----------
 
-function addSound(state: GameState, name: string, at: { x: number; y: number }, tier = 1, volume = 1, global = false) {
+export function addSound(state: GameState, name: string, at: { x: number; y: number }, tier = 1, volume = 1, global = false) {
   state.sounds.push({ name, tier, x: at.x, y: at.y, volume, global });
 }
 
-function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0, tier = 1) {
+export function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0, tier = 1) {
   state.effects.push({ sprite, tier, x, y, angle, age: 0 });
 }
 

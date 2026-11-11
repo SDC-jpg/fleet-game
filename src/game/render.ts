@@ -3,8 +3,9 @@
 import type { Assets, Sprite } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { clamp } from '../engine/math';
-import { SHIP_TYPES, CONFIG } from './config';
-import { controlledShip, isMergePart, typeOf, type GameState, type Ship, type Team, type Thrust } from './world';
+import { CLASSES, SHIP_TYPES, CONFIG, type ShipTypeId } from './config';
+import type { Build } from './abilities';
+import { controlledShip, isMergePart, type GameState, type Ship, type Team, type Thrust } from './world';
 
 /**
  * The art name for a tier: "<base>.t3<suffix>" for tier 3, falling back to
@@ -32,7 +33,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     const alpha = blinking ? 0.35 : 1;
     // A marker ring under the wreck, kept full size when zoomed out so wrecks stay easy to spot.
     r.drawSprite(assets.get(tierSprite(assets, 'ui.wreck-marker', w.tier)), w.x, w.y, 0, state.time, alpha, true);
-    const sprite = assets.get(tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck'));
+    const sprite = assets.get(tierSprite(assets, shipArt(w.type, w.tier, w.build), w.tier, '.wreck'));
     r.drawSprite(sprite, w.x, w.y, w.angle, state.time, alpha);
   }
 
@@ -47,6 +48,17 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1);
     drawShip(r, assets, flagship, state.time);
   }
+
+  // Shield bubbles and class icons go over every ship.
+  for (const s of state.ships) {
+    if (s.absorbed) continue;
+    if (s.shield > 0) {
+      const bubble = assets.get(tierSprite(assets, 'vfx.shield', s.tier));
+      r.drawSprite(bubble, s.x, s.y, 0, state.time, Math.min(1, s.shieldTime) * 0.9);
+    }
+    drawClassIcons(r, assets, s.build, s.x, s.y - s.stats.radius, state.time);
+  }
+  for (const w of state.wrecks) drawClassIcons(r, assets, w.build, w.x, w.y - 14 * 1.5 ** (w.tier - 1), state.time);
 
   for (const b of state.bullets) {
     const sprite = teamSprite(assets, tierSprite(assets, b.sprite, b.tier), b.team);
@@ -70,7 +82,7 @@ function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
     const trail = teamSprite(assets, tierSprite(assets, 'vfx.dash', s.tier), s.team);
     r.drawSprite(trail, s.x, s.y, Math.atan2(s.vy, s.vx), CONFIG.dash.duration - s.fleet.dashTime);
   }
-  const base = tierSprite(assets, typeOf(s).sprites.ship, s.tier);
+  const base = tierSprite(assets, shipArt(s.type, s.tier, s.build), s.tier);
   // Ships flying into a merge fade out as they reach the core.
   let alpha = 1;
   if (s.merge && isMergePart(s)) {
@@ -86,6 +98,23 @@ function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
     r.fillRect(x, y, w, 1, '#000000');
     r.fillRect(x, y, Math.max(1, Math.round((w * s.hp) / maxHp)), 1, s.team === 'player' ? '#7fe07f' : '#ff6b5a');
   }
+}
+
+/** Base art name for a ship: tier-1 ships look like their class, bigger ones share one design per tier. */
+function shipArt(type: ShipTypeId, tier: number, build: Build) {
+  return tier === 1 ? CLASSES[build.main].sprite : SHIP_TYPES[type].sprites.ship;
+}
+
+/**
+ * Rank icons above a ship (or wreck) whose top edge is at (x, top): its first
+ * ability's class, plus a smaller icon for its second one. Never shrunk when zoomed out.
+ */
+function drawClassIcons(r: PixelRenderer, assets: Assets, build: Build, x: number, top: number, time: number) {
+  const [first, second] = build.abilities.length ? build.abilities : [build.main];
+  const y = top - 7 / r.worldScale;
+  const gap = second ? 4 / r.worldScale : 0;
+  r.drawSprite(assets.get(CLASSES[first].icon), x - gap, y, 0, time, 1, true);
+  if (second) r.drawSprite(assets.get(`${CLASSES[second].icon}.small`), x + 6 / r.worldScale, y + 1 / r.worldScale, 0, time, 1, true);
 }
 
 /**

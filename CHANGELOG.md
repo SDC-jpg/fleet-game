@@ -6,6 +6,13 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-11
 
+- **Ship classes!** Every small ship is now a Lancer (fires a Lance that pierces a whole line of ships), a Knight (raises Aegis shields on itself and nearby allies) or a Ballista (launches homing missiles). A rank icon above each ship and wreck shows its class, so you can choose what to pick up.
+- When ships merge, their classes add up: 8 Lancers make a big, powerful Lancer, while a mix makes a ship with several weaker abilities. Like merges with like.
+- Combos: ships with two strong classes get a bonus. Mirror Guard (shields reflect shots), Splinter Volley (missiles burst into lances), Retaliation (shields fire missiles back).
+- New controls: **right-click** uses your ship's main ability, **Space** dashes, and the **mouse wheel** switches between your biggest ships to pick your ability. Left-click fires.
+- 8 ships now merge into the next size (it was 4 for testing), starting at fleet value 16.
+- The boost ring around your ship is now a smooth line instead of dots.
+- Enemies have classes too: watch out for their shields and missiles.
 - Bigger ships turn more slowly (25% slower per tier), so they feel heavier and you have to aim ahead. Small ships stay nimble.
 - Boost (Shift) now runs on stamina: about 3 seconds from full, shown by the ring around your ship, which refills when you let go. Boost is faster to make up for it.
 - The dash is much stronger: it now starts at 8× speed and carries your fleet much further.

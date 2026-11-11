@@ -7,7 +7,8 @@ import { PixelRenderer } from '../engine/renderer';
 import type { Sounds } from '../engine/sound';
 import { clamp } from '../engine/math';
 import { renderGame, tierSprite } from './render';
-import { CONFIG } from './config';
+import { CLASSES, CONFIG } from './config';
+import { describeBuild } from './abilities';
 import {
   controlledShip,
   createGame,
@@ -44,6 +45,12 @@ export interface HudInfo {
   paused: boolean;
   /** Seconds until the dash is ready (0 = ready). */
   dashCooldown: number;
+  /** The flagship's right-click ability and seconds until it's ready, if it has one. */
+  ability: { name: string; cooldown: number } | null;
+  /** The flagship's modules and combo, e.g. "Lancer 5 · Ballista 3 · Splinter Volley". */
+  build: string;
+  /** How many of your biggest ships you can switch between with the mouse wheel. */
+  switchable: number;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -137,9 +144,11 @@ export class Game {
       moveY: (i.isDown('KeyS', 'ArrowDown') ? 1 : 0) - (i.isDown('KeyW', 'ArrowUp') ? 1 : 0),
       aimX: aim.x,
       aimY: aim.y,
-      fire: i.mouseDown || i.isDown('Space'),
+      fire: i.mouseDown,
       boost: i.isDown('ShiftLeft', 'ShiftRight'),
-      dash: i.wasPressed('MouseRight'),
+      dash: i.wasPressed('Space'),
+      ability: i.wasPressed('MouseRight'),
+      switchShip: (i.wasPressed('WheelDown') ? 1 : 0) - (i.wasPressed('WheelUp') ? 1 : 0),
     };
   }
 
@@ -149,7 +158,11 @@ export class Game {
     if (i.wasPressed('KeyM')) this.toggleSound();
     if (i.wasPressed('Escape')) this.setPaused(!this.paused);
     if (this.paused) {
-      i.wasPressed('MouseRight'); // ignore right-clicks made while paused
+      // Ignore one-off presses made while paused.
+      i.wasPressed('MouseRight');
+      i.wasPressed('Space');
+      i.wasPressed('WheelUp');
+      i.wasPressed('WheelDown');
       return;
     }
     if (TEST_KEYS_ENABLED) this.handleTestKeys();
@@ -196,6 +209,9 @@ export class Game {
     if (s.gameOver) return;
     if (i.wasPressed('Equal', 'NumpadAdd')) testAddShips(s, 1);
     if (i.wasPressed('BracketRight')) testAddShips(s, 16);
+    if (i.wasPressed('Digit1')) testAddShips(s, 1, 'lancer');
+    if (i.wasPressed('Digit2')) testAddShips(s, 1, 'knight');
+    if (i.wasPressed('Digit3')) testAddShips(s, 1, 'ballista');
     if (i.wasPressed('Minus', 'NumpadSubtract')) testRemoveShip(s);
     if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
@@ -241,6 +257,7 @@ export class Game {
         gameOver: this.state.gameOver,
         paused: this.paused,
         dashCooldown: this.state.dashCooldown,
+        ...flagshipInfo(this.state),
         stats: { ...this.state.stats },
         history: this.state.history,
         invincible: this.state.invincible,
@@ -260,4 +277,18 @@ function fleetMix(state: GameState) {
     .sort((a, b) => b[0] - a[0])
     .map(([tier, n]) => `${n}×T${tier}`)
     .join(' ');
+}
+
+/** The ship you fly: its right-click ability, its build, and how many ships the wheel switches between. */
+function flagshipInfo(state: GameState) {
+  const f = controlledShip(state);
+  if (!f) return { ability: null, build: '', switchable: 0 };
+  const c = f.build.abilities[0];
+  const free = state.playerFleet.members.filter((s) => !s.merge);
+  const top = Math.max(...free.map((s) => s.tier), 0);
+  return {
+    ability: c ? { name: CLASSES[c].ability, cooldown: f.abilityTimers[c] } : null,
+    build: describeBuild(f.modules, f.build),
+    switchable: free.filter((s) => s.tier === top).length,
+  };
 }

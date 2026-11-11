@@ -395,24 +395,93 @@ function wreckMarker(S = 48) {
 }
 
 // Command ring around the ship you fly, doubling as the boost stamina meter.
-// 17 frames: frame N has N of the 16 dashes lit, filling clockwise from the top.
+// 33 frames: frame N has N/32 of the ring lit, filling clockwise from the top.
 function commandRing(S = 44) {
-  const DASHES = 16;
-  const sheet = new Img(S * (DASHES + 1), S);
+  const STEPS = 32;
+  const sheet = new Img(S * (STEPS + 1), S);
   const R = S / 2 - 2;
-  for (let f = 0; f <= DASHES; f++)
+  for (let f = 0; f <= STEPS; f++)
     for (let y = 0; y < S; y++)
       for (let x = 0; x < S; x++) {
         const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
         if (Math.abs(Math.hypot(dx, dy) - R) >= 0.7) continue;
         // 0 at the top, growing clockwise, 0–1.
         const turn = ((Math.atan2(dy, dx) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
-        const half = Math.floor(turn * DASHES * 2);
-        if (half % 2 !== 0) continue;
-        const lit = Math.floor(half / 2) < f;
+        const lit = turn < f / STEPS;
         sheet.set(f * S + x, y, hex(lit ? '#9fd3ff' : '#4a5a70', lit ? 200 : 90));
       }
   return sheet;
+}
+
+// ---------- Abilities ----------
+
+// Lance (Lancer ability): a long bright bolt, facing right. Sky blue edges get team colours.
+function lance(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const len = Math.round(18 * k), thick = Math.max(3, Math.round(3 * k) | 1);
+  const img = new Img(len + 2, thick + 2);
+  const mid = (thick + 1) / 2;
+  for (let i = 0; i < len; i++)
+    for (let j = 0; j < thick; j++) {
+      const edge = Math.abs(j + 1 - mid) >= thick / 2 - 0.5;
+      const tail = i < len * 0.3;
+      if (edge && tail && (i + j) % 2) continue; // tail frays out
+      img.set(1 + i, 1 + j, hex(edge ? '#41a6d9' : tail ? '#9fd3ff' : '#ffffff'));
+    }
+  return img;
+}
+
+// Missile (Ballista ability): grey body, sky blue fins (team colour), orange flame. Faces right.
+function missile(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const W = Math.round(12 * k) + 2, H = Math.round(7 * k) + 2;
+  const img = new Img(W, H);
+  const cy = H / 2;
+  const sx = (v) => 1 + v * k, sy = (v) => cy + v * k;
+  fillPolygon(img, [[sx(3), sy(-3)], [sx(5), sy(-1)], [sx(5), sy(1)], [sx(3), sy(3)], [sx(1.5), sy(3)], [sx(2.5), sy(0)], [sx(1.5), sy(-3)]], () => hex('#41a6d9'));
+  fillPolygon(img, [[sx(3), sy(-1)], [sx(9), sy(-1)], [sx(11), sy(0)], [sx(9), sy(1)], [sx(3), sy(1)]], () => hex('#c9ced8'));
+  fillPolygon(img, [[sx(0), sy(-0.8)], [sx(3), sy(-0.8)], [sx(3), sy(0.8)], [sx(0), sy(0.8)]], () => hex('#ffb347'));
+  outline(img, hex('#1a1d26'));
+  return img;
+}
+
+// Aegis shield bubble (Knight ability): a shimmering mint ring around a ship. 4 looping frames.
+function shieldSheet(S = 40) {
+  const F = 4;
+  const sheet = new Img(S * F, S);
+  const R = S / 2 - 1.5;
+  for (let f = 0; f < F; f++)
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
+        const d = Math.hypot(dx, dy);
+        if (d > R + 0.5) continue;
+        const a = Math.atan2(dy, dx);
+        // A brighter band slides around the ring.
+        const shine = 0.5 + 0.5 * Math.cos(a * 2 - (f / F) * Math.PI * 2);
+        if (d > R - 1.2) sheet.set(f * S + x, y, hex('#7fe0b0', Math.round(110 + 120 * shine)));
+        else if (d > R - 3) sheet.set(f * S + x, y, hex('#7fe0b0', 45));
+        else sheet.set(f * S + x, y, hex('#7fe0b0', 18));
+      }
+  return sheet;
+}
+
+// Class rank icons, shown above ships: Lancer = gold spearhead, Knight = mint
+// shield, Ballista = violet double chevron. S = 9 (main) or 7 (".small", second class).
+const ICONS = {
+  lancer: ['#ffd34a', (S) => [[S / 2, 0.5], [S - 1, S * 0.55], [S / 2 + 1, S * 0.45], [S / 2 + 1, S - 0.5], [S / 2 - 1, S - 0.5], [S / 2 - 1, S * 0.45], [1, S * 0.55]]],
+  knight: ['#7fe0b0', (S) => [[1, 1], [S - 1, 1], [S - 1, S * 0.5], [S / 2, S - 0.5], [1, S * 0.5]]],
+  ballista: ['#c890ff', (S) => [[S / 2, 0.5], [S - 0.5, S * 0.45], [S - 0.5, S * 0.75], [S / 2, S * 0.35], [0.5, S * 0.75], [0.5, S * 0.45]]],
+};
+function classIcon(cls, S) {
+  const [color, shape] = ICONS[cls];
+  const img = new Img(S + 2, S + 2);
+  const inner = new Img(S, S);
+  fillPolygon(inner, shape(S), () => hex(color));
+  if (cls === 'ballista') fillPolygon(inner, shape(S).map(([x, y]) => [x, y + S * 0.4]), () => hex(color));
+  img.blit(inner, 1, 1);
+  outline(img, hex('#10131a'));
+  return img;
 }
 
 // Edge-of-screen arrow, pointing right.
@@ -464,6 +533,15 @@ const FILES = {
   'vfx/hit.png': () => hitSheet(16),
   'vfx/recruit.png': () => recruitSheet(48),
   'ui/command-ring.png': () => commandRing(44),
+  'projectiles/lance.png': () => lance(1),
+  'projectiles/missile.png': () => missile(1),
+  'vfx/shield.png': () => shieldSheet(40),
+  'ui/class-lancer.png': () => classIcon('lancer', 9),
+  'ui/class-lancer-small.png': () => classIcon('lancer', 7),
+  'ui/class-knight.png': () => classIcon('knight', 9),
+  'ui/class-knight-small.png': () => classIcon('knight', 7),
+  'ui/class-ballista.png': () => classIcon('ballista', 9),
+  'ui/class-ballista-small.png': () => classIcon('ballista', 7),
   'ui/wreck-marker.png': () => wreckMarker(48),
   'vfx/dash.png': () => dashSheet(56, 28),
   'ui/arrow-enemy.png': () => edgeArrow('#ff6b5a', '#2a0b0b'),
@@ -489,6 +567,9 @@ for (const tier of [2, 3, 4]) {
   FILES[`ui/command-ring-t${tier}.png`] = () => commandRing(even(44 * k));
   FILES[`ui/wreck-marker-t${tier}.png`] = () => wreckMarker(even(48 * k));
   FILES[`vfx/dash-t${tier}.png`] = () => dashSheet(even(56 * k), even(28 * k));
+  FILES[`projectiles/lance-t${tier}.png`] = () => lance(tier);
+  FILES[`projectiles/missile-t${tier}.png`] = () => missile(tier);
+  FILES[`vfx/shield-t${tier}.png`] = () => shieldSheet(even(40 * k));
 }
 
 for (const [name, draw] of Object.entries(FILES)) {

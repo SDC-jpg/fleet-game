@@ -72,20 +72,37 @@ The game recolours the "team colour" parts for each side when it starts.
   stamina meter**. It's a flipbook whose frames are fill levels: the **first
   frame is empty, the last is full**, and the game shows the frame matching the
   stamina left (it doesn't play as an animation). Use as many frames as you
-  like (the placeholder has 17). It's drawn faded while boost is locked after
+  like (the placeholder has 33). It's drawn faded while boost is locked after
   running dry. Not team-recoloured.
 
 - **`vfx.dash`** plays once behind every ship in your fleet when you dash
-  (right-click), pointing back along its movement. Draw it **facing right with
+  (Space), pointing back along its movement. Draw it **facing right with
   the ship at the right edge**: the trail streams off to the left. `anchorX` in
   the manifest is the frame width, which puts the ship at that edge. It lasts
   0.5 s, so 6 frames at 12 fps fits. Sky blue parts get team colours.
 - **`ui.wreck-marker`** is drawn under every wreck and loops. It's never shrunk
   when the camera zooms out, so wrecks stay easy to spot against the stars.
 
+## Classes, abilities and icons
+
+Tier-1 ships come in three classes, each with its own art (for now, copies of
+the fighter). Bigger tiers all use the one `ship.fighter.t2`… design.
+
+| Class | Ship art (+ `.move`, `.boost`, `.wreck`) | Icon (+ `.small`) | Ability art | Sound |
+| --- | --- | --- | --- | --- |
+| Lancer | `ship.lancer` | `ui.class.lancer` | `projectile.lance` (+ tiers) | `sfx.lance` |
+| Knight | `ship.knight` | `ui.class.knight` | `vfx.shield` (+ tiers, loops around a shielded ship) | `sfx.shield` |
+| Ballista | `ship.ballista` | `ui.class.ballista` | `projectile.missile` (+ tiers) | `sfx.missile` |
+
+- **Icons** hover above ships and wrecks like rank insignia: the main class,
+  plus the `.small` icon of a second class. They're never shrunk and not
+  team-recoloured. Placeholders are 9 px and 7 px.
+- The lance and missile face right and are recoloured per team like shots
+  (paint team parts in sky blue). The shield bubble isn't recoloured.
+
 ## Tiers (bigger ships)
 
-16 ships of one tier merge into one ship of the next tier. Each tier has its
+8 ships of one tier merge into one ship of the next tier. Each tier has its
 own art, named by adding `.t2`, `.t3`, `.t4` to the tier-1 name:
 
 | Art | Tier 1 | Tier 2 | Tier 3 | Tier 4 |
@@ -121,9 +138,12 @@ file name in the manifest).
 | `sfx.hit` | `hit.wav` | a shot hits a ship |
 | `sfx.explosion` (+ `.t2`–`.t4`) | `explosion.wav`, `explosion-t2.wav`… | a ship is destroyed |
 | `sfx.recruit` | `recruit.wav` | you pick up a wreck |
-| `sfx.merge` | `merge.wav` | 16 ships start merging (charge-up, then flash ~0.5 s in) |
+| `sfx.merge` | `merge.wav` | 8 ships start merging (charge-up, then flash ~0.5 s in) |
 | `sfx.boost` | `boost.wav` | you start boosting |
-| `sfx.dash` | `dash.wav` | you dash (right-click) |
+| `sfx.dash` | `dash.wav` | you dash (Space) |
+| `sfx.lance` | `lance.wav` | a Lancer fires a Lance |
+| `sfx.shield` | `shield.wav` | a Knight raises Aegis shields |
+| `sfx.missile` | `missile.wav` | a Ballista launches missiles |
 | `sfx.alert` | `alert.wav` | an enemy fleet arrives |
 | `sfx.command` | `command.wav` | your flagship dies and command passes on |
 | `sfx.gameover` | `gameover.wav` | your whole fleet is destroyed |
