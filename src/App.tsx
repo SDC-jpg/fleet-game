@@ -37,14 +37,16 @@ export default function App() {
 
       {hud && (
         <div className="hud">
-          <div>Fleet: {hud.fleetSize}</div>
+          <div>
+            Fleet: {hud.fleetSize} <span className="hint">({hud.fleetMix})</span>
+          </div>
           <div>Best: {hud.maxFleetSize}</div>
           <div>Wave: {hud.wave}</div>
           <div>Time: {formatTime(hud.time)}</div>
           <div className="hint">WASD move · Shift boost · mouse aim · click/space fire · fly into wrecks to recruit</div>
           {TEST_KEYS_ENABLED && (
             <div className="hint">
-              Test keys: = / - add/remove ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
+              Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
               enemies on screen
             </div>
           )}
@@ -62,7 +64,7 @@ export default function App() {
       {hud?.gameOver && (
         <div className="panel center">
           <h1>Fleet destroyed</h1>
-          <p>Max fleet size: {hud.maxFleetSize}</p>
+          <p>Best fleet value: {hud.maxFleetSize}</p>
           <p>Survived: {formatTime(hud.time)}</p>
           <button onClick={() => gameRef.current?.restart()}>Play again (R)</button>
         </div>

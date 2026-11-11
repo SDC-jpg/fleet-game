@@ -66,6 +66,28 @@ The game recolours the "team colour" parts for each side when it starts.
   `src/game/config.ts`. For example, `enemy: 170` turns sky blue (200°) into
   red (10°), and `enemy: 100` would turn it into purple-pink.
 
+## Tiers (bigger ships)
+
+16 ships of one tier merge into one ship of the next tier. Each tier has its
+own art, named by adding `.t2`, `.t3`, `.t4` to the tier-1 name:
+
+| Art | Tier 1 | Tier 2 | Tier 3 | Tier 4 |
+| --- | --- | --- | --- | --- |
+| Ship (+ `.move`, `.boost`, `.wreck`) | `ship.fighter` | `ship.fighter.t2` | `ship.fighter.t3` | `ship.fighter.t4` |
+| Shot | `projectile` | `projectile.t2` | `projectile.t3` | `projectile.t4` |
+| Explosion, hit spark, recruit ring | `vfx.explosion` etc. | `vfx.explosion.t2` etc. | … | … |
+| Merge flash (sized for the new ship) | — | `vfx.merge` | `vfx.merge.t3` | `vfx.merge.t4` |
+| Command ring | `ui.command-ring` | `ui.command-ring.t2` | … | … |
+
+- Suggested canvas sizes (each tier is 1.5× the last): ships 64 → 96 → 144 →
+  216 px. The game doesn't care about the exact size: hit sizes are in
+  `src/game/config.ts`.
+- Any tier can be missing: the game uses the closest smaller tier's art.
+- Ships and shots are recoloured per team like tier 1, so paint team-colour
+  parts in strong sky blue.
+- Tier 3 and up are seen zoomed out below 1×, where the art is shrunk and
+  looks a little softer.
+
 ## Conventions
 
 - **Ships face right** in the image. The game rotates them.

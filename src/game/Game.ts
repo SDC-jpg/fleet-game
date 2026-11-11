@@ -4,12 +4,13 @@ import { spriteDuration, type Assets } from '../engine/assets';
 import { Input } from '../engine/input';
 import { startLoop } from '../engine/loop';
 import { PixelRenderer } from '../engine/renderer';
-import { renderGame } from './render';
+import { renderGame, tierSprite } from './render';
 import { CONFIG } from './config';
 import {
   controlledShip,
   createGame,
-  testAddShip,
+  fleetValue,
+  testAddShips,
   testKillEnemies,
   testRemoveShip,
   updateGame,
@@ -25,7 +26,10 @@ export const TEST_KEYS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_TES
 
 /** Numbers shown on screen by React. */
 export interface HudInfo {
+  /** Fleet value: what all your ships are worth in tier-1 ships. */
   fleetSize: number;
+  /** How many ships of each tier, biggest first, e.g. "1×T3 2×T2 12×T1". */
+  fleetMix: string;
   maxFleetSize: number;
   wave: number;
   time: number;
@@ -53,7 +57,7 @@ export class Game {
   }
 
   private newState() {
-    const state = createGame((name) => spriteDuration(this.assets.get(name)));
+    const state = createGame((name, tier) => spriteDuration(this.assets.get(tierSprite(this.assets, name, tier))));
     this.renderer.setZoom(state.zoom, true);
     return state;
   }
@@ -102,7 +106,8 @@ export class Game {
     const i = this.input;
     const s = this.state;
     if (s.gameOver) return;
-    if (i.wasPressed('Equal', 'NumpadAdd')) testAddShip(s);
+    if (i.wasPressed('Equal', 'NumpadAdd')) testAddShips(s, 1);
+    if (i.wasPressed('BracketRight')) testAddShips(s, 16);
     if (i.wasPressed('Minus', 'NumpadSubtract')) testRemoveShip(s);
     if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
@@ -127,7 +132,8 @@ export class Game {
     if (this.hudTimer <= 0) {
       this.hudTimer = 0.1;
       this.onHud({
-        fleetSize: this.state.playerFleet.members.length,
+        fleetSize: fleetValue(this.state.playerFleet),
+        fleetMix: fleetMix(this.state),
         maxFleetSize: this.state.maxFleetSize,
         wave: this.state.wave,
         time: this.state.time,
@@ -137,4 +143,14 @@ export class Game {
       });
     }
   }
+}
+
+/** "1×T3 2×T2 12×T1": how many ships of each tier you have, biggest first. */
+function fleetMix(state: GameState) {
+  const counts = new Map<number, number>();
+  for (const s of state.playerFleet.members) counts.set(s.tier, (counts.get(s.tier) ?? 0) + 1);
+  return [...counts.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([tier, n]) => `${n}×T${tier}`)
+    .join(' ');
 }

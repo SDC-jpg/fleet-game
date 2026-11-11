@@ -1,7 +1,7 @@
-// The game rules: ships, fleets, shooting, wrecks, enemy waves.
+// The game rules: ships, fleets, tiers and merging, shooting, wrecks, enemy waves.
 // No drawing happens here, only updating numbers.
 
-import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
+import { approach, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { CONFIG, SHIP_TYPES, type ShipType, type ShipTypeId } from './config';
 
 export type Team = 'player' | 'enemy';
@@ -10,10 +10,28 @@ export type Thrust = 'idle' | 'move' | 'boost';
 /** Ships slower than this count as idle (engine off) for picking their image. */
 const MOVING_SPEED = 25;
 
+/** Numbers that depend on a ship's tier (worked out once, see statsFor). */
+export interface ShipStats {
+  radius: number;
+  maxHp: number;
+  shots: number;
+  bulletDamage: number;
+  bulletSpeed: number;
+  bulletLife: number;
+  bulletRadius: number;
+  range: number;
+  gunOffset: number;
+  /** Size compared to tier 1 (1, 1.5, 2.25...). */
+  size: number;
+}
+
 export interface Ship {
   id: number;
   team: Team;
   type: ShipTypeId;
+  /** 1 = basic ship. 16 ships of one tier merge into 1 of the next. */
+  tier: number;
+  stats: ShipStats;
   x: number;
   y: number;
   vx: number;
@@ -23,10 +41,21 @@ export interface Ship {
   fireTimer: number;
   fleet: Fleet;
   dead: boolean;
+  /** The merge this ship is part of (it can't shoot or be hit meanwhile). */
+  merge: Merge | null;
+  /** A merging ship that has already flown into the core (hidden until the merge ends). */
+  absorbed: boolean;
   /** What the engine is doing. Picks the image: normal, ".move" or ".boost". */
   thrust: Thrust;
   /** Personal randomness so ships in a formation don't move in perfect sync. */
   quirk: { phaseX: number; phaseY: number; speedX: number; speedY: number; delay: number };
+}
+
+/** 15 ships flying into a 16th (the core), which then becomes one tier bigger. */
+export interface Merge {
+  core: Ship;
+  parts: Ship[];
+  time: number;
 }
 
 /** A group of ships that fly together. The leader decides where the fleet goes. */
@@ -54,17 +83,21 @@ const newFleet = (team: Team): Fleet => ({ team, leader: null, members: [], trai
 
 export interface Bullet {
   team: Team;
+  /** Base sprite name; the tier picks the size (see tierSprite in render.ts). */
   sprite: string;
+  tier: number;
   x: number;
   y: number;
   vx: number;
   vy: number;
   life: number;
   damage: number;
+  radius: number;
 }
 
 export interface Wreck {
   type: ShipTypeId;
+  tier: number;
   x: number;
   y: number;
   vx: number;
@@ -77,6 +110,8 @@ export interface Wreck {
 /** A visual effect that plays once (explosion, hit spark...). */
 export interface Effect {
   sprite: string;
+  /** Picks a bigger version of the effect for bigger ships, if the art exists. */
+  tier: number;
   x: number;
   y: number;
   angle: number;
@@ -89,18 +124,22 @@ export interface GameState {
   bullets: Bullet[];
   wrecks: Wreck[];
   effects: Effect[];
+  merges: Merge[];
   playerFleet: Fleet;
   enemyFleets: Fleet[];
   wave: number;
   waveTimer: number;
+  /** Highest fleet value reached this run (the score). */
   maxFleetSize: number;
+  /** Highest ship tier reached this run. */
+  maxTier: number;
   zoom: number;
   gameOver: boolean;
   /** Test mode: your ships take no damage. */
   invincible: boolean;
   nextId: number;
   /** How long an effect's animation lasts. Comes from the art, so it's passed in. */
-  effectDuration: (sprite: string) => number;
+  effectDuration: (sprite: string, tier: number) => number;
 }
 
 /** What the player is doing this step. Aim is in world coordinates. */
@@ -115,49 +154,106 @@ export interface Controls {
 
 export const typeOf = (ship: Ship): ShipType => SHIP_TYPES[ship.type];
 
-/** Full health for a ship. Your ships get a bonus over enemies. */
-export const maxHpOf = (ship: Pick<Ship, 'type' | 'team'>) =>
-  Math.round(SHIP_TYPES[ship.type].maxHp * (ship.team === 'player' ? CONFIG.playerHpMultiplier : 1));
+// ---------- Tiers ----------
+
+/** How many tier-1 ships a ship of this tier is worth (1, 16, 256...). */
+export const tierValue = (tier: number) => CONFIG.tiers.shipsPerMerge ** (tier - 1);
+
+/** Total worth of a fleet in tier-1 ships. */
+export const fleetValue = (fleet: Fleet) => fleet.members.reduce((sum, s) => sum + tierValue(s.tier), 0);
+
+/** All tier numbers (health, damage, shot speed...) for a ship type, team and tier. */
+export function statsFor(type: ShipTypeId, team: Team, tier: number): ShipStats {
+  const t = SHIP_TYPES[type];
+  const T = CONFIG.tiers;
+  const k = tier - 1;
+  const size = T.sizePerTier ** k;
+  const power = T.powerPerTier ** k;
+  const shots = tier === 1 ? 1 : T.shotsPerVolley;
+  const bulletSpeed = t.bulletSpeed * T.shotSpeedPerTier ** k;
+  const travel = t.bulletSpeed * t.bulletLife * T.rangePerTier ** k;
+  return {
+    radius: t.radius * size,
+    maxHp: Math.round(t.maxHp * power * (team === 'player' ? CONFIG.playerHpMultiplier : 1)),
+    shots,
+    bulletDamage: (t.bulletDamage * power) / shots,
+    bulletSpeed,
+    bulletLife: travel / bulletSpeed,
+    bulletRadius: 2 * (size - 1),
+    range: t.range * T.rangePerTier ** k,
+    gunOffset: t.gunOffset * size,
+    size,
+  };
+}
+
+/**
+ * How many ships of each tier a fleet of this value has: [tier 1, tier 2, ...].
+ * Below the merge threshold it's all tier 1. Above it, it's like writing the
+ * value in base 16 (e.g. 300 = 1 × 256 + 2 × 16 + 12).
+ */
+export function tierCounts(value: number): number[] {
+  const per = CONFIG.tiers.shipsPerMerge;
+  if (value < CONFIG.tiers.mergeStartsAt) return [value];
+  const counts: number[] = [];
+  for (let v = value; v > 0; v = Math.floor(v / per)) counts.push(v % per);
+  return counts;
+}
 
 // ---------- Setup ----------
 
-export function createGame(effectDuration: (sprite: string) => number): GameState {
+export function createGame(effectDuration: (sprite: string, tier: number) => number): GameState {
   const state: GameState = {
     time: 0,
     ships: [],
     bullets: [],
     wrecks: [],
     effects: [],
+    merges: [],
     playerFleet: newFleet('player'),
     enemyFleets: [],
     wave: 0,
     waveTimer: CONFIG.firstWaveDelay,
     maxFleetSize: 1,
+    maxTier: 1,
     zoom: CONFIG.zoomSteps[0].zoom,
     gameOver: false,
     invincible: false,
     nextId: 1,
     effectDuration,
   };
-  const flagship = addShip(state, 'player', 'fighter', state.playerFleet, 0, 0, -Math.PI / 2);
+  const flagship = addShip(state, 'player', 'fighter', 1, state.playerFleet, 0, 0, -Math.PI / 2);
   state.playerFleet.leader = flagship;
   return state;
 }
 
-function addShip(state: GameState, team: Team, type: ShipTypeId, fleet: Fleet, x: number, y: number, angle: number) {
+function addShip(
+  state: GameState,
+  team: Team,
+  type: ShipTypeId,
+  tier: number,
+  fleet: Fleet,
+  x: number,
+  y: number,
+  angle: number,
+) {
+  const stats = statsFor(type, team, tier);
   const ship: Ship = {
     id: state.nextId++,
     team,
     type,
+    tier,
+    stats,
     x,
     y,
     vx: 0,
     vy: 0,
     angle,
-    hp: maxHpOf({ type, team }),
+    hp: stats.maxHp,
     fireTimer: Math.random() * 0.5,
     fleet,
     dead: false,
+    merge: null,
+    absorbed: false,
     thrust: 'idle',
     quirk: {
       phaseX: Math.random() * Math.PI * 2,
@@ -175,22 +271,46 @@ function addShip(state: GameState, team: Team, type: ShipTypeId, fleet: Fleet, x
 /** The ship the player is currently flying (null if the whole fleet is gone). */
 export const controlledShip = (state: GameState) => state.playerFleet.leader;
 
+/** True for a ship flying into another one to merge (not the one it merges into). */
+export const isMergePart = (s: Ship) => s.merge !== null && s.merge.core !== s;
+
 // ---------- Formation ----------
 
+/** Room each ship needs in a formation. Grows with tier. */
+const spacingOf = (s: Ship) => CONFIG.formationSpacing * s.stats.size;
+
+/** Followers in formation order: biggest ships first (inner rings), then oldest first. */
+const formationOrder = (followers: Ship[]) => followers.sort((a, b) => b.tier - a.tier || a.id - b.id);
+
 /**
- * Position of formation slot `i` around the leader. Ring 1 has 6 slots,
- * ring 2 has 12, ring 3 has 18, and so on.
+ * Spots around the leader for each follower (already in formation order).
+ * Ships fill rings around the leader. Each ring holds one tier, spaced to fit
+ * that tier, and a ring that isn't full spreads its ships evenly.
+ * With only tier-1 ships this gives rings of 6, 12, 18...
  */
-function slotOffset(i: number) {
-  let ring = 1;
-  while (i >= ring * 6) {
-    i -= ring * 6;
+function formationSlots(leader: Ship, followers: Ship[]) {
+  const slots: { x: number; y: number; ring: number }[] = [];
+  let ring = 0;
+  let prevRadius = 0;
+  let prevSpacing = spacingOf(leader);
+  let i = 0;
+  while (i < followers.length) {
     ring++;
+    const tier = followers[i].tier;
+    const spacing = spacingOf(followers[i]);
+    const radius = prevRadius + (prevSpacing + spacing) / 2;
+    const capacity = Math.max(1, Math.floor((2 * Math.PI * radius) / spacing));
+    let n = 0;
+    while (i + n < followers.length && n < capacity && followers[i + n].tier === tier) n++;
+    for (let j = 0; j < n; j++) {
+      const a = (j / n) * Math.PI * 2 + (ring % 2 === 0 ? Math.PI / n : 0) - Math.PI / 2;
+      slots.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius, ring });
+    }
+    i += n;
+    prevRadius = radius;
+    prevSpacing = spacing;
   }
-  const count = ring * 6;
-  const a = (i / count) * Math.PI * 2 + (ring % 2 === 0 ? Math.PI / count : 0) - Math.PI / 2;
-  const r = ring * CONFIG.formationSpacing;
-  return { x: Math.cos(a) * r, y: Math.sin(a) * r, ring };
+  return slots;
 }
 
 /** Remember where the leader is this step. Starts fresh when the leader changes. */
@@ -220,6 +340,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
 
   updatePlayerLeader(state, controls, dt);
   for (const fleet of [state.playerFleet, ...state.enemyFleets]) updateFleet(state, fleet, dt);
+  updateMerges(state, dt);
   separateShips(state, dt);
 
   for (const s of state.ships) {
@@ -231,13 +352,21 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   updateBullets(state, dt);
   removeDeadShips(state);
   updateWrecks(state, dt);
+  startMerges(state);
+  promoteFlagship(state);
   updateWaves(state, dt, spawnDistance);
 
-  const size = state.playerFleet.members.length;
-  state.maxFleetSize = Math.max(state.maxFleetSize, size);
-  // Zoom follows the biggest fleet you've had, so it doesn't jump back and forth in a fight.
-  for (const step of CONFIG.zoomSteps) if (state.maxFleetSize >= step.minFleet) state.zoom = step.zoom;
-  if (size === 0) state.gameOver = true;
+  const fleet = state.playerFleet;
+  state.maxFleetSize = Math.max(state.maxFleetSize, fleetValue(fleet));
+  for (const s of fleet.members) state.maxTier = Math.max(state.maxTier, s.tier);
+  // Zoom follows the biggest fleet/tier you've had, so it doesn't jump back and forth in a fight.
+  let zoom = Infinity;
+  for (const step of CONFIG.zoomSteps) {
+    const reached = state.maxFleetSize >= (step.minFleet ?? 0) && state.maxTier >= (step.minTier ?? 0);
+    if (reached) zoom = Math.min(zoom, step.zoom);
+  }
+  state.zoom = zoom;
+  if (fleet.members.length === 0) state.gameOver = true;
 }
 
 /** Steer a ship's velocity toward a desired velocity, limited by its acceleration. */
@@ -268,14 +397,14 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   steer(ship, mx * t.maxSpeed * mul, my * t.maxSpeed * mul, t.accel * mul, dt);
   ship.thrust = boosting ? 'boost' : len > 0 ? 'move' : 'idle';
   ship.angle = turnToward(ship.angle, Math.atan2(c.aimY - ship.y, c.aimX - ship.x), t.turnRate * dt);
-  if (c.fire && ship.fireTimer <= 0) fire(state, ship, t.fireCooldown, 0);
+  if (c.fire && ship.fireTimer <= 0 && !ship.merge) fire(state, ship, t.fireCooldown, 0);
 }
 
 function findNearestEnemy(state: GameState, ship: Ship, maxDist: number): Ship | null {
   let best: Ship | null = null;
   let bestD = maxDist * maxDist;
   for (const other of state.ships) {
-    if (other.team === ship.team || other.dead) continue;
+    if (other.team === ship.team || other.dead || other.merge) continue;
     const d = distSq(ship.x, ship.y, other.x, other.y);
     if (d < bestD) {
       bestD = d;
@@ -291,13 +420,14 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
   if (fleet.team === 'enemy') updateEnemyLeader(state, leader, dt);
   recordTrail(fleet, leader, dt);
 
-  let slot = 0;
-  for (const ship of fleet.members) {
-    if (ship === leader) continue;
+  // Ships flying into a merge are steered by updateMerges instead.
+  const followers = formationOrder(fleet.members.filter((s) => s !== leader && !isMergePart(s)));
+  const slots = formationSlots(leader, followers);
+  followers.forEach((ship, i) => {
     const t = typeOf(ship);
     const q = ship.quirk;
     const speedMul = ship.team === 'enemy' ? CONFIG.enemySpeedMultiplier : 1;
-    const off = slotOffset(slot++);
+    const off = slots[i];
     // React to where the leader was a moment ago. Outer rings react later,
     // so turns ripple outward through the formation.
     const delay = CONFIG.followDelay + (off.ring - 1) * CONFIG.followDelayPerRing + q.delay;
@@ -325,13 +455,14 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     // With nothing to shoot, face where the leader faced, swaying a little.
     const sway = Math.sin(state.time * q.speedX * Math.PI * 2 + q.phaseY) * CONFIG.idleSway;
     aimAndShoot(state, ship, dt, past.angle + sway);
-  }
+  });
 }
 
 /** AI: turn toward the nearest enemy in range and shoot. Otherwise face `idleAngle`. */
 function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number) {
   const t = typeOf(ship);
-  const target = findNearestEnemy(state, ship, t.range);
+  // Merging ships hold fire.
+  const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range);
   if (!target) {
     ship.angle = turnToward(ship.angle, idleAngle, t.turnRate * dt);
     return;
@@ -341,7 +472,7 @@ function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number
   let aimY = target.y;
   if (enemy ? CONFIG.enemyLeadsTargets : CONFIG.allyLeadsTargets) {
     // Aim where the target will be when the bullet arrives.
-    const travel = Math.hypot(target.x - ship.x, target.y - ship.y) / t.bulletSpeed;
+    const travel = Math.hypot(target.x - ship.x, target.y - ship.y) / ship.stats.bulletSpeed;
     aimX += target.vx * travel;
     aimY += target.vy * travel;
   }
@@ -368,7 +499,8 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
   const nx = dx / d;
   const ny = dy / d;
   // A big enemy fleet charges in. A lone fighter keeps its distance and circles.
-  const preferred = ship.fleet.members.length > 3 ? 60 : CONFIG.enemyPreferredDistance;
+  const preferred =
+    ship.fleet.members.length > 3 ? 60 + ship.stats.radius + target.stats.radius : CONFIG.enemyPreferredDistance;
   if (d > preferred) {
     steer(ship, nx * speed, ny * speed, t.accel, dt);
   } else {
@@ -390,10 +522,10 @@ function separateShips(state: GameState, dt: number) {
     for (let j = i + 1; j < ships.length; j++) {
       const a = ships[i];
       const b = ships[j];
-      if (a.team !== b.team) continue;
+      if (a.team !== b.team || a.merge || b.merge) continue;
       // Your ships can pass over/under each other (as if at different heights).
       if (a.team === 'player' && !CONFIG.playerShipsCollide) continue;
-      const minD = typeOf(a).radius + typeOf(b).radius;
+      const minD = a.stats.radius + b.stats.radius;
       const d2 = distSq(a.x, a.y, b.x, b.y);
       if (d2 >= minD * minD || d2 === 0) continue;
       const d = Math.sqrt(d2);
@@ -413,20 +545,29 @@ function separateShips(state: GameState, dt: number) {
     }
 }
 
+/** Fire one volley. Bigger tiers fire several shots side by side. */
 function fire(state: GameState, ship: Ship, cooldown: number, spread: number) {
-  const t = typeOf(ship);
+  const st = ship.stats;
   ship.fireTimer = cooldown;
   const a = ship.angle + randRange(-spread, spread);
-  state.bullets.push({
-    team: ship.team,
-    sprite: t.bulletSprites[ship.team],
-    x: ship.x + Math.cos(ship.angle) * t.gunOffset,
-    y: ship.y + Math.sin(ship.angle) * t.gunOffset,
-    vx: Math.cos(a) * t.bulletSpeed,
-    vy: Math.sin(a) * t.bulletSpeed,
-    life: t.bulletLife,
-    damage: t.bulletDamage,
-  });
+  const fx = Math.cos(ship.angle);
+  const fy = Math.sin(ship.angle);
+  for (let i = 0; i < st.shots; i++) {
+    // Spread the guns across the ship's width.
+    const side = st.shots === 1 ? 0 : (i / (st.shots - 1) - 0.5) * st.radius * 0.8;
+    state.bullets.push({
+      team: ship.team,
+      sprite: typeOf(ship).sprites.bullet,
+      tier: ship.tier,
+      x: ship.x + fx * st.gunOffset - fy * side,
+      y: ship.y + fy * st.gunOffset + fx * side,
+      vx: Math.cos(a) * st.bulletSpeed,
+      vy: Math.sin(a) * st.bulletSpeed,
+      life: st.bulletLife,
+      damage: st.bulletDamage,
+      radius: st.bulletRadius,
+    });
+  }
 }
 
 function updateBullets(state: GameState, dt: number) {
@@ -435,12 +576,13 @@ function updateBullets(state: GameState, dt: number) {
     b.y += b.vy * dt;
     b.life -= dt;
     for (const s of state.ships) {
-      if (s.team === b.team || s.dead) continue;
-      const r = typeOf(s).radius;
+      // Merging ships can't be hit: shots pass through.
+      if (s.team === b.team || s.dead || s.merge) continue;
+      const r = s.stats.radius + b.radius;
       if (distSq(b.x, b.y, s.x, s.y) > r * r) continue;
       if (!(s.team === 'player' && state.invincible)) s.hp -= b.damage;
       b.life = 0;
-      addEffect(state, 'vfx.hit', b.x, b.y);
+      addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
       if (s.hp <= 0) s.dead = true;
       break;
     }
@@ -451,16 +593,19 @@ function updateBullets(state: GameState, dt: number) {
 function removeDeadShips(state: GameState) {
   for (const s of state.ships) {
     if (!s.dead) continue;
-    addEffect(state, 'vfx.explosion', s.x, s.y, Math.random() * Math.PI * 2);
-    if (s.team === 'enemy' && Math.random() < CONFIG.wreckChance) {
+    addEffect(state, 'vfx.explosion', s.x, s.y, Math.random() * Math.PI * 2, s.tier);
+    // Bigger enemies leave wrecks less often.
+    const wreckChance = CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
+    if (s.team === 'enemy' && Math.random() < wreckChance) {
       state.wrecks.push({
         type: s.type,
+        tier: s.tier,
         x: s.x,
         y: s.y,
         vx: s.vx * 0.3,
         vy: s.vy * 0.3,
         angle: s.angle,
-        spin: randRange(-1, 1),
+        spin: randRange(-1, 1) / s.stats.size,
         life: CONFIG.wreckLifetime,
       });
     }
@@ -472,19 +617,114 @@ function removeDeadShips(state: GameState) {
   state.enemyFleets = state.enemyFleets.filter((f) => f.members.length > 0);
 }
 
-/** When a leader dies, the closest surviving ship takes command. */
+/** When a leader dies, the closest of the biggest surviving ships takes command. */
 function pickNewLeader(fleet: Fleet, old: Ship): Ship | null {
   let best: Ship | null = null;
   let bestD = Infinity;
   for (const m of fleet.members) {
+    if (isMergePart(m)) continue;
     const d = distSq(m.x, m.y, old.x, old.y);
-    if (d < bestD) {
+    if (!best || m.tier > best.tier || (m.tier === best.tier && d < bestD)) {
       bestD = d;
       best = m;
     }
   }
-  return best;
+  return best ?? fleet.members[0] ?? null;
 }
+
+/** You always fly one of your biggest ships: move into a bigger one when you get it. */
+function promoteFlagship(state: GameState) {
+  const fleet = state.playerFleet;
+  const leader = fleet.leader;
+  // A flagship that's being merged into will grow by itself.
+  if (!leader || leader.merge) return;
+  let best = leader;
+  let bestD = Infinity;
+  for (const m of fleet.members) {
+    if (m.merge || m.tier <= leader.tier) continue;
+    const d = distSq(m.x, m.y, leader.x, leader.y);
+    if (m.tier > best.tier || (m.tier === best.tier && d < bestD)) {
+      best = m;
+      bestD = d;
+    }
+  }
+  fleet.leader = best;
+}
+
+// ---------- Merging ----------
+
+/** Once your fleet is big enough, every 16 ships of the same tier start merging. */
+function startMerges(state: GameState) {
+  const fleet = state.playerFleet;
+  const per = CONFIG.tiers.shipsPerMerge;
+  if (fleetValue(fleet) < CONFIG.tiers.mergeStartsAt) return;
+  const byTier = new Map<number, Ship[]>();
+  for (const s of fleet.members) {
+    if (s.merge) continue;
+    const list = byTier.get(s.tier) ?? [];
+    list.push(s);
+    byTier.set(s.tier, list);
+  }
+  for (const ships of byTier.values()) {
+    while (ships.length >= per) {
+      // The flagship is the core whenever it's in the group, so you keep flying it.
+      const leaderIndex = fleet.leader ? ships.indexOf(fleet.leader) : -1;
+      const [core] = ships.splice(leaderIndex >= 0 ? leaderIndex : 0, 1);
+      // The closest ships fly in.
+      ships.sort((a, b) => distSq(a.x, a.y, core.x, core.y) - distSq(b.x, b.y, core.x, core.y));
+      const parts = ships.splice(0, per - 1);
+      const merge: Merge = { core, parts, time: 0 };
+      core.merge = merge;
+      for (const p of parts) p.merge = merge;
+      state.merges.push(merge);
+    }
+  }
+}
+
+function updateMerges(state: GameState, dt: number) {
+  for (const m of state.merges) {
+    m.time += dt;
+    const core = m.core;
+    for (const p of m.parts) {
+      if (p.absorbed) {
+        // Ride along inside the core (hidden) until the merge finishes.
+        p.x = core.x;
+        p.y = core.y;
+        p.vx = p.vy = 0;
+        continue;
+      }
+      // Fly into the core, faster the further away it is.
+      const t = typeOf(p);
+      const dx = core.x - p.x;
+      const dy = core.y - p.y;
+      if (Math.hypot(dx, dy) < core.stats.radius * 0.5) {
+        p.absorbed = true;
+        continue;
+      }
+      steer(p, core.vx + dx * 4, core.vy + dy * 4, t.accel * 4, dt);
+      p.thrust = 'boost';
+      p.angle = turnToward(p.angle, Math.atan2(dy, dx), t.turnRate * dt);
+    }
+  }
+  const done = state.merges.filter((m) => m.time >= CONFIG.tiers.mergeDuration || m.parts.every((p) => p.absorbed));
+  for (const m of done) finishMerge(state, m);
+  state.merges = state.merges.filter((m) => !done.includes(m));
+}
+
+/** Remove the merged ships and grow the core one tier, at full health. */
+function finishMerge(state: GameState, m: Merge) {
+  const core = m.core;
+  const gone = new Set(m.parts);
+  core.fleet.members = core.fleet.members.filter((s) => !gone.has(s));
+  state.ships = state.ships.filter((s) => !gone.has(s));
+  core.tier++;
+  core.stats = statsFor(core.type, core.team, core.tier);
+  core.hp = core.stats.maxHp;
+  core.merge = null;
+  addEffect(state, 'vfx.merge', core.x, core.y, 0, core.tier);
+}
+
+// ---------- Wrecks ----------
 
 function updateWrecks(state: GameState, dt: number) {
   for (const w of state.wrecks) {
@@ -498,7 +738,8 @@ function updateWrecks(state: GameState, dt: number) {
         nearest = s;
       }
     }
-    const magnetR = CONFIG.wreckMagnetRange;
+    const r = statsFor(w.type, 'enemy', w.tier).radius;
+    const magnetR = CONFIG.wreckMagnetRange + r;
     if (nearest && nearestD < magnetR * magnetR) {
       // Close enough: the wreck drifts toward that ship.
       const d = Math.sqrt(nearestD) || 1;
@@ -513,15 +754,14 @@ function updateWrecks(state: GameState, dt: number) {
     w.y += w.vy * dt;
     w.angle += w.spin * dt;
     w.life -= dt;
-    // Any ship in your fleet that touches a wreck recruits it.
-    const r = SHIP_TYPES[w.type].radius;
+    // Any ship in your fleet that touches a wreck recruits it, at the wreck's tier.
     for (const s of state.playerFleet.members) {
-      const reach = r + typeOf(s).radius;
+      const reach = r + s.stats.radius;
       if (distSq(s.x, s.y, w.x, w.y) < reach * reach) {
-        const ship = addShip(state, 'player', w.type, state.playerFleet, w.x, w.y, w.angle);
+        const ship = addShip(state, 'player', w.type, w.tier, state.playerFleet, w.x, w.y, w.angle);
         ship.vx = s.vx;
         ship.vy = s.vy;
-        addEffect(state, 'vfx.recruit', w.x, w.y);
+        addEffect(state, 'vfx.recruit', w.x, w.y, 0, w.tier);
         w.life = 0;
         break;
       }
@@ -529,6 +769,8 @@ function updateWrecks(state: GameState, dt: number) {
   }
   state.wrecks = state.wrecks.filter((w) => w.life > 0);
 }
+
+// ---------- Enemy waves ----------
 
 function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   state.waveTimer -= dt;
@@ -539,14 +781,14 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   if (!center) return;
 
   const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
-  const playerSize = state.playerFleet.members.length;
+  const playerValue = fleetValue(state.playerFleet);
   const fleetWave =
-    playerSize >= CONFIG.enemyFleetMinPlayerSize && state.wave % CONFIG.enemyFleetEveryNthWave === 0;
+    playerValue >= CONFIG.enemyFleetMinPlayerSize && state.wave % CONFIG.enemyFleetEveryNthWave === 0;
 
   if (fleetWave) {
-    // One enemy fleet in formation, a bit bigger than yours.
-    const size = clamp(Math.round(playerSize * CONFIG.enemyFleetSizeRatio) + 2, 3, room);
-    spawnEnemyFleet(state, center, spawnDistance, size);
+    // One enemy fleet in formation, worth a bit more than yours.
+    const value = Math.max(3, Math.round(playerValue * CONFIG.enemyFleetSizeRatio) + 2);
+    spawnEnemyFleet(state, center, spawnDistance, value, room);
   } else {
     // A handful of lone fighters from random directions.
     const count = Math.min(
@@ -554,43 +796,64 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
       CONFIG.maxLoneEnemiesPerWave,
       room,
     );
-    for (let i = 0; i < count; i++) spawnEnemyFleet(state, center, spawnDistance, 1);
+    for (let i = 0; i < count; i++) spawnEnemyFleet(state, center, spawnDistance, 1, room);
   }
 }
 
-function spawnEnemyFleet(state: GameState, near: Ship, distance: number, size: number) {
-  if (size <= 0) return;
+/** Spawn an enemy fleet worth `value`, made of tiers by the same rule as yours. */
+function spawnEnemyFleet(state: GameState, near: Ship, distance: number, value: number, room: number) {
+  const counts = tierCounts(value);
+  // Never go over the enemy limit: drop small ships first.
+  let total = counts.reduce((a, b) => a + b, 0);
+  for (let t = 0; t < counts.length && total > room; t++) {
+    const drop = Math.min(counts[t], total - room);
+    counts[t] -= drop;
+    total -= drop;
+  }
+  if (total <= 0) return;
   const a = Math.random() * Math.PI * 2;
-  const x = near.x + Math.cos(a) * distance;
-  const y = near.y + Math.sin(a) * distance;
   const facing = a + Math.PI;
   const fleet = newFleet('enemy');
-  fleet.leader = addShip(state, 'enemy', 'fighter', fleet, x, y, facing);
-  for (let i = 0; i < size - 1; i++) {
-    const off = slotOffset(i);
-    addShip(state, 'enemy', 'fighter', fleet, x + off.x, y + off.y, facing);
-  }
+  // Biggest ships first, so the biggest one leads.
+  for (let t = counts.length - 1; t >= 0; t--)
+    for (let i = 0; i < counts[t]; i++) addShip(state, 'enemy', 'fighter', t + 1, fleet, 0, 0, facing);
+  const [leader, ...rest] = fleet.members;
+  fleet.leader = leader;
+  // Big fleets start further out, so they don't appear on screen.
+  const followers = formationOrder(rest);
+  const slots = formationSlots(leader, followers);
+  const extent = Math.max(0, ...slots.map((s) => Math.hypot(s.x, s.y)));
+  const x = near.x + Math.cos(a) * (distance + extent);
+  const y = near.y + Math.sin(a) * (distance + extent);
+  leader.x = x;
+  leader.y = y;
+  followers.forEach((s, i) => {
+    s.x = x + slots[i].x;
+    s.y = y + slots[i].y;
+  });
   state.enemyFleets.push(fleet);
 }
 
 // ---------- Test tools (only reachable from dev-mode keys) ----------
 
-/** Adds a ship to your fleet right next to the flagship. */
-export function testAddShip(state: GameState) {
+/** Adds tier-1 ships to your fleet right next to the flagship. */
+export function testAddShips(state: GameState, count: number) {
   const leader = controlledShip(state);
   if (!leader) return;
-  const a = Math.random() * Math.PI * 2;
-  const x = leader.x + Math.cos(a) * 50;
-  const y = leader.y + Math.sin(a) * 50;
-  addShip(state, 'player', leader.type, state.playerFleet, x, y, leader.angle);
-  addEffect(state, 'vfx.recruit', x, y);
-  state.maxFleetSize = Math.max(state.maxFleetSize, state.playerFleet.members.length);
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const x = leader.x + Math.cos(a) * (50 + leader.stats.radius);
+    const y = leader.y + Math.sin(a) * (50 + leader.stats.radius);
+    addShip(state, 'player', leader.type, 1, state.playerFleet, x, y, leader.angle);
+    addEffect(state, 'vfx.recruit', x, y);
+  }
 }
 
-/** Destroys one ship of your fleet (never the one you're flying). */
+/** Destroys one of your smallest ships (never the one you're flying or a merging one). */
 export function testRemoveShip(state: GameState) {
   const leader = controlledShip(state);
-  const victim = [...state.playerFleet.members].reverse().find((s) => s !== leader);
+  const candidates = state.playerFleet.members.filter((s) => s !== leader && !s.merge);
+  const victim = formationOrder(candidates).pop();
   if (victim) victim.dead = true;
 }
 
@@ -601,11 +864,13 @@ export function testKillEnemies(state: GameState, view: { x: number; y: number; 
       s.dead = true;
 }
 
-function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0) {
-  state.effects.push({ sprite, x, y, angle, age: 0 });
+// ---------- Effects ----------
+
+function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0, tier = 1) {
+  state.effects.push({ sprite, tier, x, y, angle, age: 0 });
 }
 
 function updateEffects(state: GameState, dt: number) {
   for (const e of state.effects) e.age += dt;
-  state.effects = state.effects.filter((e) => e.age < state.effectDuration(e.sprite));
+  state.effects = state.effects.filter((e) => e.age < state.effectDuration(e.sprite, e.tier));
 }

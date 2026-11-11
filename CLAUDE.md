@@ -32,7 +32,7 @@
 ## Seeing the game (for Claude)
 - The container has Chromium (installed by the Dockerfile at build time, no firewall change needed). `tools/screenshot.mjs` drives it with `playwright-core` and saves screenshots that Claude can view with the Read tool. It also prints browser errors.
 - Example (dev server must be running): `node tools/screenshot.mjs --out <scratchpad>/shots 'wait:1500' 'press:Equal*10' 'hold:KeyD:800' 'shot:fleet'`. Quote the steps, because the shell (zsh) treats `*` as a filename wildcard. Run it with no steps for a single screenshot.
-- Dev-only test keys help set up scenes: `=`/`-` add/remove ship, `G` invincible, `K` destroy on-screen enemies.
+- Dev-only test keys help set up scenes: `=`/`-` add/remove ship, `]` add 16 ships, `G` invincible, `K` destroy on-screen enemies.
 - Use it to check visual changes before handing them to the user. The browser has no graphics card, so it can't judge smoothness or performance. The user does that.
 
 ## Code layout
@@ -51,6 +51,7 @@
   - Support flipbook animations from sprite sheets or numbered frame files, with frame size, frame count, frame rate and looping set in the manifest, not in code.
   - Don't let gameplay depend on the exact pixel size of the art. Use separate collision sizes and anchor points.
   - **One image set per ship design, used by both teams.** Team-colour parts are painted in strong sky blue; the game recolours them per team at load time (`CONFIG.teamColors`). Never ask the user for separate player/enemy versions.
+  - **Placeholders must stand out from the user's art.** Never imitate the user's art style when generating new assets. Keep the original placeholder style (simple flat-coloured shapes with a dark 1 px outline, like the first 32×32 fighters).
   - Placeholder art should follow the same conventions, so swapping in real art means replacing files (and maybe editing the manifest), not changing code.
 
 ### Game concept: pixel-art spaceship fleet combat
@@ -62,6 +63,16 @@
 - **Mode:** endless survival for now. Track a "max fleet size reached" stat to measure how well a run went.
 - **Ship size:** the starter ship is about 32×32 pixels. Larger ships must be possible, so don't assume a fixed sprite size.
 - **Ship types:** all ships are the same type for now. Different types are a nice-to-have for later.
+- **Tiers and merging** (numbers in `CONFIG.tiers`):
+  - Fleet value = what every ship is worth in tier-1 ships (T2 = 16, T3 = 256...). It's the score.
+  - Once fleet value reaches 32, any 16 ships of one tier merge into one of the next tier, so there are never more than 15 per tier. Merging is automatic for now; merging by choice may come later.
+  - Each tier: 12× health and 12× damage per volley, always 2 shots per volley for T2+ (6× per shot at T2, 72× at T3...), 1.5× size, shots 1.2× faster and travelling 1.5× further.
+  - Merge moment: the ships fly into the core, flash, big ship appears. They can't shoot or be hit meanwhile.
+  - You always fly one of your biggest ships (promoted after a merge or recruiting a bigger wreck). A dead ship takes its whole worth; merged ships never split.
+  - Enemy fleets use the same tier rule. Bigger enemies leave wrecks of their tier, less often (×0.4 per tier).
+  - Formation by size: biggest ships in the inner rings.
+  - Zoom follows the highest tier: 1× at T2, then below 1× (0.5×, 0.25×), where the art is shrunk smoothly.
+  - Each tier has its own art (`ship.fighter.t2`...), canvases growing 1.5× per tier from the 64 px fighter.
 
 ### First prototype scope
 1. Fly a ship around empty space and shoot.

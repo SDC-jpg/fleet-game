@@ -20,12 +20,13 @@ export interface ShipType {
   /** Where bullets come out, measured forward from the ship's centre. */
   gunOffset: number;
   /**
-   * Sprite names from public/assets/manifest.json. `ship` is used for both
-   * teams, recoloured per team (see CONFIG.teamColors). Optional engine-state
-   * versions are found by adding ".move" or ".boost" to the name.
+   * Sprite names from public/assets/manifest.json, used by both teams and
+   * recoloured per team (see CONFIG.teamColors).
+   * - Bigger tiers add ".t2", ".t3"... (e.g. "ship.fighter.t2"). A missing
+   *   tier uses the closest smaller tier's art.
+   * - Engine states add ".move" or ".boost"; wrecks add ".wreck".
    */
-  sprites: { ship: string; wreck: string };
-  bulletSprites: { player: string; enemy: string };
+  sprites: { ship: string; bullet: string };
 }
 
 export const SHIP_TYPES = {
@@ -42,11 +43,7 @@ export const SHIP_TYPES = {
     bulletLife: 1.1,
     bulletDamage: 1,
     gunOffset: 14,
-    sprites: {
-      ship: "ship.fighter",
-      wreck: "ship.fighter.wreck",
-    },
-    bulletSprites: { player: "projectile.player", enemy: "projectile.enemy" },
+    sprites: { ship: "ship.fighter", bullet: "projectile" },
   },
 } satisfies Record<string, ShipType>;
 
@@ -66,6 +63,30 @@ export const CONFIG = {
     minSaturation: 0.4,
     player: 0,
     enemy: 170,
+  },
+
+  /**
+   * Tiers: 16 ships of one tier merge into 1 ship of the next tier up.
+   * Fleet value counts what every ship is worth in tier-1 ships (T2 = 16, T3 = 256...).
+   */
+  tiers: {
+    shipsPerMerge: 16,
+    /** Merging only starts once your fleet value reaches this. */
+    mergeStartsAt: 32,
+    /** Each tier up multiplies health and damage per volley by this. */
+    powerPerTier: 12,
+    /** Shots per volley for tier 2 and up (tier 1 fires 1). Damage is split between them. */
+    shotsPerVolley: 2,
+    /** Each tier up multiplies hit size, gun position and shot hit size by this. */
+    sizePerTier: 1.5,
+    /** Each tier up multiplies shot speed by this... */
+    shotSpeedPerTier: 1.2,
+    /** ...and how far shots travel (and AI firing range) by this. */
+    rangePerTier: 1.5,
+    /** Each tier up multiplies the chance of leaving a wreck by this. */
+    wreckChancePerTier: 0.4,
+    /** Seconds for the merging ships to fly together before the big ship appears. */
+    mergeDuration: 1,
   },
   /** Distance between rings in a formation. */
   formationSpacing: 40,
@@ -107,7 +128,7 @@ export const CONFIG = {
   /** Lone enemies try to stay about this far from their target. */
   enemyPreferredDistance: 160,
 
-  /** Chance a destroyed enemy leaves a wreck you can recruit. */
+  /** Chance a destroyed tier-1 enemy leaves a wreck you can recruit. */
   wreckChance: 0.75,
   wreckLifetime: 40,
   /** Wrecks blink during their last few seconds. */
@@ -129,13 +150,19 @@ export const CONFIG = {
   enemyFleetMinPlayerSize: 6,
   /** ...on every Nth wave. */
   enemyFleetEveryNthWave: 3,
-  /** Enemy fleet size compared to yours (1.1 = 10% bigger, plus 2). */
+  /** Enemy fleet value compared to yours (1.1 = 10% bigger, plus 2). */
   enemyFleetSizeRatio: 1.1,
 
-  /** Camera zoom steps: the biggest `minFleet` you've reached picks the zoom. */
+  /**
+   * Camera zoom. Every step you've reached (biggest fleet value, or biggest
+   * tier) counts, and the most zoomed-out one wins. Below 1 the art is shrunk,
+   * so it gets a little softer.
+   */
   zoomSteps: [
     { minFleet: 1, zoom: 3 },
     { minFleet: 8, zoom: 2 },
-    { minFleet: 20, zoom: 1 },
-  ],
+    { minTier: 2, zoom: 1 },
+    { minTier: 3, zoom: 0.5 },
+    { minTier: 4, zoom: 0.25 },
+  ] as { minFleet?: number; minTier?: number; zoom: number }[],
 };

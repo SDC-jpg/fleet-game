@@ -3,6 +3,9 @@
 // The world is first drawn into a small "buffer" canvas where 1 pixel = 1 game
 // pixel. That buffer is then enlarged onto the screen by a whole number
 // (the zoom), which keeps pixel art crisp, even for rotated sprites.
+//
+// Zoomed out below 1×, the buffer is screen-sized instead and the art is
+// shrunk smoothly into it (a little softer, but nothing flickers).
 
 import { frameAt, type Sprite } from './assets';
 
@@ -12,7 +15,7 @@ export class PixelRenderer {
   private buffer = document.createElement('canvas');
   private ctx: CanvasRenderingContext2D;
 
-  /** Screen pixels per game pixel. Animates smoothly toward `targetScale`. */
+  /** Screen pixels per game pixel. Animates smoothly toward `targetScale`. Can be below 1. */
   scale = 4;
   private targetScale = 4;
   /** Camera centre, in world coordinates. */
@@ -42,12 +45,23 @@ export class PixelRenderer {
     this.screen.style.height = `${this.screen.height / dpr}px`;
   }
 
-  /** Set the zoom step (e.g. 4, 3, 2, 1). The change animates. */
+  /** Set the zoom step (e.g. 4, 3, 2, 1, 0.5). The change animates. */
   setZoom(step: number, instant = false) {
-    // Round so each game pixel is a whole number of real screen pixels,
-    // even with Windows display scaling (125%, 150%...).
-    this.targetScale = Math.max(1, Math.round(step * this.dpr));
+    // At 1× and above, round so each game pixel is a whole number of real
+    // screen pixels, even with Windows display scaling (125%, 150%...).
+    const exact = step * this.dpr;
+    this.targetScale = exact >= 1 ? Math.round(exact) : exact;
     if (instant) this.scale = this.targetScale;
+  }
+
+  /** Screen pixels per buffer pixel (1 when zoomed out below 1×). */
+  private get bufferScale() {
+    return Math.max(1, this.scale);
+  }
+
+  /** Buffer pixels per game pixel: 1, or less than 1 when zoomed out below 1×. */
+  get worldScale() {
+    return Math.min(1, this.scale);
   }
 
   /** Visible area in game pixels. */
@@ -60,7 +74,8 @@ export class PixelRenderer {
 
   /** The visible area in world coordinates (as of the last `begin`). */
   get view() {
-    return { x: this.originX, y: this.originY, w: this.buffer.width, h: this.buffer.height };
+    const ws = this.worldScale;
+    return { x: this.originX, y: this.originY, w: this.buffer.width / ws, h: this.buffer.height / ws };
   }
 
   /** Start a new frame. `dt` is the real time since the last frame. */
@@ -69,26 +84,34 @@ export class PixelRenderer {
     const diff = this.targetScale - this.scale;
     this.scale = Math.abs(diff) < 0.01 ? this.targetScale : this.scale + diff * Math.min(1, dt * 7);
 
-    const bw = Math.ceil(this.screen.width / this.scale);
-    const bh = Math.ceil(this.screen.height / this.scale);
+    const bw = Math.ceil(this.screen.width / this.bufferScale);
+    const bh = Math.ceil(this.screen.height / this.bufferScale);
     if (this.buffer.width !== bw || this.buffer.height !== bh) {
       this.buffer.width = bw;
       this.buffer.height = bh;
     }
-    this.originX = Math.round(this.camX - bw / 2);
-    this.originY = Math.round(this.camY - bh / 2);
-    this.ctx.imageSmoothingEnabled = false;
+    const ws = this.worldScale;
+    this.originX = Math.round(this.camX - bw / ws / 2);
+    this.originY = Math.round(this.camY - bh / ws / 2);
+    // Shrunk art is smoothed so it doesn't flicker; enlarged art stays crisp.
+    this.ctx.imageSmoothingEnabled = ws < 1;
+    this.ctx.imageSmoothingQuality = 'high';
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.globalAlpha = 1;
     this.ctx.clearRect(0, 0, bw, bh);
   }
 
-  /** Draw a sprite at a world position. `time` picks the animation frame. */
-  drawSprite(sprite: Sprite, x: number, y: number, angle = 0, time = 0, alpha = 1) {
+  /**
+   * Draw a sprite at a world position. `time` picks the animation frame.
+   * `fixedSize` keeps it at full size even when zoomed out below 1× (for UI like arrows).
+   */
+  drawSprite(sprite: Sprite, x: number, y: number, angle = 0, time = 0, alpha = 1, fixedSize = false) {
     const f = frameAt(sprite, time);
     const ctx = this.ctx;
+    const ws = this.worldScale;
+    const k = fixedSize ? 1 : ws;
     ctx.globalAlpha = alpha;
-    ctx.setTransform(1, 0, 0, 1, Math.round(x - this.originX), Math.round(y - this.originY));
+    ctx.setTransform(k, 0, 0, k, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
     if (angle !== 0) ctx.rotate(angle);
     ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, -sprite.anchorX, -sprite.anchorY, f.w, f.h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -100,20 +123,27 @@ export class PixelRenderer {
    * slower than the camera, so it feels far away.
    */
   drawTiled(sprite: Sprite, parallax: number) {
+    // Backgrounds are never shrunk (tiny stars would vanish); they just scroll slower.
     const f = sprite.frames[0];
     const ctx = this.ctx;
-    const ox = Math.round(this.originX * parallax);
-    const oy = Math.round(this.originY * parallax);
+    const ox = Math.round(this.originX * this.worldScale * parallax);
+    const oy = Math.round(this.originY * this.worldScale * parallax);
     const startX = -(((ox % f.w) + f.w) % f.w);
     const startY = -(((oy % f.h) + f.h) % f.h);
     for (let y = startY; y < this.buffer.height; y += f.h)
       for (let x = startX; x < this.buffer.width; x += f.w) ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, x, y, f.w, f.h);
   }
 
-  /** Plain rectangle in world coordinates (used for health bars). */
+  /** Plain rectangle in world coordinates (used for health bars). Never thinner than 1 pixel. */
   fillRect(x: number, y: number, w: number, h: number, color: string) {
+    const ws = this.worldScale;
     this.ctx.fillStyle = color;
-    this.ctx.fillRect(Math.round(x - this.originX), Math.round(y - this.originY), w, h);
+    this.ctx.fillRect(
+      Math.round((x - this.originX) * ws),
+      Math.round((y - this.originY) * ws),
+      Math.max(1, Math.round(w * ws)),
+      Math.max(1, Math.round(h * ws)),
+    );
   }
 
   /** Copy the buffer to the screen, enlarged. */
@@ -121,7 +151,7 @@ export class PixelRenderer {
     this.sctx.imageSmoothingEnabled = false;
     this.sctx.fillStyle = '#000';
     this.sctx.fillRect(0, 0, this.screen.width, this.screen.height);
-    this.sctx.drawImage(this.buffer, 0, 0, this.buffer.width * this.scale, this.buffer.height * this.scale);
+    this.sctx.drawImage(this.buffer, 0, 0, this.buffer.width * this.bufferScale, this.buffer.height * this.bufferScale);
   }
 
   /** Convert a mouse position (CSS pixels) to world coordinates. */

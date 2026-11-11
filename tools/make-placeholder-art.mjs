@@ -163,35 +163,109 @@ function wreckFighter() {
   return img;
 }
 
-// ---------- Projectiles ----------
-function playerBullet() {
-  const img = new Img(8, 8);
-  const cols = ['#2c5a9e', '#4a90d9', '#9fd3ff', '#e8fbff', '#ffffff'];
-  for (let x = 1; x <= 6; x++) {
-    const c = hex(cols[Math.min(cols.length - 1, x - 1)]);
-    img.set(x, 3, c);
-    img.set(x, 4, c);
+// ---------- Bigger tiers (2, 3, 4) ----------
+// Same simple style as the tier-1 fighter, scaled up, with more engines and
+// wing guns the higher the tier. Blues sit at hue ~200° like the user's art,
+// strong enough (saturation >= 40%) for the game to recolour them red for enemies.
+const TIER_CANVAS = { 2: 96, 3: 144, 4: 216 };
+const TIER_HULL_SCALE = { 2: 1.8, 3: 2.75, 4: 4.1 };
+const TIER_BLUES = { hull: hex('#41a6d9'), dark: hex('#28739e'), light: hex('#7ecff2'), tip: hex('#e8fbff'), line: hex('#0e1a33') };
+const TIER_GREYS = { hull: hex('#6b6f78'), dark: hex('#44474f'), light: hex('#80848d'), tip: hex('#9a9ea6'), line: hex('#16171b') };
+
+function rect(img, x0, y0, w, h, color) {
+  for (let y = Math.round(y0); y < Math.round(y0 + h); y++)
+    for (let x = Math.round(x0); x < Math.round(x0 + w); x++) img.set(x, y, color);
+}
+
+/** Hull, wing guns, stripes and cockpit of a tier-N ship, without outline or flames. */
+function drawTierHull(img, tier, P) {
+  const C = TIER_CANVAS[tier], k = TIER_HULL_SCALE[tier];
+  const cx = C / 2, cy = C / 2;
+  const map = ([x, y]) => [cx + (x - 17) * k, cy + (y - 16) * k];
+  // Wing guns (one per side), drawn first so the hull overlaps their base.
+  for (const side of [-1, 1]) rect(img, cx - 6 * k, cy + side * 4.6 * k - k * 0.5, 13 * k, k, P.tip);
+  fillPolygon(img, FIGHTER_HULL.map(map), (x, y) => (y >= cy ? P.dark : y <= cy - 3 * k && x > cx - 3 * k ? P.light : P.hull));
+  // One light stripe per tier across the body.
+  for (let i = 0; i < tier; i++) rect(img, cx - k * (1 + i * 1.6), cy - 2.5 * k, Math.max(1, k * 0.5), 5 * k, P.light);
+  disc(img, cx + 4 * k, cy, 1.6 * k, P.tip); // cockpit
+  return { C, k, cx, cy };
+}
+
+/** Where the engines sit: one per tier, stacked at the back. */
+function enginePositions(tier) {
+  const C = TIER_CANVAS[tier], k = TIER_HULL_SCALE[tier];
+  const ys = [];
+  for (let i = 0; i < tier; i++) ys.push(C / 2 + (i - (tier - 1) / 2) * 2.4 * k);
+  return { x: C / 2 - 13 * k, ys, k };
+}
+
+function tierFighter(tier, thrust = 'idle') {
+  const C = TIER_CANVAS[tier];
+  const img = new Img(C, C);
+  drawTierHull(img, tier, TIER_BLUES);
+  const e = enginePositions(tier);
+  for (const y of e.ys) rect(img, e.x, y - e.k * 0.7, e.k * 1.2, e.k * 1.4, hex('#ffb347'));
+  outline(img, TIER_BLUES.line);
+  // Flames go on after the outline, so they glow instead of having a border.
+  if (thrust !== 'idle') {
+    const len = (thrust === 'boost' ? 7 : 3.5) * e.k;
+    const cols = thrust === 'boost' ? ['#ffffff', '#ffe066', '#ffb347', '#ff7a3a'] : ['#ffe066', '#ffb347', '#ff7a3a'];
+    for (const y of e.ys)
+      for (let d = 0; d < len; d++) {
+        const half = Math.max(0.5, e.k * 0.6 * (1 - d / len));
+        const c = hex(cols[Math.min(cols.length - 1, Math.floor((d / len) * cols.length))]);
+        rect(img, e.x - 1 - d, y - half, 1, half * 2, c);
+      }
   }
   return img;
 }
-function enemyBullet() {
-  const img = new Img(8, 8);
-  disc(img, 4, 4, 2.6, hex('#ff7a3a'));
-  disc(img, 4, 4, 1.5, hex('#ffe066'));
+
+function tierWreck(tier) {
+  const C = TIER_CANVAS[tier];
+  const img = new Img(C, C);
+  const r = rng(42 + tier);
+  drawTierHull(img, tier, TIER_GREYS);
+  const burn = hex('#2a2a2e'), ember = hex('#ff7a3a');
+  for (let y = 0; y < C; y++)
+    for (let x = 0; x < C; x++) {
+      if (!img.alpha(x, y)) continue;
+      // Holes and burns in clumps, so they read at any size.
+      const n = noise(Math.floor(x / tier), Math.floor(y / tier), 3);
+      if (n < 0.1) img.set(x, y, CLEAR);
+      else if (n < 0.25) img.set(x, y, burn);
+      else if (r() < 0.004 * tier) img.set(x, y, ember);
+    }
+  outline(img, TIER_GREYS.line);
+  return img;
+}
+
+// ---------- Projectiles ----------
+// One image per tier, used by both teams (blue, recoloured red for enemies).
+function bullet(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const S = Math.round(8 * k / 2) * 2;
+  const img = new Img(S, S);
+  const len = Math.round(6 * k), thick = Math.max(2, Math.round(2 * k));
+  const cols = ['#28739e', '#41a6d9', '#7ecff2', '#e8fbff', '#ffffff'];
+  const x0 = Math.floor((S - len) / 2), y0 = Math.floor((S - thick) / 2);
+  for (let i = 0; i < len; i++) {
+    const c = hex(cols[Math.min(cols.length - 1, Math.floor((i / len) * cols.length))]);
+    for (let j = 0; j < thick; j++) img.set(x0 + i, y0 + j, c);
+  }
   return img;
 }
 
 // ---------- Effects (flipbooks: frames side by side) ----------
-function explosionSheet() {
-  const F = 8, S = 32;
+function explosionSheet(S = 32) {
+  const F = 8;
   const sheet = new Img(S * F, S);
   for (let f = 0; f < F; f++) {
     const t = f / (F - 1);
     const frame = new Img(S, S);
-    const radius = 4 + t * 11;
+    const radius = (4 + t * 11) * (S / 32);
     for (let y = 0; y < S; y++)
       for (let x = 0; x < S; x++) {
-        const d = Math.hypot(x + 0.5 - 16, y + 0.5 - 16);
+        const d = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2);
         const n = noise(x, y, 1);
         if (d > radius * (0.75 + 0.35 * n)) continue;
         if (noise(x, y, f + 10) < t ** 1.6 * 0.9) continue; // breaks up over time
@@ -204,31 +278,32 @@ function explosionSheet() {
   return sheet;
 }
 
-function hitSheet() {
-  const F = 4, S = 16;
+function hitSheet(S = 16) {
+  const F = 4, k = S / 16, c = S / 2;
   const sheet = new Img(S * F, S);
   for (let f = 0; f < F; f++) {
     const frame = new Img(S, S);
     const len = [2, 4, 6, 7][f];
     const col = hex(['#ffffff', '#ffe066', '#ffb347', '#e2522f'][f]);
-    if (f < 2) disc(frame, 8, 8, 2.2 - f * 0.7, hex('#ffffff'));
+    if (f < 2) disc(frame, c, c, (2.2 - f * 0.7) * k, hex('#ffffff'));
     for (let i = 1 + f; i <= len; i++)
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (i % 2 || f < 2) frame.set(8 + dx * i, 8 + dy * i, col);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+        if (i % 2 || f < 2) rect(frame, c + (dx * i - 0.5) * k + 0.5, c + (dy * i - 0.5) * k + 0.5, Math.max(1, k), Math.max(1, k), col);
     sheet.blit(frame, f * S, 0);
   }
   return sheet;
 }
 
-function recruitSheet() {
-  const F = 6, S = 48;
+function recruitSheet(S = 48) {
+  const F = 6, k = S / 48;
   const sheet = new Img(S * F, S);
   for (let f = 0; f < F; f++) {
     const frame = new Img(S, S);
-    const r = 6 + f * 3.1;
-    const thick = 3 - f * 0.4;
+    const r = (6 + f * 3.1) * k;
+    const thick = (3 - f * 0.4) * k;
     for (let y = 0; y < S; y++)
       for (let x = 0; x < S; x++) {
-        const d = Math.hypot(x + 0.5 - 24, y + 0.5 - 24);
+        const d = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2);
         if (Math.abs(d - r) < thick / 2 + 0.5 && noise(x, y, 7) > f * 0.12)
           frame.set(x, y, hex(f < 2 ? '#e8fbff' : f < 4 ? '#9fd3ff' : '#4a90d9'));
       }
@@ -237,15 +312,40 @@ function recruitSheet() {
   return sheet;
 }
 
+// Merge flash: a bright burst and a ring of light when 16 ships become one.
+function mergeSheet(S) {
+  const F = 8, R = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const t = f / (F - 1);
+    const frame = new Img(S, S);
+    const ring = R * (0.25 + t * 0.7);
+    const core = R * 0.45 * (1 - t) ** 1.5;
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - R, y + 0.5 - R);
+        const a = Math.atan2(y + 0.5 - R, x + 0.5 - R);
+        if (d < core) frame.set(x, y, hex(d < core * 0.5 ? '#ffffff' : '#ffe066'));
+        else if (Math.abs(d - ring) < Math.max(1, R * 0.05 * (1 - t))) frame.set(x, y, hex(t < 0.5 ? '#ffffff' : '#ffe066'));
+        // Rays that fade out.
+        else if (t < 0.6 && d < ring && Math.floor(((a + Math.PI) / (2 * Math.PI)) * 24) % 3 === 0 && noise(x, y, f + 30) < 0.5 - t * 0.7)
+          frame.set(x, y, hex('#ffb347'));
+      }
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 // ---------- UI ----------
-function commandRing() {
-  const img = new Img(44, 44);
-  for (let y = 0; y < 44; y++)
-    for (let x = 0; x < 44; x++) {
-      const dx = x + 0.5 - 22, dy = y + 0.5 - 22;
+function commandRing(S = 44) {
+  const img = new Img(S, S);
+  const R = S / 2 - 2;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
       const d = Math.hypot(dx, dy);
       const a = Math.atan2(dy, dx);
-      if (Math.abs(d - 20) < 0.7 && Math.floor(((a + Math.PI) / (2 * Math.PI)) * 16) % 2 === 0)
+      if (Math.abs(d - R) < 0.7 && Math.floor(((a + Math.PI) / (2 * Math.PI)) * 16) % 2 === 0)
         img.set(x, y, hex('#9fd3ff', 170));
     }
   return img;
@@ -295,17 +395,33 @@ const FILES = {
   // One image for both teams; the game recolours its blue parts for enemies.
   'ships/fighter.png': playerFighter,
   'ships/fighter-wreck.png': wreckFighter,
-  'projectiles/bullet-player.png': playerBullet,
-  'projectiles/bullet-enemy.png': enemyBullet,
-  'vfx/explosion.png': explosionSheet,
-  'vfx/hit.png': hitSheet,
-  'vfx/recruit.png': recruitSheet,
-  'ui/command-ring.png': commandRing,
+  'projectiles/bullet.png': () => bullet(1),
+  'vfx/explosion.png': () => explosionSheet(32),
+  'vfx/hit.png': () => hitSheet(16),
+  'vfx/recruit.png': () => recruitSheet(48),
+  'ui/command-ring.png': () => commandRing(44),
   'ui/arrow-enemy.png': () => edgeArrow('#ff6b5a', '#2a0b0b'),
   'ui/arrow-wreck.png': () => edgeArrow('#b8bcc6', '#16171b'),
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,
 };
+
+// Bigger tiers: everything grows 1.5× per tier.
+for (const tier of [2, 3, 4]) {
+  const k = 1.5 ** (tier - 1);
+  const even = (n) => Math.round(n / 2) * 2;
+  FILES[`ships/fighter-t${tier}.png`] = () => tierFighter(tier);
+  FILES[`ships/fighter-t${tier}-move.png`] = () => tierFighter(tier, 'move');
+  FILES[`ships/fighter-t${tier}-boost.png`] = () => tierFighter(tier, 'boost');
+  FILES[`ships/fighter-t${tier}-wreck.png`] = () => tierWreck(tier);
+  FILES[`projectiles/bullet-t${tier}.png`] = () => bullet(tier);
+  FILES[`vfx/explosion-t${tier}.png`] = () => explosionSheet(even(32 * k));
+  FILES[`vfx/hit-t${tier}.png`] = () => hitSheet(even(16 * k));
+  FILES[`vfx/recruit-t${tier}.png`] = () => recruitSheet(even(48 * k));
+  // The merge flash is sized for the ship it creates.
+  FILES[tier === 2 ? 'vfx/merge.png' : `vfx/merge-t${tier}.png`] = () => mergeSheet(TIER_CANVAS[tier]);
+  FILES[`ui/command-ring-t${tier}.png`] = () => commandRing(even(44 * k));
+}
 
 for (const [name, draw] of Object.entries(FILES)) {
   const path = join(OUT_DIR, name);
