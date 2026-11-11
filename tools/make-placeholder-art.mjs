@@ -394,18 +394,25 @@ function wreckMarker(S = 48) {
   return sheet;
 }
 
+// Command ring around the ship you fly, doubling as the boost stamina meter.
+// 17 frames: frame N has N of the 16 dashes lit, filling clockwise from the top.
 function commandRing(S = 44) {
-  const img = new Img(S, S);
+  const DASHES = 16;
+  const sheet = new Img(S * (DASHES + 1), S);
   const R = S / 2 - 2;
-  for (let y = 0; y < S; y++)
-    for (let x = 0; x < S; x++) {
-      const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
-      const d = Math.hypot(dx, dy);
-      const a = Math.atan2(dy, dx);
-      if (Math.abs(d - R) < 0.7 && Math.floor(((a + Math.PI) / (2 * Math.PI)) * 16) % 2 === 0)
-        img.set(x, y, hex('#9fd3ff', 170));
-    }
-  return img;
+  for (let f = 0; f <= DASHES; f++)
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
+        if (Math.abs(Math.hypot(dx, dy) - R) >= 0.7) continue;
+        // 0 at the top, growing clockwise, 0–1.
+        const turn = ((Math.atan2(dy, dx) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
+        const half = Math.floor(turn * DASHES * 2);
+        if (half % 2 !== 0) continue;
+        const lit = Math.floor(half / 2) < f;
+        sheet.set(f * S + x, y, hex(lit ? '#9fd3ff' : '#4a5a70', lit ? 200 : 90));
+      }
+  return sheet;
 }
 
 // Edge-of-screen arrow, pointing right.

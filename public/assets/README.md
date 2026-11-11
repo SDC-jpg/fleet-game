@@ -66,7 +66,14 @@ The game recolours the "team colour" parts for each side when it starts.
   `src/game/config.ts`. For example, `enemy: 170` turns sky blue (200°) into
   red (10°), and `enemy: 100` would turn it into purple-pink.
 
-## Dash trail and wreck marker
+## Dash trail, wreck marker and stamina ring
+
+- **`ui.command-ring`** circles the ship you fly and doubles as the **boost
+  stamina meter**. It's a flipbook whose frames are fill levels: the **first
+  frame is empty, the last is full**, and the game shows the frame matching the
+  stamina left (it doesn't play as an animation). Use as many frames as you
+  like (the placeholder has 17). It's drawn faded while boost is locked after
+  running dry. Not team-recoloured.
 
 - **`vfx.dash`** plays once behind every ship in your fleet when you dash
   (right-click), pointing back along its movement. Draw it **facing right with

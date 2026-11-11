@@ -6,6 +6,9 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-11
 
+- Bigger ships turn more slowly (25% slower per tier), so they feel heavier and you have to aim ahead. Small ships stay nimble.
+- Boost (Shift) now runs on stamina: about 3 seconds from full, shown by the ring around your ship, which refills when you let go. Boost is faster to make up for it.
+- The dash is much stronger: it now starts at 8× speed and carries your fleet much further.
 - Testing setup: bigger ships come 4× faster (4 ships merge into the next tier, starting at fleet value 8), and big enemies leave wrecks more often. Fleet values are smaller numbers for now.
 - New: a **tuning settings page** listing every adjustable number in the game with its current value. It updates itself with each new version.
 - Dash cooldown shortened from 30 to 18 seconds.

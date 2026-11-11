@@ -63,7 +63,7 @@
 
 ### Game concept: pixel-art spaceship fleet combat
 - The player starts as a single spaceship and grows a fleet. As the fleet grows, the camera zooms out and the fights get bigger, eventually fleet against fleet.
-- **Movement:** the flagship is 20% faster moving toward where it faces (the cursor) and 18% slower backing away, blended smoothly (`directionalSpeed`). Shift boosts. **Right-click dash:** the whole fleet is kicked to 3× speed at once, fading back over 0.5 s, with an 18 s cooldown. The extra speed scales with zoom (3/zoom: 4× the extra at 0.75×) so the dash covers the same share of the screen at every zoom and a flipbook trail (`vfx.dash`) behind each ship (`CONFIG.dash`).
+- **Movement:** the flagship is 20% faster moving toward where it faces (the cursor) and 18% slower backing away, blended smoothly (`directionalSpeed`). **Shift boost** (2.2× speed) runs on stamina (`CONFIG.boost`): 3 s from full, refills in 6 s after a 0.75 s rest; running dry locks it until 30% refilled. The flagship's command ring is the stamina meter (a flipbook whose frames go empty → full, dimmed while locked). **Right-click dash:** the whole fleet is kicked to 8× speed at once, fading back over 0.5 s, with an 18 s cooldown. The extra speed scales with zoom (3/zoom) so the dash covers the same share of the screen at every zoom and a flipbook trail (`vfx.dash`) behind each ship (`CONFIG.dash`).
 - **Pause:** Esc toggles it. The game also pauses by itself when the window loses focus, and the screen isn't redrawn while paused.
 - **End-of-run report:** ships destroyed and lost (count and value; merged ships aren't losses), and a graph of fleet value with one point per wave start.
 - **Waves:** each gap is 0.5% shorter than the last (starting at 12 s), then randomly ±20%, never below 4 s, to vary pressure and calm.
@@ -79,12 +79,13 @@
   - Once fleet value reaches 32, any 16 ships of one tier merge into one of the next tier, so there are never more than 15 per tier. Merging is automatic for now; merging by choice may come later.
   - **Temporary test values (since 2026-11-11, the user's request):** `shipsPerMerge` 4, `mergeStartsAt` 8, `wreckChancePerTier` 0.6, so tiers come 4× faster. Fleet values shrink accordingly (T2 = 4, T3 = 16). The design values above (16 / 32 / 0.4) return when the user says so.
   - Each tier: 12× health and 12× damage per volley, always 2 shots per volley for T2+ (6× per shot at T2, 72× at T3...), 1.5× size, shots 1.2× faster and travelling 1.5× further.
+  - Each tier turns 25% slower (`turnRatePerTier` 0.75), so big ships feel heavy and reward aiming ahead.
   - Each tier fires 1.25× slower with harder shots, so damage per second still grows exactly 12× (`fireIntervalPerTier`). Prepares for different shot types later.
   - Merge moment: the ships fly into the core, flash, big ship appears. They can't shoot or be hit meanwhile. The finished merge fires a ring of 16 shots, each as strong as the new ship's normal shot (`mergeBurstShots`).
   - You always fly one of your biggest ships (promoted after a merge or recruiting a bigger wreck). A dead ship takes its whole worth; merged ships never split.
   - Enemy fleets use the same tier rule. Bigger enemies leave wrecks of their tier, less often (×0.4 per tier).
   - Formation by size: biggest ships in the inner rings.
-  - Zoom follows the highest tier: 1× at T2, 0.75× from T3 on (art shrunk smoothly). Tried and rejected as too zoomed out: 0.5× at T3, 0.25× at T4.
+  - Zoom follows the highest tier: 2× at T2, 1× from T3 on (the user's choice, 2026-11-11). Tried earlier: 1× at T2 and 0.75× at T3; rejected as too zoomed out: 0.5× at T3, 0.25× at T4.
   - Each tier has its own art (`ship.fighter.t2`...), canvases growing 1.5× per tier from the 64 px fighter.
 
 ### First prototype scope

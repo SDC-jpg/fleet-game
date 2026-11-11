@@ -42,7 +42,9 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   const ordered = state.ships.filter((s) => s !== flagship).sort((a, b) => a.tier - b.tier);
   for (const s of ordered) drawShip(r, assets, s, state.time);
   if (flagship) {
-    r.drawSprite(assets.get(tierSprite(assets, 'ui.command-ring', flagship.tier)), flagship.x, flagship.y, 0, state.time);
+    // The command ring is also the boost meter: its frames go from empty (first) to full (last).
+    const ring = assets.get(tierSprite(assets, 'ui.command-ring', flagship.tier));
+    r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1);
     drawShip(r, assets, flagship, state.time);
   }
 
@@ -109,4 +111,11 @@ function drawEdgeArrow(r: PixelRenderer, sprite: Sprite, x: number, y: number, t
   // Shrink the direction until it touches the (slightly inset) screen edge.
   const k = Math.min((v.w / 2 - inset) / Math.abs(dx || 1e-6), (v.h / 2 - inset) / Math.abs(dy || 1e-6));
   r.drawSprite(sprite, cx + dx * k, cy + dy * k, Math.atan2(dy, dx), time, 1, true);
+}
+
+/** The animation time that shows a meter sprite's frame for `fraction` (0 = first frame, 1 = last). */
+function meterTime(sprite: Sprite, fraction: number) {
+  if (sprite.fps <= 0) return 0;
+  const last = sprite.frames.length - 1;
+  return (Math.round(fraction * last) + 0.5) / sprite.fps;
 }

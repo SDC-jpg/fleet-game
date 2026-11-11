@@ -15,7 +15,7 @@ export interface ShipType {
   maxSpeed: number;
   /** How quickly it speeds up and slows down. */
   accel: number;
-  /** Speed and acceleration multiplier while boosting (Shift). */
+  /** Speed and acceleration multiplier while boosting (Shift, limited by CONFIG.boost). */
   boostMultiplier: number;
   /** Turn speed in radians per second (6.28 = a full circle). */
   turnRate: number;
@@ -48,7 +48,7 @@ export const SHIP_TYPES = {
     maxHp: 4,
     maxSpeed: 150,
     accel: 520,
-    boostMultiplier: 1.8,
+    boostMultiplier: 2.2,
     turnRate: 9,
     fireCooldown: 0.25,
     range: 240,
@@ -103,6 +103,8 @@ export const CONFIG = {
     rangePerTier: 1.5,
     /** Each tier up fires this many times slower, with harder shots so damage per second is unchanged. */
     fireIntervalPerTier: 1.25,
+    /** Each tier up multiplies turn speed by this (0.75 = 25% slower), so big ships feel heavy. */
+    turnRatePerTier: 0.75,
     /** Each tier up multiplies an enemy's chance of leaving a wreck by this (was 0.4; 0.6 for testing). */
     wreckChancePerTier: 0.6,
     /** Longest time (seconds) the merging ships take to fly together. */
@@ -122,10 +124,22 @@ export const CONFIG = {
     backward: 0.82,
   },
 
+  /** Shift boost runs on stamina, shown by the ring around the ship you fly. */
+  boost: {
+    /** Seconds of boost from a full bar. */
+    duration: 3,
+    /** Seconds to refill an empty bar. */
+    rechargeTime: 6,
+    /** Seconds after you stop boosting before the bar starts refilling. */
+    rechargeDelay: 0.75,
+    /** After running dry, boost unlocks once the bar refills to this share (0–1). */
+    restartAt: 0.3,
+  },
+
   /** Right-click dash: the whole fleet gets a burst of speed that fades out. */
   dash: {
     /** Speed at the start of a dash, compared to normal speed (at the starting zoom). */
-    speedMultiplier: 3,
+    speedMultiplier: 8,
     /** true = the dash gets stronger as the camera zooms out, so it covers the same share of the screen. */
     scaleWithZoom: true,
     /** Seconds for the dash to fade back to normal speed. */
@@ -242,7 +256,7 @@ export const CONFIG = {
   zoomSteps: [
     { minFleet: 1, zoom: 3 },
     { minFleet: 8, zoom: 2 },
-    { minTier: 2, zoom: 1 },
-    { minTier: 3, zoom: 0.75 },
+    { minTier: 2, zoom: 2 },
+    { minTier: 3, zoom: 1 },
   ] as { minFleet?: number; minTier?: number; zoom: number }[],
 };
