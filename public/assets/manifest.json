@@ -1,12 +1,9 @@
 {
   "_readme": "Lists every piece of art the game uses. See README.md in this folder for how to swap in your own art.",
   "sprites": {
-    "ship.fighter.player": { "file": "ships/fighter-player.png" },
-    "ship.fighter.player.move": { "file": "ships/fighter-player-move.png" },
-    "ship.fighter.player.boost": { "file": "ships/fighter-player-boost.png" },
-    "ship.fighter.enemy": { "file": "ships/fighter-enemy.png" },
-    "ship.fighter.enemy.move": { "file": "ships/fighter-enemy-move.png" },
-    "ship.fighter.enemy.boost": { "file": "ships/fighter-enemy-boost.png" },
+    "ship.fighter": { "file": "ships/fighter.png" },
+    "ship.fighter.move": { "file": "ships/fighter-move.png" },
+    "ship.fighter.boost": { "file": "ships/fighter-boost.png" },
     "ship.fighter.wreck": { "file": "ships/fighter-wreck.png" },
 
     "projectile.player": { "file": "projectiles/bullet-player.png" },

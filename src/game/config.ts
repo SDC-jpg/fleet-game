@@ -20,10 +20,11 @@ export interface ShipType {
   /** Where bullets come out, measured forward from the ship's centre. */
   gunOffset: number;
   /**
-   * Sprite names from public/assets/manifest.json. Optional engine-state
+   * Sprite names from public/assets/manifest.json. `ship` is used for both
+   * teams, recoloured per team (see CONFIG.teamColors). Optional engine-state
    * versions are found by adding ".move" or ".boost" to the name.
    */
-  sprites: { player: string; enemy: string; wreck: string };
+  sprites: { ship: string; wreck: string };
   bulletSprites: { player: string; enemy: string };
 }
 
@@ -42,8 +43,7 @@ export const SHIP_TYPES = {
     bulletDamage: 1,
     gunOffset: 14,
     sprites: {
-      player: "ship.fighter.player",
-      enemy: "ship.fighter.enemy",
+      ship: "ship.fighter",
       wreck: "ship.fighter.wreck",
     },
     bulletSprites: { player: "projectile.player", enemy: "projectile.enemy" },
@@ -53,6 +53,20 @@ export const SHIP_TYPES = {
 export type ShipTypeId = keyof typeof SHIP_TYPES;
 
 export const CONFIG = {
+  /**
+   * Both teams use the same ship images. Paint "team colour" parts in a hue
+   * inside hueMin–hueMax (degrees on the colour wheel: 0 red, 120 green,
+   * 200 sky blue, 240 blue, 300 magenta). Each team turns those pixels by its
+   * own number of degrees. Colours outside the range (hull, flames) never change,
+   * and neither do greys with only a faint tint (saturation below minSaturation, 0–1).
+   */
+  teamColors: {
+    hueMin: 180,
+    hueMax: 230,
+    minSaturation: 0.4,
+    player: 0,
+    enemy: 170,
+  },
   /** Distance between rings in a formation. */
   formationSpacing: 40,
   /**

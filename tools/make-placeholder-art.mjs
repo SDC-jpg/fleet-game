@@ -133,10 +133,6 @@ const FIGHTER_HULL = [
   [29, 16], [22, 12], [14, 11], [9, 5], [5, 5], [8, 12], [5, 14],
   [5, 18], [8, 20], [5, 27], [9, 27], [14, 21], [22, 20],
 ];
-const ENEMY_HULL = [
-  [28, 16], [20, 9], [16, 4], [12, 4], [14, 10], [6, 8], [4, 12], [8, 16],
-  [4, 20], [6, 24], [14, 22], [12, 28], [16, 28], [20, 23],
-];
 
 function playerFighter() {
   const img = new Img(32, 32);
@@ -145,16 +141,6 @@ function playerFighter() {
   for (const y of [5, 26]) for (const x of [6, 7, 8]) img.set(x, y, P.tip); // wing tips
   disc(img, 21, 16, 1.6, P.tip); // cockpit
   for (let y = 14; y <= 17; y++) { img.set(4, y, P.engine); img.set(3, y, hex('#ff7a3a')); }
-  outline(img, P.line);
-  return img;
-}
-
-function enemyFighter() {
-  const img = new Img(32, 32);
-  const P = { hull: hex('#c8453b'), dark: hex('#85251f'), light: hex('#ff9a6e'), eye: hex('#ffe066'), line: hex('#2a0b0b') };
-  fillPolygon(img, ENEMY_HULL, (x, y) => (y >= 16 ? P.dark : y <= 12 ? P.light : P.hull));
-  disc(img, 19, 16, 1.8, P.eye);
-  img.set(19, 16, hex('#ffffff'));
   outline(img, P.line);
   return img;
 }
@@ -306,8 +292,8 @@ function starsNear() {
 
 // ---------- Write files ----------
 const FILES = {
-  'ships/fighter-player.png': playerFighter,
-  'ships/fighter-enemy.png': enemyFighter,
+  // One image for both teams; the game recolours its blue parts for enemies.
+  'ships/fighter.png': playerFighter,
   'ships/fighter-wreck.png': wreckFighter,
   'projectiles/bullet-player.png': playerBullet,
   'projectiles/bullet-enemy.png': enemyBullet,

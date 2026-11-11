@@ -124,6 +124,93 @@ export class Assets {
     if (!this.problems.some((p) => p.startsWith(name + ':'))) this.problems.push(`${name}: not in manifest`);
     return this.missing;
   }
+
+  private recolorCache = new Map<string, Sprite>();
+
+  /**
+   * Get a sprite with some of its colours turned around the colour wheel.
+   * Only pixels whose hue (0–360°) is between `rule.hueMin` and `rule.hueMax`
+   * and whose saturation (0–1) is at least `rule.minSaturation` change, by
+   * `shift` degrees. Brightness and saturation stay the same, so shading
+   * survives. The copy is made once and reused.
+   */
+  getRecolored(name: string, shift: number, rule: RecolorRule): Sprite {
+    const source = this.get(name);
+    if (shift % 360 === 0) return source;
+    const key = `${name}|${shift}|${rule.hueMin}|${rule.hueMax}|${rule.minSaturation}`;
+    let sprite = this.recolorCache.get(key);
+    if (!sprite) {
+      sprite = recolorSprite(source, shift, rule);
+      this.recolorCache.set(key, sprite);
+    }
+    return sprite;
+  }
+}
+
+/** Which pixels Assets.getRecolored changes. */
+export interface RecolorRule {
+  hueMin: number;
+  hueMax: number;
+  minSaturation: number;
+}
+
+function recolorSprite(source: Sprite, shift: number, rule: RecolorRule): Sprite {
+  // Several frames can share one sprite sheet image, so recolour each image only once.
+  const copies = new Map<CanvasImageSource, HTMLCanvasElement>();
+  const frames = source.frames.map((f) => {
+    let copy = copies.get(f.image);
+    if (!copy) {
+      copy = recolorImage(f.image, shift, rule);
+      copies.set(f.image, copy);
+    }
+    return { ...f, image: copy };
+  });
+  return { ...source, frames };
+}
+
+function recolorImage(image: CanvasImageSource, shift: number, { hueMin, hueMax, minSaturation }: RecolorRule) {
+  const { width, height } = image as HTMLImageElement | HTMLCanvasElement;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(0, 0, width, height);
+  const d = pixels.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue; // fully transparent
+    const [h, s, v] = rgbToHsv(d[i], d[i + 1], d[i + 2]);
+    if (s === 0 || s < minSaturation) continue; // greys (even slightly tinted ones) stay
+    // A range like 330–30 wraps around red.
+    const inRange = hueMin <= hueMax ? h >= hueMin && h <= hueMax : h >= hueMin || h <= hueMax;
+    if (!inRange) continue;
+    [d[i], d[i + 1], d[i + 2]] = hsvToRgb(h + shift, s, v);
+  }
+  ctx.putImageData(pixels, 0, 0);
+  return canvas;
+}
+
+/** r, g, b in 0–255 → hue in degrees (0–360), saturation and value in 0–1. */
+function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const c = max - min;
+  let h = 0;
+  if (c > 0) {
+    if (max === r) h = ((g - b) / c) % 6;
+    else if (max === g) h = (b - r) / c + 2;
+    else h = (r - g) / c + 4;
+  }
+  return [(h * 60 + 360) % 360, max === 0 ? 0 : c / max, max / 255];
+}
+
+function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+  h = ((h % 360) + 360) % 360;
+  const f = (n: number) => {
+    const k = (n + h / 60) % 6;
+    return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1))));
+  };
+  return [f(5), f(3), f(1)];
 }
 
 /** Which frame to show `time` seconds after an animation started. */

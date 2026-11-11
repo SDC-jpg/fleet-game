@@ -40,15 +40,31 @@ A ship can have extra images for when its engine is running. Add manifest
 entries named after the ship's sprite plus `.move` or `.boost`:
 
 ```json
-"ship.fighter.player":       { "file": "ships/fighter-player.png" },
-"ship.fighter.player.move":  { "file": "ships/fighter-player-move.png" },
-"ship.fighter.player.boost": { "file": "ships/fighter-player-boost.png" }
+"ship.fighter":       { "file": "ships/fighter.png" },
+"ship.fighter.move":  { "file": "ships/fighter-move.png" },
+"ship.fighter.boost": { "file": "ships/fighter-boost.png" }
 ```
 
 - `.move` shows while the ship is flying, and `.boost` while boosting (Shift).
 - Any of them can be missing. Boost falls back to move, and move falls back to
-  the normal image. Enemy ships (`ship.fighter.enemy.move` etc.) work the same way.
+  the normal image.
 - Each one can be a flipbook too (e.g. a flickering flame).
+
+## Team colours (one image set for both sides)
+
+You paint each ship **once**. Your ships and enemy ships use the same images.
+The game recolours the "team colour" parts for each side when it starts.
+
+- Paint team-colour parts (stripes, accents, lights) in a **strong sky
+  blue**: hues from 180° to 230° on the colour wheel, at least 40% saturation.
+  Faintly blue-tinted greys (like a cool metal hull) are left alone.
+- Keep every other colour **outside** that range: grey hull, orange flames,
+  purple boost glow and so on. Those stay exactly as painted on both sides.
+- Shading works. Only the hue turns, so light and dark blues become light
+  and dark reds.
+- The hue range and how far each team turns it are in `teamColors` in
+  `src/game/config.ts`. For example, `enemy: 170` turns sky blue (200°) into
+  red (10°), and `enemy: 100` would turn it into purple-pink.
 
 ## Conventions
 

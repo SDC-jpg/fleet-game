@@ -38,7 +38,9 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
 /** Draws one ship, plus a small health bar under it if it's damaged. */
 function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
   const t = typeOf(s);
-  r.drawSprite(assets.get(shipSprite(assets, t.sprites[s.team], s.thrust)), s.x, s.y, s.angle, time);
+  const tc = CONFIG.teamColors;
+  const sprite = assets.getRecolored(shipSprite(assets, t.sprites.ship, s.thrust), tc[s.team], tc);
+  r.drawSprite(sprite, s.x, s.y, s.angle, time);
   const maxHp = maxHpOf(s);
   if (s.hp < maxHp) {
     const w = 16;

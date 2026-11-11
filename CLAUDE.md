@@ -50,6 +50,7 @@
   - Keep art files in one clear folder, and list them in a single asset manifest (a file mapping names like `player.idle` or `vfx.explosion` to their files and frame settings).
   - Support flipbook animations from sprite sheets or numbered frame files, with frame size, frame count, frame rate and looping set in the manifest, not in code.
   - Don't let gameplay depend on the exact pixel size of the art. Use separate collision sizes and anchor points.
+  - **One image set per ship design, used by both teams.** Team-colour parts are painted in strong sky blue; the game recolours them per team at load time (`CONFIG.teamColors`). Never ask the user for separate player/enemy versions.
   - Placeholder art should follow the same conventions, so swapping in real art means replacing files (and maybe editing the manifest), not changing code.
 
 ### Game concept: pixel-art spaceship fleet combat
