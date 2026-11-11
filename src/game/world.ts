@@ -1,7 +1,7 @@
 // The game rules: ships, fleets, tiers and merging, shooting, wrecks, enemy waves.
 // No drawing happens here, only updating numbers.
 
-import { approach, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
+import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { CONFIG, SHIP_TYPES, type ShipType, type ShipTypeId } from './config';
 
 export type Team = 'player' | 'enemy';
@@ -423,16 +423,23 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   if (c.fire && ship.fireTimer <= 0 && !ship.merge) fire(state, ship, t.fireCooldown, 0);
 }
 
-function findNearestEnemy(state: GameState, ship: Ship, maxDist: number): Ship | null {
+/** A direction (radians) and how far either side of it a ship may aim. */
+interface FireArc {
+  center: number;
+  half: number;
+}
+
+/** Nearest enemy within `maxDist` (and inside `arc`, if given). */
+function findNearestEnemy(state: GameState, ship: Ship, maxDist: number, arc?: FireArc): Ship | null {
   let best: Ship | null = null;
   let bestD = maxDist * maxDist;
   for (const other of state.ships) {
     if (other.team === ship.team || other.dead || other.merge) continue;
     const d = distSq(ship.x, ship.y, other.x, other.y);
-    if (d < bestD) {
-      bestD = d;
-      best = other;
-    }
+    if (d >= bestD) continue;
+    if (arc && Math.abs(wrapAngle(Math.atan2(other.y - ship.y, other.x - ship.x) - arc.center)) > arc.half) continue;
+    bestD = d;
+    best = other;
   }
   return best;
 }
@@ -477,15 +484,20 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     ship.thrust = !moving ? 'idle' : boosting ? 'boost' : 'move';
     // With nothing to shoot, face where the leader faced, swaying a little.
     const sway = Math.sin(state.time * q.speedX * Math.PI * 2 + q.phaseY) * CONFIG.idleSway;
-    aimAndShoot(state, ship, dt, past.angle + sway);
+    // Only shoot at things roughly in front of the leader (where it faces right now).
+    const arcDeg = ship.team === 'enemy' ? CONFIG.enemyFireArc : CONFIG.allyFireArc;
+    aimAndShoot(state, ship, dt, past.angle + sway, { center: leader.angle, half: (arcDeg * Math.PI) / 180 });
   });
 }
 
-/** AI: turn toward the nearest enemy in range and shoot. Otherwise face `idleAngle`. */
-function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number) {
+/**
+ * AI: turn toward the nearest enemy in range and shoot. Otherwise face `idleAngle`.
+ * With an `arc`, only targets inside it count and the ship never turns outside it.
+ */
+function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number, arc?: FireArc) {
   const t = typeOf(ship);
   // Merging ships hold fire.
-  const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range);
+  const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range, arc);
   if (!target) {
     ship.angle = turnToward(ship.angle, idleAngle, t.turnRate * dt);
     return;
@@ -499,7 +511,9 @@ function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number
     aimX += target.vx * travel;
     aimY += target.vy * travel;
   }
-  const want = Math.atan2(aimY - ship.y, aimX - ship.x);
+  let want = Math.atan2(aimY - ship.y, aimX - ship.x);
+  // Aiming ahead of a moving target must not take the ship outside its arc.
+  if (arc) want = arc.center + clamp(wrapAngle(want - arc.center), -arc.half, arc.half);
   ship.angle = turnToward(ship.angle, want, t.turnRate * dt);
   if (ship.fireTimer <= 0 && Math.abs(wrapAngle(want - ship.angle)) < 0.25) {
     const mul = enemy ? CONFIG.enemyFireCooldownMultiplier : CONFIG.allyFireCooldownMultiplier;

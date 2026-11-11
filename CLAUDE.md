@@ -59,7 +59,7 @@
 
 ### Game concept: pixel-art spaceship fleet combat
 - The player starts as a single spaceship and grows a fleet. As the fleet grows, the camera zooms out and the fights get bigger, eventually fleet against fleet.
-- **Fleet control:** the player flies one ship directly (WASD/arrows to move, mouse to aim and fire). The other ships follow in formation and shoot nearby enemies on their own. Simple fleet orders (formation spacing, attack target, hold back) come later.
+- **Fleet control:** the player flies one ship directly (WASD/arrows to move, mouse to aim and fire). The other ships follow in formation and shoot nearby enemies on their own. They only aim and fire within ±15° of their leader's current facing (`allyFireArc`; enemy fleets too, `enemyFireArc`), so the fleet fires where the player aims. Simple fleet orders (formation spacing, attack target, hold back) come later.
 - **Zoom:** in steps at whole-number pixel scales (e.g. 4× → 3× → 2× → 1×) so pixel art stays crisp, with a quick smooth transition between steps. Steps trigger at fleet-size thresholds.
 - **Getting new ships:** start with flying into wrecks to recruit them. Other ways (buying, capturing enemies) may come later.
 - **Flagship death:** command passes to another ship in the fleet, and it's game over only when the whole fleet is gone. Later, the player should be able to switch to any owned ship at will, because ships will eventually have different modules and weapons.

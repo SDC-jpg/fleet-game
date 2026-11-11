@@ -119,6 +119,13 @@ export const CONFIG = {
   /** Your ships get extra health compared to the same ship type flown by enemies. */
   playerHpMultiplier: 1.5,
   enemySpeedMultiplier: 0.8,
+  /**
+   * Fleet ships (not the flagship) only aim and fire within this many degrees
+   * either side of where their leader is facing, so the fleet fires where you aim.
+   */
+  allyFireArc: 15,
+  /** The same for ships following an enemy fleet's leader. */
+  enemyFireArc: 15,
   /** Random aim error in radians. */
   allyAimSpread: 0.08,
   enemyAimSpread: 0.2,
