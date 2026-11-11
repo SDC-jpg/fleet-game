@@ -28,7 +28,7 @@ if [ "$RESULT" = "success" ]; then
   title="🚀 Version ${RUN_NUMBER} is live"
   description="${notes}
 
-[▶ Play the game](${SITE_URL})"
+[▶ Play the game](${SITE_URL}) · [⚙ Tuning settings](${SITE_URL}tuning.html)"
   color=5763719 # green
 else
   title="⚠️ Version ${RUN_NUMBER} failed to build"

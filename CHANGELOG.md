@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-11
 
+- New: a **tuning settings page** listing every adjustable number in the game with its current value. It updates itself with each new version.
 - Dash cooldown shortened from 30 to 18 seconds.
 - The dash now goes further when the camera is zoomed out, so it stays useful with a big fleet.
 - New: **right-click to dash**. Your whole fleet bursts to 3× speed for a moment, with a speed trail. 30 second cooldown.

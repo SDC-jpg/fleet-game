@@ -1,26 +1,38 @@
 // All the tuning numbers in one place. Change these to change how the game feels.
 // Distances are in game pixels, times in seconds, speeds in pixels per second.
+//
+// The comments here also make the public tuning page (tools/make-tuning-page.mjs):
+// - A `/** ... */` comment right above a setting is its description on the page.
+// - A `// == Title: note ==` line starts a new section on the page.
+// Keep each description to one clear line.
 
 export interface ShipType {
-  /** Hit area radius. Independent of the art size. */
+  /** Hit size (radius). Separate from the art size. */
   radius: number;
+  /** Health. */
   maxHp: number;
+  /** Top speed. */
   maxSpeed: number;
+  /** How quickly it speeds up and slows down. */
   accel: number;
   /** Speed and acceleration multiplier while boosting (Shift). */
   boostMultiplier: number;
-  /** Radians per second. */
+  /** Turn speed in radians per second (6.28 = a full circle). */
   turnRate: number;
+  /** Seconds between shots. */
   fireCooldown: number;
   /** How far away AI-controlled ships start shooting. */
   range: number;
+  /** Shot speed. */
   bulletSpeed: number;
+  /** Seconds a shot lasts (its reach is speed × life). */
   bulletLife: number;
+  /** Damage per shot. */
   bulletDamage: number;
-  /** Where bullets come out, measured forward from the ship's centre. */
+  /** Where shots appear, measured forward from the ship's centre. */
   gunOffset: number;
   /**
-   * Sprite names from public/assets/manifest.json, used by both teams and
+   * Art names from public/assets/manifest.json, used by both teams and
    * recoloured per team (see CONFIG.teamColors).
    * - Bigger tiers add ".t2", ".t3"... (e.g. "ship.fighter.t2"). A missing
    *   tier uses the closest smaller tier's art.
@@ -29,6 +41,7 @@ export interface ShipType {
   sprites: { ship: string; bullet: string };
 }
 
+/** Ship stats at tier 1. Bigger tiers are worked out from these with CONFIG.tiers. */
 export const SHIP_TYPES = {
   fighter: {
     radius: 14,
@@ -51,45 +64,49 @@ export type ShipTypeId = keyof typeof SHIP_TYPES;
 
 export const CONFIG = {
   /**
-   * Both teams use the same ship images. Paint "team colour" parts in a hue
-   * inside hueMin–hueMax (degrees on the colour wheel: 0 red, 120 green,
-   * 200 sky blue, 240 blue, 300 magenta). Each team turns those pixels by its
-   * own number of degrees. Colours outside the range (hull, flames) never change,
-   * and neither do greys with only a faint tint (saturation below minSaturation, 0–1).
+   * Both teams use the same ship images. Team-colour parts are painted in a hue
+   * inside hueMin–hueMax, and each team turns those pixels by its own number of
+   * degrees (0 red, 120 green, 200 sky blue, 240 blue, 300 magenta).
    */
   teamColors: {
+    /** Lowest hue (degrees) counted as team colour. */
     hueMin: 180,
+    /** Highest hue (degrees) counted as team colour. */
     hueMax: 230,
+    /** Greys with less saturation than this (0–1) are left alone, even if faintly blue. */
     minSaturation: 0.4,
+    /** How far your team turns the hue (0 = keep sky blue). */
     player: 0,
+    /** How far enemies turn the hue (170 turns sky blue into red). */
     enemy: 170,
   },
 
   /**
-   * Tiers: 16 ships of one tier merge into 1 ship of the next tier up.
-   * Fleet value counts what every ship is worth in tier-1 ships (T2 = 16, T3 = 256...).
+   * 16 ships of one tier merge into 1 ship of the next tier up. Fleet value counts
+   * what every ship is worth in tier-1 ships (T2 = 16, T3 = 256...).
    */
   tiers: {
+    /** Ships of one tier that merge into one ship of the next tier. */
     shipsPerMerge: 16,
     /** Merging only starts once your fleet value reaches this. */
     mergeStartsAt: 32,
-    /** Each tier up multiplies health and damage per volley by this. */
+    /** Each tier up multiplies health and damage per second by this. */
     powerPerTier: 12,
     /** Shots per volley for tier 2 and up (tier 1 fires 1). Damage is split between them. */
     shotsPerVolley: 2,
-    /** Each tier up multiplies hit size, gun position and shot hit size by this. */
+    /** Each tier up multiplies hit size, gun position and shot size by this. */
     sizePerTier: 1.5,
-    /** Each tier up multiplies shot speed by this... */
+    /** Each tier up multiplies shot speed by this. */
     shotSpeedPerTier: 1.2,
-    /** ...and how far shots travel (and AI firing range) by this. */
+    /** Each tier up multiplies shot reach and AI firing range by this. */
     rangePerTier: 1.5,
-    /** Each tier up multiplies the chance of leaving a wreck by this. */
-    wreckChancePerTier: 0.4,
-    /** Each tier up fires this many times slower, with harder shots so damage per second still grows by powerPerTier. */
+    /** Each tier up fires this many times slower, with harder shots so damage per second is unchanged. */
     fireIntervalPerTier: 1.25,
-    /** Seconds for the merging ships to fly together before the big ship appears. */
+    /** Each tier up multiplies an enemy's chance of leaving a wreck by this. */
+    wreckChancePerTier: 0.4,
+    /** Longest time (seconds) the merging ships take to fly together. */
     mergeDuration: 1,
-    /** Shots fired in a ring when a merge finishes (each hits like the new ship's normal shot). 0 = off. */
+    /** Shots fired in a ring when a merge finishes, each as strong as the new ship's normal shot (0 = off). */
     mergeBurstShots: 16,
   },
 
@@ -98,121 +115,128 @@ export const CONFIG = {
    * slower backing away. Sideways is normal speed, with a smooth blend between.
    */
   directionalSpeed: {
+    /** Speed multiplier when moving straight toward the cursor. */
     forward: 1.2,
+    /** Speed multiplier when backing straight away from the cursor. */
     backward: 0.82,
   },
 
   /** Right-click dash: the whole fleet gets a burst of speed that fades out. */
   dash: {
-    /** Speed at the start of the dash, compared to normal speed (at the starting zoom). */
+    /** Speed at the start of a dash, compared to normal speed (at the starting zoom). */
     speedMultiplier: 3,
-    /**
-     * true = the dash's extra speed grows as the camera zooms out, so it covers
-     * the same share of the screen at every zoom (e.g. 4× the extra at 0.75× zoom vs 3×).
-     */
+    /** true = the dash gets stronger as the camera zooms out, so it covers the same share of the screen. */
     scaleWithZoom: true,
     /** Seconds for the dash to fade back to normal speed. */
     duration: 0.5,
     /** Seconds before you can dash again. */
     cooldown: 18,
   },
+
+  // == Formation: how your wingmen follow ==
   /** Distance between rings in a formation. */
   formationSpacing: 40,
-  /**
-   * false = your ships fly over/under each other freely (as if at different
-   * heights). true = they gently push apart when they overlap. Enemies always push apart.
-   */
+  /** false = your ships fly over/under each other freely; true = they push apart (enemies always do). */
   playerShipsCollide: false,
-  /** Seconds before the first ring of followers reacts to the leader... */
+  /** Seconds before the first ring of followers reacts to the leader. */
   followDelay: 0.12,
-  /** ...plus this much more for each ring further out... */
+  /** Extra reaction delay for each ring further out, so turns ripple outward. */
   followDelayPerRing: 0.1,
-  /** ...plus up to this much random extra per ship. */
+  /** Up to this much random extra delay per ship. */
   followDelayRandom: 0.08,
-  /** How much leader history to keep (must cover the slowest follower). */
+  /** Seconds of the leader's path to remember (must cover the slowest follower). */
   followDelayMaxTotal: 1.5,
   /** How firmly followers pull toward their spot (higher = snappier, lower = floatier). */
   followStiffness: 2.2,
-  /** How far (pixels) each ship drifts around its spot. */
+  /** How far each ship drifts around its spot. */
   driftAmount: 5,
-  /** Drift loop speed range, in loops per second (each ship picks its own). */
+  /** Slowest drift loop, in loops per second (each ship picks its own speed). */
   driftSpeedMin: 0.15,
+  /** Fastest drift loop, in loops per second. */
   driftSpeedMax: 0.4,
-  /** How much (radians) idle ships sway their nose. */
+  /** How much (radians) ships sway their nose when not shooting. */
   idleSway: 0.08,
-  /** AI ships in your fleet shoot a bit slower than you do. */
+
+  // == Combat AI ==
+  /** Your wingmen fire this many times slower than you do. */
   allyFireCooldownMultiplier: 1.4,
-  /** Enemies are slower and shoot less often, so the player has a chance. */
+  /** Enemies fire this many times slower than you, so you have a chance. */
   enemyFireCooldownMultiplier: 6,
-  /** Your ships get extra health compared to the same ship type flown by enemies. */
+  /** Your ships get this much health compared to the same ship flown by enemies. */
   playerHpMultiplier: 1.5,
+  /** Enemy speed compared to yours. */
   enemySpeedMultiplier: 0.8,
-  /**
-   * Fleet ships (not the flagship) only aim and fire within this many degrees
-   * either side of where their leader is facing, so the fleet fires where you aim.
-   */
+  /** Fleet ships only aim and fire within this many degrees either side of their leader's facing. */
   allyFireArc: 15,
   /** The same for ships following an enemy fleet's leader. */
   enemyFireArc: 15,
-  /** Random aim error in radians. */
+  /** Your wingmen's random aim error, in radians. */
   allyAimSpread: 0.08,
+  /** Enemies' random aim error, in radians. */
   enemyAimSpread: 0.2,
-  /** Allies aim ahead of moving targets. Enemies aim straight at you, so moving sideways dodges. */
+  /** Your wingmen aim ahead of moving targets. */
   allyLeadsTargets: true,
+  /** Enemies aim ahead too (false = straight at you, so moving sideways dodges). */
   enemyLeadsTargets: false,
   /** Lone enemies try to stay about this far from their target. */
   enemyPreferredDistance: 160,
 
+  // == Wrecks ==
   /** Chance a destroyed tier-1 enemy leaves a wreck you can recruit. */
   wreckChance: 0.75,
+  /** Seconds before a wreck disappears. */
   wreckLifetime: 40,
-  /** Wrecks blink during their last few seconds. */
+  /** Wrecks blink during their last this-many seconds. */
   wreckBlinkTime: 5,
-  /** Wrecks drift toward your ships when one is this close... */
+  /** Wrecks drift toward your ships when one is this close. */
   wreckMagnetRange: 70,
-  /** ...with this much pull. */
+  /** How strongly wrecks are pulled toward your ships. */
   wreckMagnetAccel: 400,
 
+  // == Waves ==
+  /** Seconds before the first wave. */
   firstWaveDelay: 2,
-  /** Seconds between waves at the start... */
+  /** Seconds between waves at the start. */
   waveInterval: 12,
-  /** ...multiplied by this after every wave (0.995 = 0.5% shorter each time)... */
+  /** Each gap between waves is this times the last (0.995 = 0.5% shorter each time). */
   waveIntervalShrink: 0.995,
-  /** ...then randomly up to this much shorter or longer (0.2 = ±20%), so the pace varies... */
+  /** Random change to each gap, either way (0.2 = up to 20% shorter or longer). */
   waveIntervalRandom: 0.2,
-  /** ...but never shorter than this. */
+  /** Shortest possible gap between waves. */
   waveIntervalMin: 4,
   /** Lone enemies per wave = 1 + wave number × this. */
   loneEnemiesPerWave: 0.25,
+  /** Most lone enemies in one wave. */
   maxLoneEnemiesPerWave: 12,
+  /** Most enemies alive at once. */
   maxEnemies: 120,
   /** How far outside the visible area enemies appear. */
   spawnMargin: 150,
-  /** Enemy fleets start appearing once your fleet is at least this big... */
+  /** Enemy fleets start appearing once your fleet value is at least this. */
   enemyFleetMinPlayerSize: 6,
-  /** ...on every Nth wave. */
+  /** Once they've started, an enemy fleet comes every this-many waves. */
   enemyFleetEveryNthWave: 3,
   /** Enemy fleet value compared to yours (1.1 = 10% bigger, plus 2). */
   enemyFleetSizeRatio: 1.1,
 
-  /** Sound settings. Per-sound volumes are in public/assets/manifest.json. */
+  /** Sound settings. Each sound's own volume is in public/assets/manifest.json. */
   audio: {
     /** Overall volume, 0–1. */
     masterVolume: 0.6,
     /** Your wingmen's shots, compared to the ship you fly (0 = silent). */
     allyShotVolume: 0.4,
-    /** When a tier has no sound of its own, the smaller tier's sound plays this much lower per tier. */
+    /** A bigger tier with no sound of its own plays the smaller tier's sound at this pitch per tier. */
     pitchPerTier: 0.85,
     /** Left/right panning strength for sounds at the screen edge (0 = none, 1 = full). */
     panAmount: 0.7,
-    /** Sounds off-screen fade out, reaching silence this many screen-halves from the centre. */
+    /** Off-screen sounds fade to silence this many half-screens from the centre. */
     silentAt: 2,
   },
 
   /**
-   * Camera zoom. Every step you've reached (biggest fleet value, or biggest
-   * tier) counts, and the most zoomed-out one wins. Below 1 the art is shrunk,
-   * so it gets a little softer.
+   * Camera zoom steps. Every step you've reached (biggest fleet value, or biggest
+   * tier) counts, and the most zoomed-out one wins. Below 1× the art is shrunk,
+   * so it looks a little softer.
    */
   zoomSteps: [
     { minFleet: 1, zoom: 3 },

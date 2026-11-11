@@ -40,7 +40,8 @@
 
 ## Code layout
 - `src/engine/`: the small homegrown engine (asset loading from the manifest, pixel renderer with whole-number zoom, sound playback (`sound.ts`), input, fixed 60 Hz game loop).
-- `src/game/config.ts`: every tuning number (speeds, health, waves, zoom steps, ship types and their hit sizes).
+- `src/game/config.ts`: every tuning number (speeds, health, waves, zoom steps, ship types and their hit sizes). Its comments also feed the public tuning page: give every new setting a one-line `/** */` description, and start a group of plain settings with a `// == Title: note ==` line.
+- `tools/make-tuning-page.mjs`: runs at the end of `npm run build` and writes `dist/tuning.html`, a table of every setting with its value and description, read from `config.ts`. It's published at https://sdc-jpg.github.io/fleet-game/tuning.html (the user's teammate uses it) and linked in the Discord build post. It warns about settings with no description.
 - `src/game/world.ts`: game rules (no drawing; it queues sound events in `state.sounds`, which `Game.ts` plays). `src/game/render.ts`: drawing. `src/game/Game.ts`: connects input, rules and drawing.
 - `src/App.tsx`: React canvas and HUD.
 - `public/assets/`: all art and sound effects (`sfx/`), plus `manifest.json` (sprite and sound names → files) and `README.md` (art and sound guide for the user).
