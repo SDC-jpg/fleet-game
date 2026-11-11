@@ -104,12 +104,17 @@ export const CONFIG = {
 
   /** Right-click dash: the whole fleet gets a burst of speed that fades out. */
   dash: {
-    /** Speed at the start of the dash, compared to normal speed. */
+    /** Speed at the start of the dash, compared to normal speed (at the starting zoom). */
     speedMultiplier: 3,
+    /**
+     * true = the dash's extra speed grows as the camera zooms out, so it covers
+     * the same share of the screen at every zoom (e.g. 4× the extra at 0.75× zoom vs 3×).
+     */
+    scaleWithZoom: true,
     /** Seconds for the dash to fade back to normal speed. */
     duration: 0.5,
     /** Seconds before you can dash again. */
-    cooldown: 30,
+    cooldown: 18,
   },
   /** Distance between rings in a formation. */
   formationSpacing: 40,

@@ -62,7 +62,7 @@
 
 ### Game concept: pixel-art spaceship fleet combat
 - The player starts as a single spaceship and grows a fleet. As the fleet grows, the camera zooms out and the fights get bigger, eventually fleet against fleet.
-- **Movement:** the flagship is 20% faster moving toward where it faces (the cursor) and 18% slower backing away, blended smoothly (`directionalSpeed`). Shift boosts. **Right-click dash:** the whole fleet is kicked to 3× speed at once, fading back over 0.5 s, with a 30 s cooldown and a flipbook trail (`vfx.dash`) behind each ship (`CONFIG.dash`).
+- **Movement:** the flagship is 20% faster moving toward where it faces (the cursor) and 18% slower backing away, blended smoothly (`directionalSpeed`). Shift boosts. **Right-click dash:** the whole fleet is kicked to 3× speed at once, fading back over 0.5 s, with an 18 s cooldown. The extra speed scales with zoom (3/zoom: 4× the extra at 0.75×) so the dash covers the same share of the screen at every zoom and a flipbook trail (`vfx.dash`) behind each ship (`CONFIG.dash`).
 - **Pause:** Esc toggles it. The game also pauses by itself when the window loses focus, and the screen isn't redrawn while paused.
 - **End-of-run report:** ships destroyed and lost (count and value; merged ships aren't losses), and a graph of fleet value with one point per wave start.
 - **Waves:** each gap is 0.5% shorter than the last (starting at 12 s), then randomly ±20%, never below 4 s, to vary pressure and calm.

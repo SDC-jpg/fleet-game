@@ -71,6 +71,8 @@ export interface Fleet {
   trailLeaderId: number;
   /** Seconds left of a dash (right-click), counting down to 0. */
   dashTime: number;
+  /** Speed multiplier at the start of the current dash (fades to 1). */
+  dashPower: number;
   /** Direction of the current dash. */
   dashX: number;
   dashY: number;
@@ -93,6 +95,7 @@ const newFleet = (team: Team): Fleet => ({
   trail: [],
   trailLeaderId: 0,
   dashTime: 0,
+  dashPower: 1,
   dashX: 0,
   dashY: 0,
 });
@@ -466,11 +469,10 @@ function directionFactor(angle: number, mx: number, my: number) {
   return dot >= 0 ? 1 + (ds.forward - 1) * dot : 1 + (1 - ds.backward) * dot;
 }
 
-/** How much faster a fleet moves right now because of a dash (fades from 3× to 1×). */
+/** How much faster a fleet moves right now because of a dash (fades from its start power to 1×). */
 function dashMultiplier(fleet: Fleet) {
   if (fleet.dashTime <= 0) return 1;
-  const d = CONFIG.dash;
-  return 1 + (d.speedMultiplier - 1) * (fleet.dashTime / d.duration);
+  return 1 + (fleet.dashPower - 1) * (fleet.dashTime / CONFIG.dash.duration);
 }
 
 function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
@@ -500,8 +502,9 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
 }
 
 /**
- * Right-click: every ship in the fleet is kicked to 3× speed at once (in the
- * direction you're steering, or where you face), fading back over half a second.
+ * Right-click: every ship in the fleet is kicked to 3× speed at once (more when
+ * zoomed out), in the direction you're steering or where you face, fading back
+ * over half a second.
  */
 function startDash(state: GameState, fleet: Fleet, leader: Ship, mx: number, my: number) {
   const d = CONFIG.dash;
@@ -509,7 +512,10 @@ function startDash(state: GameState, fleet: Fleet, leader: Ship, mx: number, my:
     mx = Math.cos(leader.angle);
     my = Math.sin(leader.angle);
   }
-  const speed = typeOf(leader).maxSpeed * directionFactor(leader.angle, mx, my) * d.speedMultiplier;
+  // Zoomed out, the screen shows more of the world, so the dash gets stronger to match.
+  const zoomScale = d.scaleWithZoom ? CONFIG.zoomSteps[0].zoom / state.zoom : 1;
+  fleet.dashPower = 1 + (d.speedMultiplier - 1) * zoomScale;
+  const speed = typeOf(leader).maxSpeed * directionFactor(leader.angle, mx, my) * fleet.dashPower;
   fleet.dashTime = d.duration;
   fleet.dashX = mx;
   fleet.dashY = my;
