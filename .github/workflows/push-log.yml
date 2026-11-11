@@ -1,0 +1,30 @@
+# Posts every push (any branch) to the Discord push-log channel: the commits
+# and their messages, with links. Needs the DISCORD_WEBHOOK_PUSH secret;
+# if it's missing, this quietly does nothing.
+name: Push log to Discord
+
+on: push
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post commits to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_PUSH }}
+          COMMITS: ${{ toJSON(github.event.commits) }}
+          BRANCH: ${{ github.ref_name }}
+          PUSHER: ${{ github.event.pusher.name }}
+          COMPARE: ${{ github.event.compare }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "DISCORD_WEBHOOK_PUSH not set: skipping."; exit 0; fi
+          count=$(printf "%s" "$COMMITS" | jq 'length')
+          [ "$count" -gt 0 ] || { echo "No new commits: skipping."; exit 0; }
+          # One line per commit: [abc1234](link) first line of the message
+          lines=$(printf "%s" "$COMMITS" | jq -r '.[] | "[`\(.id[0:7])`](\(.url)) \(.message | split("\n")[0])"')
+          plural=$([ "$count" -eq 1 ] && echo commit || echo commits)
+          payload=$(jq -n --arg t "📦 $count $plural pushed to $BRANCH by $PUSHER" --arg u "$COMPARE" \
+            --arg d "${lines:0:4000}" \
+            '{username: "Fleet Game pushes", embeds: [{title: $t, url: $u, description: $d, color: 5793266}]}')
+          curl -fsS -H 'Content-Type: application/json' -d "$payload" "$WEBHOOK" \
+            || echo "::warning::Could not post to Discord"

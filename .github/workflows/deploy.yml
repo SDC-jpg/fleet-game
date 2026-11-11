@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # lets the Discord step find the previous published version
   pages: write
   id-token: write
 
@@ -43,3 +44,27 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Posts the result and the new CHANGELOG.md lines to the Discord build-log channel.
+  notify:
+    needs: [build, deploy]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history, to compare with the previous version
+      - name: Post to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_BUILD }}
+          RESULT: ${{ needs.deploy.result == 'success' && 'success' || 'failure' }}
+          SHA: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SITE_URL: https://sdc-jpg.github.io/fleet-game/
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The last version that was published successfully (this run isn't finished yet).
+          export PREV_SHA=$(gh run list --workflow deploy.yml --branch main --status success \
+            --limit 1 --json headSha --jq '.[0].headSha' || true)
+          .github/scripts/discord-build-log.sh
