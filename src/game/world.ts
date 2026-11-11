@@ -2,7 +2,7 @@
 // No drawing happens here, only updating numbers.
 
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
-import { CONFIG, SHIP_TYPES, type ClassId, type ComboId, type ShipType, type ShipTypeId } from './config';
+import { CLASS_IDS, CONFIG, SHIP_TYPES, type ClassId, type ComboId, type ShipType, type ShipTypeId } from './config';
 import {
   addModules,
   computeBuild,
@@ -55,6 +55,8 @@ export interface Ship {
   build: Build;
   /** Seconds until each ability can be used again. */
   abilityTimers: Modules;
+  /** Each ability's full cooldown when it was last used (for the refilling icons). */
+  abilityCooldowns: Modules;
   /** Damage an Aegis shield will still absorb, and seconds until it fades. */
   shield: number;
   shieldTime: number;
@@ -365,6 +367,7 @@ function addShip(
 ) {
   const build = computeBuild(modules, tier);
   const stats = shipStats(type, team, tier, build);
+  const timers = startingTimers();
   const ship: Ship = {
     id: state.nextId++,
     team,
@@ -373,7 +376,8 @@ function addShip(
     stats,
     modules,
     build,
-    abilityTimers: startingTimers(),
+    abilityTimers: timers,
+    abilityCooldowns: { ...timers },
     shield: 0,
     shieldTime: 0,
     shieldCombo: null,
@@ -565,7 +569,7 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   }
   const steering = mx !== 0 || my !== 0;
   // Boost only counts while you're actually steering somewhere. A dash outdoes it.
-  const boosting = useBoostStamina(state, c.boost && len > 0, dt);
+  const boosting = useBoostStamina(state, ship, c.boost && len > 0, dt);
   const mul = Math.max(boosting ? t.boostMultiplier : 1, dashMultiplier(fleet));
   const speed = t.maxSpeed * mul * directionFactor(ship.angle, mx, my);
   steer(ship, mx * speed, my * speed, t.accel * mul, dt);
@@ -580,10 +584,12 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
  * dry locks boost until the bar is partly refilled, so it doesn't stutter on and off.
  * Returns whether the ship boosts this step.
  */
-function useBoostStamina(state: GameState, wants: boolean, dt: number) {
+function useBoostStamina(state: GameState, ship: Ship, wants: boolean, dt: number) {
   const b = CONFIG.boost;
   if (wants && !state.boostLocked && state.boostStamina > 0) {
-    state.boostStamina = Math.max(0, state.boostStamina - dt / b.duration);
+    // Bigger ships have more boost time.
+    const duration = b.duration * b.durationPerTier ** (ship.tier - 1);
+    state.boostStamina = Math.max(0, state.boostStamina - dt / duration);
     state.boostRest = 0;
     if (state.boostStamina === 0) state.boostLocked = true;
     return true;
@@ -866,8 +872,9 @@ function removeDeadShips(state: GameState) {
       state.stats.losses++;
       state.stats.lossValue += tierValue(s.tier);
     }
-    // Bigger enemies leave wrecks less often.
-    const wreckChance = CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
+    // Bigger enemies leave wrecks less often. Your first kill always leaves one.
+    const firstKill = s.team === 'enemy' && state.stats.kills === 1 && CONFIG.firstKillWreck;
+    const wreckChance = firstKill ? 1 : CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
     if (s.team === 'enemy' && Math.random() < wreckChance) {
       state.wrecks.push({
         type: s.type,
@@ -929,14 +936,34 @@ function promoteFlagship(state: GameState) {
 }
 
 /**
- * Mouse wheel: fly the next (dir 1) or previous (-1) of your biggest ships, so
- * you choose whose ability is on right-click.
+ * The ships the mouse wheel switches between, in order: your highest-tier ships.
+ * At tier 1 that's one per class (Lancer, Knight, Ballista), the least damaged
+ * of each, plus the ship you fly for its own class.
  */
-function switchFlagship(state: GameState, dir: number) {
+export function switchOptions(state: GameState): Ship[] {
   const fleet = state.playerFleet;
   const free = fleet.members.filter((s) => !s.merge);
   const top = Math.max(0, ...free.map((s) => s.tier));
   const options = free.filter((s) => s.tier === top).sort((a, b) => a.id - b.id);
+  if (top !== 1) return options;
+  const health = (s: Ship) => s.hp / s.stats.maxHp;
+  const picks: Ship[] = [];
+  for (const c of CLASS_IDS) {
+    const ofClass = options.filter((s) => s.build.main === c);
+    if (!ofClass.length) continue;
+    const current = ofClass.find((s) => s === fleet.leader);
+    picks.push(current ?? ofClass.reduce((best, s) => (health(s) > health(best) ? s : best)));
+  }
+  return picks;
+}
+
+/**
+ * Mouse wheel: fly the next (dir 1) or previous (-1) ship from switchOptions,
+ * so you choose whose ability is on right-click.
+ */
+function switchFlagship(state: GameState, dir: number) {
+  const fleet = state.playerFleet;
+  const options = switchOptions(state);
   if (options.length < 2 || !fleet.leader || fleet.leader.merge) return;
   const i = options.indexOf(fleet.leader);
   fleet.leader = options[(i + dir + options.length) % options.length];

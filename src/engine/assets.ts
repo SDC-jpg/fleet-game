@@ -145,6 +145,54 @@ export class Assets {
     }
     return sprite;
   }
+
+  /**
+   * A darker version of a sprite (e.g. an icon whose ability is recharging).
+   * If the manifest has "<name>.cooldown", that art is used instead.
+   */
+  getDarkened(name: string, brightness: number): Sprite {
+    if (this.has(`${name}.cooldown`)) return this.get(`${name}.cooldown`);
+    const key = `${name}|dark|${brightness}`;
+    let sprite = this.recolorCache.get(key);
+    if (!sprite) {
+      sprite = mapSprite(this.get(name), (image) => darkenImage(image, brightness));
+      this.recolorCache.set(key, sprite);
+    }
+    return sprite;
+  }
+}
+
+/** A copy of every frame image of a sprite, changed by `change` (each image is copied once). */
+function mapSprite(source: Sprite, change: (image: CanvasImageSource) => HTMLCanvasElement): Sprite {
+  const copies = new Map<CanvasImageSource, HTMLCanvasElement>();
+  const frames = source.frames.map((f) => {
+    let copy = copies.get(f.image);
+    if (!copy) {
+      copy = change(f.image);
+      copies.set(f.image, copy);
+    }
+    return { ...f, image: copy };
+  });
+  return { ...source, frames };
+}
+
+/** A darker copy of an image: every colour times `brightness` (0–1), transparency kept. */
+function darkenImage(image: CanvasImageSource, brightness: number) {
+  const { width, height } = image as HTMLImageElement | HTMLCanvasElement;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(0, 0, width, height);
+  const d = pixels.data;
+  for (let i = 0; i < d.length; i += 4) {
+    d[i] *= brightness;
+    d[i + 1] *= brightness;
+    d[i + 2] *= brightness;
+  }
+  ctx.putImageData(pixels, 0, 0);
+  return canvas;
 }
 
 /** Which pixels Assets.getRecolored changes. */
@@ -156,16 +204,7 @@ export interface RecolorRule {
 
 function recolorSprite(source: Sprite, shift: number, rule: RecolorRule): Sprite {
   // Several frames can share one sprite sheet image, so recolour each image only once.
-  const copies = new Map<CanvasImageSource, HTMLCanvasElement>();
-  const frames = source.frames.map((f) => {
-    let copy = copies.get(f.image);
-    if (!copy) {
-      copy = recolorImage(f.image, shift, rule);
-      copies.set(f.image, copy);
-    }
-    return { ...f, image: copy };
-  });
-  return { ...source, frames };
+  return mapSprite(source, (image) => recolorImage(image, shift, rule));
 }
 
 function recolorImage(image: CanvasImageSource, shift: number, { hueMin, hueMax, minSaturation }: RecolorRule) {

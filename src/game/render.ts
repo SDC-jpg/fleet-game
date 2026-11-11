@@ -3,7 +3,7 @@
 import type { Assets, Sprite } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { clamp } from '../engine/math';
-import { CLASSES, SHIP_TYPES, CONFIG, type ShipTypeId } from './config';
+import { CLASSES, SHIP_TYPES, CONFIG, type ClassId, type ShipTypeId } from './config';
 import type { Build } from './abilities';
 import { controlledShip, isMergePart, type GameState, type Ship, type Team, type Thrust } from './world';
 
@@ -56,9 +56,11 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
       const bubble = assets.get(tierSprite(assets, 'vfx.shield', s.tier));
       r.drawSprite(bubble, s.x, s.y, 0, state.time, Math.min(1, s.shieldTime) * 0.9);
     }
-    drawClassIcons(r, assets, s.build, s.x, s.y - s.stats.radius, state.time);
+    drawClassIcons(r, assets, s.build, s.x, s.y - s.stats.radius, state.time, (c) =>
+      s.abilityCooldowns[c] > 0 ? 1 - s.abilityTimers[c] / s.abilityCooldowns[c] : 1,
+    );
   }
-  for (const w of state.wrecks) drawClassIcons(r, assets, w.build, w.x, w.y - 14 * 1.5 ** (w.tier - 1), state.time);
+  for (const w of state.wrecks) drawClassIcons(r, assets, w.build, w.x, w.y - 14 * 1.5 ** (w.tier - 1), state.time, () => 1);
 
   for (const b of state.bullets) {
     const sprite = teamSprite(assets, tierSprite(assets, b.sprite, b.tier), b.team);
@@ -105,16 +107,38 @@ function shipArt(type: ShipTypeId, tier: number, build: Build) {
   return tier === 1 ? CLASSES[build.main].sprite : SHIP_TYPES[type].sprites.ship;
 }
 
+/** How bright a class icon is while its ability recharges (it refills from the bottom). */
+const ICON_COOLDOWN_BRIGHTNESS = 0.35;
+
 /**
  * Rank icons above a ship (or wreck) whose top edge is at (x, top): its first
  * ability's class, plus a smaller icon for its second one. Never shrunk when zoomed out.
+ * While an ability recharges, its icon is dark and refills from the bottom
+ * (`ready` gives 0–1 per class; 1 = ready).
  */
-function drawClassIcons(r: PixelRenderer, assets: Assets, build: Build, x: number, top: number, time: number) {
+function drawClassIcons(
+  r: PixelRenderer,
+  assets: Assets,
+  build: Build,
+  x: number,
+  top: number,
+  time: number,
+  ready: (c: ClassId) => number,
+) {
   const [first, second] = build.abilities.length ? build.abilities : [build.main];
   const y = top - 7 / r.worldScale;
   const gap = second ? 4 / r.worldScale : 0;
-  r.drawSprite(assets.get(CLASSES[first].icon), x - gap, y, 0, time, 1, true);
-  if (second) r.drawSprite(assets.get(`${CLASSES[second].icon}.small`), x + 6 / r.worldScale, y + 1 / r.worldScale, 0, time, 1, true);
+  drawIcon(r, assets, CLASSES[first].icon, x - gap, y, time, ready(first));
+  if (second) drawIcon(r, assets, `${CLASSES[second].icon}.small`, x + 6 / r.worldScale, y + 1 / r.worldScale, time, ready(second));
+}
+
+function drawIcon(r: PixelRenderer, assets: Assets, name: string, x: number, y: number, time: number, ready: number) {
+  if (ready >= 1) {
+    r.drawSprite(assets.get(name), x, y, 0, time, 1, true);
+    return;
+  }
+  r.drawSprite(assets.getDarkened(name, ICON_COOLDOWN_BRIGHTNESS), x, y, 0, time, 1, true);
+  r.drawSpriteBottom(assets.get(name), x, y, ready, time, true);
 }
 
 /**
@@ -147,4 +171,12 @@ function meterTime(sprite: Sprite, fraction: number) {
   if (sprite.fps <= 0) return 0;
   const last = sprite.frames.length - 1;
   return (Math.round(fraction * last) + 0.5) / sprite.fps;
+}
+
+/**
+ * The art of a ship as it looks right now (tier, class, team colours), for the
+ * HUD portrait. Engine state is ignored, so the picture doesn't flicker.
+ */
+export function shipPortrait(assets: Assets, s: Ship) {
+  return teamSprite(assets, tierSprite(assets, shipArt(s.type, s.tier, s.build), s.tier), s.team);
 }

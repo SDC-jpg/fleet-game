@@ -6,7 +6,7 @@
 // modules give and how strong they are. Like world.ts, nothing is drawn here.
 
 import { clamp, distSq, randRange, wrapAngle } from '../engine/math';
-import { CLASS_IDS, CLASSES, COMBOS, CONFIG, type ClassId, type ComboId } from './config';
+import { CLASS_IDS, COMBOS, CONFIG, type ClassId, type ComboId } from './config';
 import {
   addEffect,
   addSound,
@@ -102,15 +102,6 @@ export function randomEnemyModules(tier: number): Modules {
   return m;
 }
 
-/** "Lancer 5 · Ballista 3 · Splinter Volley": a ship's modules and combo, for the HUD. */
-export function describeBuild(modules: Modules, build: Build) {
-  const parts = CLASS_IDS.filter((c) => modules[c] > 0)
-    .sort((a, b) => modules[b] - modules[a])
-    .map((c) => `${CLASSES[c].name} ${modules[c]}`);
-  if (build.combo) parts.push(COMBOS[build.combo].name);
-  return parts.join(' · ');
-}
-
 // ---------- Using abilities ----------
 
 /** Seconds between uses of an ability for this ship (wingmen and enemies are slower). */
@@ -169,7 +160,7 @@ function autoTarget(state: GameState, s: Ship, c: ClassId): Ship | null {
 
 /** Use an ability. `target` is null when the player triggered it (it then goes where you aim). */
 function useAbility(state: GameState, s: Ship, c: ClassId, target: Ship | null) {
-  s.abilityTimers[c] = cooldownOf(state, s, c);
+  s.abilityTimers[c] = s.abilityCooldowns[c] = cooldownOf(state, s, c);
   if (c === 'lancer') {
     let angle = s.angle;
     if (target) {

@@ -14,6 +14,7 @@ body {
 }
 
 .hud {
+  font-family: 'Silkscreen', ui-monospace, monospace;
   position: fixed;
   top: 12px;
   left: 12px;
@@ -23,6 +24,7 @@ body {
   text-shadow: 0 1px 2px #000;
 }
 .hud .hint {
+  font-family: ui-monospace, Consolas, monospace;
   margin-top: 6px;
   opacity: 0.6;
   font-size: 12px;
@@ -34,6 +36,7 @@ body {
 }
 
 .panel {
+  font-family: 'Silkscreen', ui-monospace, monospace;
   position: fixed;
   padding: 20px 28px;
   background: rgba(8, 10, 22, 0.85);
@@ -115,4 +118,81 @@ body {
   stroke: #7ecff2;
   stroke-width: 2;
   stroke-linejoin: round;
+}
+
+/* Bottom HUD: run stats (left) and the ship you fly (right of it). */
+.bottom-hud {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+  font-family: 'Silkscreen', ui-monospace, monospace;
+  font-size: 16px;
+  line-height: 1.25;
+}
+.hud-panel {
+  background: rgba(8, 10, 22, 0.78);
+  border: 2px solid #2c3a66;
+  padding: 8px 12px;
+}
+.hud-panel .title {
+  color: #9fd3ff;
+  margin-bottom: 4px;
+}
+.hud-panel .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.hud-panel .label {
+  min-width: 112px;
+  opacity: 0.85;
+}
+.hud-panel .value {
+  min-width: 40px;
+  text-align: right;
+}
+.hud-panel .note {
+  opacity: 0.5;
+}
+.run-panel .label {
+  min-width: 104px;
+}
+.run-panel .value {
+  min-width: 32px;
+}
+.flagship-panel {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.flagship-panel .portrait {
+  width: 112px;
+  height: 112px;
+  image-rendering: pixelated;
+  background: rgba(40, 50, 90, 0.35);
+  border: 2px solid #2c3a66;
+}
+.flagship-panel .combo {
+  color: #ffd34a;
+}
+.flagship-panel .foot {
+  margin-top: 4px;
+  opacity: 0.5;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
+.bar {
+  width: 120px;
+  height: 8px;
+  background: #1a2038;
+  border: 1px solid #2c3a66;
+}
+.bar > div {
+  height: 100%;
 }

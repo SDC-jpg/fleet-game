@@ -97,6 +97,12 @@ the fighter). Bigger tiers all use the one `ship.fighter.t2`… design.
 - **Icons** hover above ships and wrecks like rank insignia: the main class,
   plus the `.small` icon of a second class. They're never shrunk and not
   team-recoloured. Placeholders are 9 px and 7 px.
+- While a ship's ability recharges, its icon is drawn **darker** and refills
+  from the bottom. The game darkens it by itself; to draw your own "empty"
+  look instead, add an entry named after the icon plus `.cooldown` (e.g.
+  `ui.class.lancer.cooldown`, `ui.class.lancer.small.cooldown`).
+- The HUD at the bottom shows the ship you fly, using its own art (rotated
+  nose-up, empty space around it trimmed).
 - The lance and missile face right and are recoloured per team like shots
   (paint team parts in sky blue). The shield bubble isn't recoloured.
 

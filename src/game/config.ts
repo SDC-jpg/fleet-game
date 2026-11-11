@@ -70,14 +70,16 @@ export type ShipTypeId = keyof typeof SHIP_TYPES;
 export const CLASSES = {
   lancer: {
     name: 'Lancer',
+    /** Colour for this class in the HUD. */
+    color: '#ffd34a',
     ability: 'Lance',
     /** Tier-1 art (bigger tiers all use SHIP_TYPES.fighter's art). */
     sprite: 'ship.lancer',
     /** Rank icon shown above ships. A ".small" version is used for a ship's second class. */
     icon: 'ui.class.lancer',
   },
-  knight: { name: 'Knight', ability: 'Aegis', sprite: 'ship.knight', icon: 'ui.class.knight' },
-  ballista: { name: 'Ballista', ability: 'Missile volley', sprite: 'ship.ballista', icon: 'ui.class.ballista' },
+  knight: { name: 'Knight', color: '#7fe0b0', ability: 'Aegis', sprite: 'ship.knight', icon: 'ui.class.knight' },
+  ballista: { name: 'Ballista', color: '#c890ff', ability: 'Missile volley', sprite: 'ship.ballista', icon: 'ui.class.ballista' },
 };
 
 export type ClassId = keyof typeof CLASSES;
@@ -227,8 +229,10 @@ export const CONFIG = {
 
   /** Shift boost runs on stamina, shown by the ring around the ship you fly. */
   boost: {
-    /** Seconds of boost from a full bar. */
+    /** Seconds of boost from a full bar, for a tier-1 ship you fly. */
     duration: 3,
+    /** Each tier up multiplies boost time by this (an empty bar still refills in rechargeTime). */
+    durationPerTier: 1.5,
     /** Seconds to refill an empty bar. */
     rechargeTime: 6,
     /** Seconds after you stop boosting before the bar starts refilling. */
@@ -298,6 +302,8 @@ export const CONFIG = {
   enemyPreferredDistance: 160,
 
   // == Wrecks ==
+  /** true = the first enemy you destroy in a run always leaves a wreck. */
+  firstKillWreck: true,
   /** Chance a destroyed tier-1 enemy leaves a wreck you can recruit. */
   wreckChance: 0.75,
   /** Seconds before a wreck disappears. */

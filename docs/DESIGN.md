@@ -55,9 +55,56 @@ qualify, the pair with the most modules wins, and ties are picked at random.
 - Rank icons above ships and wrecks show the main class, plus a smaller second
   class. They stay the same size when zoomed out.
 
-## Later
+## HUD
 
-1. **Loot and rarity:** elite enemies, rare modules, big ships dropping part of their modules.
-2. **Choice:** a "body shop" station to rearrange modules (and choose combos),
-   picking ships at merges, and perks.
-3. More classes (e.g. Engine, Salvager) and more combos.
+- **Bottom-left "Run" panel:** fleet value and mix, best value, wave, time, ships destroyed and lost.
+- **Bottom "flagship" panel:** a picture of the ship you fly, its tier, class and
+  combo, module bars per class, health, right-click ability and dash cooldowns.
+- **Class icons** above ships go dark while their ability recharges and refill
+  from the bottom.
+
+## Roadmap
+
+### Phase A (done)
+- Cooldown icons, first kill always leaves a wreck, +50% boost time per tier.
+- The bottom HUD.
+- At T1 the wheel switches between classes (the healthiest ship of each).
+
+### Phase B: loot groundwork
+1. **Modules become items.** A ship holds a list of modules (class + rarity)
+   instead of counts per class. Everything else (shares, abilities, combos)
+   is worked out from that list as now.
+2. **Rare modules:** stronger versions of the same ability, with noticeable effects.
+
+   | Rare module | Effect |
+   | --- | --- |
+   | Lancer | Longer Lance reach |
+   | Knight | Longer Aegis duration |
+   | Ballista | More missiles per volley |
+
+   - In a merged ship, the bonus grows with the share of rare modules in that class.
+   - The HUD and the wreck marker show rarity (e.g. a glowing marker, a rare count in the module bars).
+3. **Scrap:** a currency earned from kills (by the enemy's value), shown in the Run panel.
+4. **Elite enemies:** appear now and then from a later wave, with a glow and
+   more health, and always drop a rare-module wreck.
+5. **Big enemies drop part of their modules** as tier-1 wrecks.
+   - Open question: instead of today's chance of one big wreck, or in addition to it?
+
+### Phase C: the body shop
+- **How it appears:** a station shows up every few waves, away from you, with an
+  edge arrow pointing to it. It leaves after a while if you don't visit.
+- **Visiting:** flying into it **pauses the game** and opens the shop screen,
+  which lists your ships with their module bars. Prices are in **scrap** and live in `config.ts`.
+- **Actions, most important first:**
+  1. **Swap modules** between two ships of the same tier.
+  2. **Convert** a module to another class.
+  3. **Buy a rare module** (it replaces a normal one of its class).
+  4. **Choose the combo** when several qualify.
+  5. **Repair** ships.
+- **Art:** a station sprite, plus shop screen panels (images from the manifest
+  where it helps, so they're easy to paint).
+
+### Phase D: more choice
+- **Perks:** pick 1 of 3 at each merge.
+- **Merge choice:** choose which ships merge, if the body shop doesn't already cover it.
+- **More classes** (e.g. Engine: stamina and dash; Salvager: wreck magnet and scrap), and their combos.

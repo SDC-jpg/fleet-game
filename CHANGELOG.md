@@ -6,6 +6,11 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-11
 
+- New HUD at the bottom of the screen: your run stats, plus a panel showing the ship you fly, its classes, health and ability cooldowns. In a pixel font!
+- Class icons above ships now go dark while their ability recharges, and fill back up from the bottom.
+- Bigger ships have more boost: +50% boost time per tier.
+- Your first kill always leaves a wreck, so you get a wingman early.
+- With small ships, the mouse wheel now switches between classes (the healthiest Lancer, Knight or Ballista).
 - **Ship classes!** Every small ship is now a Lancer (fires a Lance that pierces a whole line of ships), a Knight (raises Aegis shields on itself and nearby allies) or a Ballista (launches homing missiles). A rank icon above each ship and wreck shows its class, so you can choose what to pick up.
 - When ships merge, their classes add up: 8 Lancers make a big, powerful Lancer, while a mix makes a ship with several weaker abilities. Like merges with like.
 - Combos: ships with two strong classes get a bonus. Mirror Guard (shields reflect shots), Splinter Volley (missiles burst into lances), Retaliation (shields fire missiles back).

@@ -1,14 +1,13 @@
 // Connects everything: input -> game rules -> drawing, plus info for the on-screen HUD.
 
-import { spriteDuration, type Assets } from '../engine/assets';
+import { frameAt, spriteDuration, type Assets } from '../engine/assets';
 import { Input } from '../engine/input';
 import { startLoop } from '../engine/loop';
 import { PixelRenderer } from '../engine/renderer';
 import type { Sounds } from '../engine/sound';
 import { clamp } from '../engine/math';
-import { renderGame, tierSprite } from './render';
-import { CLASSES, CONFIG } from './config';
-import { describeBuild } from './abilities';
+import { renderGame, shipPortrait, tierSprite } from './render';
+import { CLASS_IDS, CLASSES, COMBOS, CONFIG } from './config';
 import {
   controlledShip,
   createGame,
@@ -17,6 +16,7 @@ import {
   testDestroyFleet,
   testKillEnemies,
   testRemoveShip,
+  switchOptions,
   updateGame,
   type Controls,
   type GameState,
@@ -45,11 +45,9 @@ export interface HudInfo {
   paused: boolean;
   /** Seconds until the dash is ready (0 = ready). */
   dashCooldown: number;
-  /** The flagship's right-click ability and seconds until it's ready, if it has one. */
-  ability: { name: string; cooldown: number } | null;
-  /** The flagship's modules and combo, e.g. "Lancer 5 · Ballista 3 · Splinter Volley". */
-  build: string;
-  /** How many of your biggest ships you can switch between with the mouse wheel. */
+  /** The ship you fly, for the flagship panel (null once the fleet is gone). */
+  flagship: FlagshipInfo | null;
+  /** How many ships the mouse wheel switches between. */
   switchable: number;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
@@ -59,6 +57,24 @@ export interface HudInfo {
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
   assetProblems: string[];
+}
+
+/** The ship you fly, as shown in the bottom HUD panel. */
+export interface FlagshipInfo {
+  /** Changes whenever you fly a different ship or it changes tier (redraws the portrait). */
+  key: string;
+  tier: number;
+  /** Its main class, e.g. "Knight". */
+  className: string;
+  combo: string | null;
+  /** Its modules per class, biggest first. */
+  classes: { name: string; count: number; share: number; color: string }[];
+  hp: number;
+  maxHp: number;
+  /** Right-click ability: seconds until ready, and its full cooldown. */
+  ability: { name: string; cooldown: number; total: number } | null;
+  /** Its other abilities (they fire by themselves). */
+  autoAbilities: string[];
 }
 
 export class Game {
@@ -129,6 +145,28 @@ export class Game {
     if (this.state.gameOver) paused = false;
     this.paused = paused;
     this.needsDraw = true;
+  }
+
+  /**
+   * Draw the ship you fly into a small HUD canvas, nose up, enlarged by a whole
+   * number so the pixels stay crisp.
+   */
+  drawPortrait(canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const ship = controlledShip(this.state);
+    if (!ship) return;
+    const f = frameAt(shipPortrait(this.assets, ship), this.state.time);
+    // Only the drawn part of the image counts (art often has empty space around it).
+    const b = opaqueBox(f.image, f.sx, f.sy, f.w, f.h);
+    // Rotated to face up, so the art's width becomes its height. Leave a small margin.
+    const room = canvas.width - 8;
+    const scale = Math.max(1, Math.floor(Math.min(room / b.h, room / b.w)));
+    ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.drawImage(f.image, b.x, b.y, b.w, b.h, -b.w / 2, -b.h / 2, b.w, b.h);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   /** Switch sound on/off (M key or the speaker button). */
@@ -279,16 +317,57 @@ function fleetMix(state: GameState) {
     .join(' ');
 }
 
-/** The ship you fly: its right-click ability, its build, and how many ships the wheel switches between. */
-function flagshipInfo(state: GameState) {
+/** The ship you fly, for the HUD panel, and how many ships the wheel switches between. */
+function flagshipInfo(state: GameState): { flagship: FlagshipInfo | null; switchable: number } {
   const f = controlledShip(state);
-  if (!f) return { ability: null, build: '', switchable: 0 };
-  const c = f.build.abilities[0];
-  const free = state.playerFleet.members.filter((s) => !s.merge);
-  const top = Math.max(...free.map((s) => s.tier), 0);
+  if (!f) return { flagship: null, switchable: 0 };
+  const [first, ...rest] = f.build.abilities;
+  const total = CLASS_IDS.reduce((sum, c) => sum + f.modules[c], 0) || 1;
   return {
-    ability: c ? { name: CLASSES[c].ability, cooldown: f.abilityTimers[c] } : null,
-    build: describeBuild(f.modules, f.build),
-    switchable: free.filter((s) => s.tier === top).length,
+    flagship: {
+      key: `${f.id}-${f.tier}`,
+      tier: f.tier,
+      className: CLASSES[f.build.main].name,
+      combo: f.build.combo ? COMBOS[f.build.combo].name : null,
+      classes: CLASS_IDS.filter((c) => f.modules[c] > 0)
+        .sort((a, b) => f.modules[b] - f.modules[a])
+        .map((c) => ({ name: CLASSES[c].name, count: f.modules[c], share: f.modules[c] / total, color: CLASSES[c].color })),
+      hp: f.hp,
+      maxHp: f.stats.maxHp,
+      ability: first
+        ? { name: CLASSES[first].ability, cooldown: f.abilityTimers[first], total: f.abilityCooldowns[first] }
+        : null,
+      autoAbilities: rest.map((c) => CLASSES[c].ability),
+    },
+    switchable: switchOptions(state).length,
   };
+}
+
+/** Remembered results of opaqueBox, per image and frame. */
+const boxCache = new Map<CanvasImageSource, Map<string, { x: number; y: number; w: number; h: number }>>();
+
+/** The smallest rectangle of a frame that holds all its visible (non-transparent) pixels. */
+function opaqueBox(image: CanvasImageSource, sx: number, sy: number, w: number, h: number) {
+  const key = `${sx},${sy},${w},${h}`;
+  const cached = boxCache.get(image)?.get(key);
+  if (cached) return cached;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  ctx.drawImage(image, sx, sy, w, h, 0, 0, w, h);
+  const d = ctx.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (d[(y * w + x) * 4 + 3] > 0) {
+        x0 = Math.min(x0, x);
+        y0 = Math.min(y0, y);
+        x1 = Math.max(x1, x);
+        y1 = Math.max(y1, y);
+      }
+  const box = x1 < 0 ? { x: sx, y: sy, w, h } : { x: sx + x0, y: sy + y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  if (!boxCache.has(image)) boxCache.set(image, new Map());
+  boxCache.get(image)!.set(key, box);
+  return box;
 }
