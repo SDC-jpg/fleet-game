@@ -35,6 +35,8 @@ export interface HudInfo {
   time: number;
   gameOver: boolean;
   invincible: boolean;
+  /** Frames drawn per second (averaged over half a second). */
+  fps: number;
   assetProblems: string[];
 }
 
@@ -46,6 +48,9 @@ export class Game {
   private onHud: (hud: HudInfo) => void;
   private stopLoop: (() => void) | null = null;
   private hudTimer = 0;
+  private fps = 0;
+  private fpsFrames = 0;
+  private fpsStart = performance.now();
   private onResize = () => this.renderer.resize();
 
   constructor(canvas: HTMLCanvasElement, assets: Assets, onHud: (hud: HudInfo) => void) {
@@ -127,6 +132,15 @@ export class Game {
     renderGame(this.state, r, this.assets);
     r.end();
 
+    // Count frames drawn; work out frames per second every half second (real clock time).
+    this.fpsFrames++;
+    const now = performance.now();
+    if (now - this.fpsStart >= 500) {
+      this.fps = Math.round((this.fpsFrames * 1000) / (now - this.fpsStart));
+      this.fpsFrames = 0;
+      this.fpsStart = now;
+    }
+
     // Update the HUD about 10 times a second (React doesn't need every frame).
     this.hudTimer -= frameDt;
     if (this.hudTimer <= 0) {
@@ -139,6 +153,7 @@ export class Game {
         time: this.state.time,
         gameOver: this.state.gameOver,
         invincible: this.state.invincible,
+        fps: this.fps,
         assetProblems: [...this.assets.problems],
       });
     }
