@@ -3,6 +3,7 @@ import { Assets } from './engine/assets';
 import { Sounds } from './engine/sound';
 import { CONFIG } from './game/config';
 import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
+import type { HistoryPoint } from './game/world';
 
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
@@ -45,6 +46,7 @@ export default function App() {
           <div>Best: {hud.maxFleetSize}</div>
           <div>Wave: {hud.wave}</div>
           <div>Time: {formatTime(hud.time)}</div>
+          <div>Dash (right-click): {hud.dashCooldown > 0 ? `${Math.ceil(hud.dashCooldown)} s` : 'ready'}</div>
           <div>FPS: {hud.fps}</div>
           <button
             className="sound-toggle"
@@ -56,11 +58,12 @@ export default function App() {
           >
             {hud.soundOn ? '🔊 Sound on' : '🔇 Sound off'} (M)
           </button>
-          <div className="hint">WASD move · Shift boost · mouse aim · click/space fire · fly into wrecks to recruit</div>
+          <div className="hint">WASD move · Shift boost · right-click dash · mouse aim · click/space fire · Esc pause · fly into wrecks to
+            recruit</div>
           {TEST_KEYS_ENABLED && (
             <div className="hint">
               Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
-              enemies on screen
+              enemies on screen · X end run
             </div>
           )}
           {hud.assetProblems.length > 0 && (
@@ -74,14 +77,82 @@ export default function App() {
         </div>
       )}
 
-      {hud?.gameOver && (
+      {hud?.paused && (
         <div className="panel center">
+          <h1>Paused</h1>
+          <button
+            onClick={(e) => {
+              gameRef.current?.setPaused(false);
+              e.currentTarget.blur();
+            }}
+          >
+            Resume (Esc)
+          </button>
+        </div>
+      )}
+
+      {hud?.gameOver && (
+        <div className="panel center report">
           <h1>Fleet destroyed</h1>
-          <p>Best fleet value: {hud.maxFleetSize}</p>
-          <p>Survived: {formatTime(hud.time)}</p>
+          <p>
+            Best fleet value: {hud.maxFleetSize} · Survived: {formatTime(hud.time)} · Waves: {hud.wave}
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Ships</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Destroyed</td>
+                <td>{hud.stats.kills}</td>
+                <td>{hud.stats.killValue}</td>
+              </tr>
+              <tr>
+                <td>Lost</td>
+                <td>{hud.stats.losses}</td>
+                <td>{hud.stats.lossValue}</td>
+              </tr>
+            </tbody>
+          </table>
+          <FleetGraph points={hud.history} />
           <button onClick={() => gameRef.current?.restart()}>Play again (R)</button>
         </div>
       )}
     </>
+  );
+}
+
+/** Line chart of fleet value over the run: one point at the start of each wave. */
+function FleetGraph({ points }: { points: HistoryPoint[] }) {
+  const W = 320;
+  const H = 120;
+  const pad = { left: 34, right: 8, top: 8, bottom: 18 };
+  const maxT = Math.max(1, ...points.map((p) => p.time));
+  const maxV = Math.max(1, ...points.map((p) => p.value));
+  const x = (t: number) => pad.left + (t / maxT) * (W - pad.left - pad.right);
+  const y = (v: number) => H - pad.bottom - (v / maxV) * (H - pad.top - pad.bottom);
+  const line = points.map((p) => `${x(p.time).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  return (
+    <div className="graph">
+      <div className="hint">Fleet value over time</div>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+        <line x1={pad.left} y1={y(0)} x2={W - pad.right} y2={y(0)} className="axis" />
+        <line x1={pad.left} y1={pad.top} x2={pad.left} y2={y(0)} className="axis" />
+        <text x={pad.left - 4} y={pad.top + 4} textAnchor="end">
+          {maxV}
+        </text>
+        <text x={pad.left - 4} y={y(0)} textAnchor="end">
+          0
+        </text>
+        <text x={W - pad.right} y={H - 4} textAnchor="end">
+          {formatTime(maxT)}
+        </text>
+        <polyline points={line} className="line" />
+      </svg>
+    </div>
   );
 }

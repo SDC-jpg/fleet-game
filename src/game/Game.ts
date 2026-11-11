@@ -13,11 +13,14 @@ import {
   createGame,
   fleetValue,
   testAddShips,
+  testDestroyFleet,
   testKillEnemies,
   testRemoveShip,
   updateGame,
   type Controls,
   type GameState,
+  type HistoryPoint,
+  type RunStats,
   type SoundEvent,
 } from './world';
 
@@ -35,8 +38,15 @@ export interface HudInfo {
   fleetMix: string;
   maxFleetSize: number;
   wave: number;
+  /** Seconds survived (stops at game over). */
   time: number;
   gameOver: boolean;
+  paused: boolean;
+  /** Seconds until the dash is ready (0 = ready). */
+  dashCooldown: number;
+  stats: RunStats;
+  /** Fleet value at each wave start, for the end-of-run graph. */
+  history: HistoryPoint[];
   invincible: boolean;
   soundOn: boolean;
   /** Frames drawn per second (averaged over half a second). */
@@ -56,7 +66,18 @@ export class Game {
   private fps = 0;
   private fpsFrames = 0;
   private fpsStart = performance.now();
-  private onResize = () => this.renderer.resize();
+  private paused = false;
+  /** While paused the picture doesn't change, so it's only drawn again when needed. */
+  private needsDraw = true;
+  private onResize = () => {
+    this.renderer.resize();
+    this.needsDraw = true;
+  };
+  /** Pause by itself when you click another window or switch tabs. */
+  private onBlur = () => this.setPaused(true);
+  private onVisibility = () => {
+    if (document.hidden) this.setPaused(true);
+  };
 
   constructor(canvas: HTMLCanvasElement, assets: Assets, sounds: Sounds, onHud: (hud: HudInfo) => void) {
     this.assets = assets;
@@ -75,6 +96,8 @@ export class Game {
 
   start() {
     window.addEventListener('resize', this.onResize);
+    window.addEventListener('blur', this.onBlur);
+    document.addEventListener('visibilitychange', this.onVisibility);
     this.stopLoop = startLoop(
       (dt) => this.update(dt),
       (frameDt) => this.render(frameDt),
@@ -85,10 +108,20 @@ export class Game {
     this.stopLoop?.();
     this.input.destroy();
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('blur', this.onBlur);
+    document.removeEventListener('visibilitychange', this.onVisibility);
   }
 
   restart() {
     this.state = this.newState();
+    this.paused = false;
+  }
+
+  /** Pause or resume (Esc, the Resume button, or automatically when the window loses focus). */
+  setPaused(paused: boolean) {
+    if (this.state.gameOver) paused = false;
+    this.paused = paused;
+    this.needsDraw = true;
   }
 
   /** Switch sound on/off (M key or the speaker button). */
@@ -106,6 +139,7 @@ export class Game {
       aimY: aim.y,
       fire: i.mouseDown || i.isDown('Space'),
       boost: i.isDown('ShiftLeft', 'ShiftRight'),
+      dash: i.wasPressed('MouseRight'),
     };
   }
 
@@ -113,6 +147,11 @@ export class Game {
     const i = this.input;
     if (this.state.gameOver && i.isDown('KeyR')) this.restart();
     if (i.wasPressed('KeyM')) this.toggleSound();
+    if (i.wasPressed('Escape')) this.setPaused(!this.paused);
+    if (this.paused) {
+      i.wasPressed('MouseRight'); // ignore right-clicks made while paused
+      return;
+    }
     if (TEST_KEYS_ENABLED) this.handleTestKeys();
     // Spawn enemies a bit outside the visible area.
     const spawnDistance = Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2 + CONFIG.spawnMargin;
@@ -140,11 +179,13 @@ export class Game {
       pan = clamp(dx, -1, 1) * a.panAmount;
     }
     if (volume <= 0) return;
-    // Use the tier's own sound if there is one. Otherwise a smaller tier's, played lower.
+    // Use the tier's own sound if there is one. Otherwise a smaller tier's, played
+    // lower (or higher, if the manifest gives that sound its own pitchPerTier).
     for (let t = e.tier; t >= 1; t--) {
       const name = t === 1 ? e.name : `${e.name}.t${t}`;
       if (t > 1 && !this.sounds.has(name)) continue;
-      this.sounds.play(name, { volume, pan, pitch: a.pitchPerTier ** (e.tier - t) });
+      const perTier = this.sounds.pitchPerTier(name) ?? a.pitchPerTier;
+      this.sounds.play(name, { volume, pan, pitch: perTier ** (e.tier - t) });
       return;
     }
   }
@@ -158,6 +199,7 @@ export class Game {
     if (i.wasPressed('Minus', 'NumpadSubtract')) testRemoveShip(s);
     if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
+    if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
   private render(frameDt: number) {
@@ -170,9 +212,12 @@ export class Game {
       r.camY += (ship.y - r.camY) * k;
     }
     r.setZoom(this.state.zoom);
-    r.begin(frameDt);
-    renderGame(this.state, r, this.assets);
-    r.end();
+    if (!this.paused || this.needsDraw) {
+      r.begin(this.paused ? 0 : frameDt);
+      renderGame(this.state, r, this.assets);
+      r.end();
+      this.needsDraw = false;
+    }
 
     // Count frames drawn; work out frames per second every half second (real clock time).
     this.fpsFrames++;
@@ -192,8 +237,12 @@ export class Game {
         fleetMix: fleetMix(this.state),
         maxFleetSize: this.state.maxFleetSize,
         wave: this.state.wave,
-        time: this.state.time,
+        time: this.state.survived,
         gameOver: this.state.gameOver,
+        paused: this.paused,
+        dashCooldown: this.state.dashCooldown,
+        stats: { ...this.state.stats },
+        history: this.state.history,
         invincible: this.state.invincible,
         soundOn: this.sounds.enabled,
         fps: this.fps,

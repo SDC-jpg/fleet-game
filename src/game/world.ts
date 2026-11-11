@@ -21,6 +21,8 @@ export interface ShipStats {
   bulletRadius: number;
   range: number;
   gunOffset: number;
+  /** Seconds between volleys (bigger tiers fire slower but hit harder). */
+  fireCooldown: number;
   /** Size compared to tier 1 (1, 1.5, 2.25...). */
   size: number;
 }
@@ -67,6 +69,11 @@ export interface Fleet {
   trail: LeaderSample[];
   /** Which ship the trail belongs to (reset when the leader changes). */
   trailLeaderId: number;
+  /** Seconds left of a dash (right-click), counting down to 0. */
+  dashTime: number;
+  /** Direction of the current dash. */
+  dashX: number;
+  dashY: number;
 }
 
 /** Where the leader was, and what it was doing, at one moment. */
@@ -79,7 +86,16 @@ interface LeaderSample {
   boosting: boolean;
 }
 
-const newFleet = (team: Team): Fleet => ({ team, leader: null, members: [], trail: [], trailLeaderId: 0 });
+const newFleet = (team: Team): Fleet => ({
+  team,
+  leader: null,
+  members: [],
+  trail: [],
+  trailLeaderId: 0,
+  dashTime: 0,
+  dashX: 0,
+  dashY: 0,
+});
 
 export interface Bullet {
   team: Team;
@@ -134,8 +150,27 @@ export interface Effect {
   age: number;
 }
 
-export interface GameState {
+/** Ships destroyed on each side this run (merged ships don't count as losses). */
+export interface RunStats {
+  kills: number;
+  /** What the destroyed enemies were worth, in tier-1 ships. */
+  killValue: number;
+  losses: number;
+  lossValue: number;
+}
+
+/** Fleet value at one moment (one point per wave, for the end-of-run graph). */
+export interface HistoryPoint {
   time: number;
+  wave: number;
+  value: number;
+}
+
+export interface GameState {
+  /** Clock for animations. Keeps running after game over. */
+  time: number;
+  /** How long you've survived (stops at game over). */
+  survived: number;
   ships: Ship[];
   bullets: Bullet[];
   wrecks: Wreck[];
@@ -147,6 +182,10 @@ export interface GameState {
   enemyFleets: Fleet[];
   wave: number;
   waveTimer: number;
+  /** Seconds until you can dash again (0 = ready). */
+  dashCooldown: number;
+  stats: RunStats;
+  history: HistoryPoint[];
   /** Highest fleet value reached this run (the score). */
   maxFleetSize: number;
   /** Highest ship tier reached this run. */
@@ -168,6 +207,8 @@ export interface Controls {
   aimY: number;
   fire: boolean;
   boost: boolean;
+  /** Dash pressed this step (right-click). */
+  dash: boolean;
 }
 
 export const typeOf = (ship: Ship): ShipType => SHIP_TYPES[ship.type];
@@ -188,18 +229,21 @@ export function statsFor(type: ShipTypeId, team: Team, tier: number): ShipStats 
   const size = T.sizePerTier ** k;
   const power = T.powerPerTier ** k;
   const shots = tier === 1 ? 1 : T.shotsPerVolley;
+  // Slower firing is made up for by harder shots, so damage per second is unchanged.
+  const slower = T.fireIntervalPerTier ** k;
   const bulletSpeed = t.bulletSpeed * T.shotSpeedPerTier ** k;
   const travel = t.bulletSpeed * t.bulletLife * T.rangePerTier ** k;
   return {
     radius: t.radius * size,
     maxHp: Math.round(t.maxHp * power * (team === 'player' ? CONFIG.playerHpMultiplier : 1)),
     shots,
-    bulletDamage: (t.bulletDamage * power) / shots,
+    bulletDamage: (t.bulletDamage * power * slower) / shots,
     bulletSpeed,
     bulletLife: travel / bulletSpeed,
     bulletRadius: 2 * (size - 1),
     range: t.range * T.rangePerTier ** k,
     gunOffset: t.gunOffset * size,
+    fireCooldown: t.fireCooldown * slower,
     size,
   };
 }
@@ -222,6 +266,7 @@ export function tierCounts(value: number): number[] {
 export function createGame(effectDuration: (sprite: string, tier: number) => number): GameState {
   const state: GameState = {
     time: 0,
+    survived: 0,
     ships: [],
     bullets: [],
     wrecks: [],
@@ -232,6 +277,9 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     enemyFleets: [],
     wave: 0,
     waveTimer: CONFIG.firstWaveDelay,
+    dashCooldown: 0,
+    stats: { kills: 0, killValue: 0, losses: 0, lossValue: 0 },
+    history: [{ time: 0, wave: 0, value: 1 }],
     maxFleetSize: 1,
     maxTier: 1,
     zoom: CONFIG.zoomSteps[0].zoom,
@@ -356,6 +404,9 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   state.time += dt;
   updateEffects(state, dt);
   if (state.gameOver) return;
+  state.survived += dt;
+  state.dashCooldown = Math.max(0, state.dashCooldown - dt);
+  for (const f of [state.playerFleet, ...state.enemyFleets]) f.dashTime = Math.max(0, f.dashTime - dt);
 
   updatePlayerLeader(state, controls, dt);
   for (const fleet of [state.playerFleet, ...state.enemyFleets]) updateFleet(state, fleet, dt);
@@ -387,6 +438,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   state.zoom = zoom;
   if (fleet.members.length === 0) {
     state.gameOver = true;
+    state.history.push({ time: state.survived, wave: state.wave, value: 0 });
     addSound(state, 'sfx.gameover', { x: 0, y: 0 }, 1, 1, true);
   }
 }
@@ -406,21 +458,68 @@ function steer(ship: Ship, wantVx: number, wantVy: number, accel: number, dt: nu
   }
 }
 
+/** Speed factor for moving in direction (mx, my) while facing `angle`: faster forward, slower backward. */
+function directionFactor(angle: number, mx: number, my: number) {
+  const ds = CONFIG.directionalSpeed;
+  // 1 = moving straight ahead, 0 = sideways, -1 = backing straight away.
+  const dot = mx * Math.cos(angle) + my * Math.sin(angle);
+  return dot >= 0 ? 1 + (ds.forward - 1) * dot : 1 + (1 - ds.backward) * dot;
+}
+
+/** How much faster a fleet moves right now because of a dash (fades from 3× to 1×). */
+function dashMultiplier(fleet: Fleet) {
+  if (fleet.dashTime <= 0) return 1;
+  const d = CONFIG.dash;
+  return 1 + (d.speedMultiplier - 1) * (fleet.dashTime / d.duration);
+}
+
 function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   const ship = controlledShip(state);
   if (!ship) return;
+  const fleet = state.playerFleet;
   const t = typeOf(ship);
   const len = Math.hypot(c.moveX, c.moveY);
-  const mx = len > 0 ? c.moveX / len : 0;
-  const my = len > 0 ? c.moveY / len : 0;
-  // Boost only counts while you're actually steering somewhere.
+  let mx = len > 0 ? c.moveX / len : 0;
+  let my = len > 0 ? c.moveY / len : 0;
+  if (c.dash && state.dashCooldown <= 0) startDash(state, fleet, ship, mx, my);
+  // Dashing without steering keeps going in the dash direction.
+  if (fleet.dashTime > 0 && len === 0) {
+    mx = fleet.dashX;
+    my = fleet.dashY;
+  }
+  const steering = mx !== 0 || my !== 0;
+  // Boost only counts while you're actually steering somewhere. A dash outdoes it.
   const boosting = c.boost && len > 0;
-  const mul = boosting ? t.boostMultiplier : 1;
-  steer(ship, mx * t.maxSpeed * mul, my * t.maxSpeed * mul, t.accel * mul, dt);
+  const mul = Math.max(boosting ? t.boostMultiplier : 1, dashMultiplier(fleet));
+  const speed = t.maxSpeed * mul * directionFactor(ship.angle, mx, my);
+  steer(ship, mx * speed, my * speed, t.accel * mul, dt);
   if (boosting && ship.thrust !== 'boost') addSound(state, 'sfx.boost', ship, ship.tier);
-  ship.thrust = boosting ? 'boost' : len > 0 ? 'move' : 'idle';
+  ship.thrust = boosting || fleet.dashTime > 0 ? 'boost' : steering ? 'move' : 'idle';
   ship.angle = turnToward(ship.angle, Math.atan2(c.aimY - ship.y, c.aimX - ship.x), t.turnRate * dt);
-  if (c.fire && ship.fireTimer <= 0 && !ship.merge) fire(state, ship, t.fireCooldown, 0);
+  if (c.fire && ship.fireTimer <= 0 && !ship.merge) fire(state, ship, ship.stats.fireCooldown, 0);
+}
+
+/**
+ * Right-click: every ship in the fleet is kicked to 3× speed at once (in the
+ * direction you're steering, or where you face), fading back over half a second.
+ */
+function startDash(state: GameState, fleet: Fleet, leader: Ship, mx: number, my: number) {
+  const d = CONFIG.dash;
+  if (mx === 0 && my === 0) {
+    mx = Math.cos(leader.angle);
+    my = Math.sin(leader.angle);
+  }
+  const speed = typeOf(leader).maxSpeed * directionFactor(leader.angle, mx, my) * d.speedMultiplier;
+  fleet.dashTime = d.duration;
+  fleet.dashX = mx;
+  fleet.dashY = my;
+  state.dashCooldown = d.cooldown;
+  for (const s of fleet.members) {
+    if (isMergePart(s)) continue;
+    s.vx = mx * speed;
+    s.vy = my * speed;
+  }
+  addSound(state, 'sfx.dash', leader, leader.tier);
 }
 
 /** A direction (radians) and how far either side of it a ship may aim. */
@@ -460,7 +559,9 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     const off = slots[i];
     // React to where the leader was a moment ago. Outer rings react later,
     // so turns ripple outward through the formation.
-    const delay = CONFIG.followDelay + (off.ring - 1) * CONFIG.followDelayPerRing + q.delay;
+    // During a dash everyone follows the leader with no delay, so the formation stays together.
+    const dashing = fleet.dashTime > 0;
+    const delay = dashing ? 0 : CONFIG.followDelay + (off.ring - 1) * CONFIG.followDelayPerRing + q.delay;
     const past = trailAt(fleet, delay, dt);
     // Each ship drifts gently around its spot in its own slow loop.
     const driftX = Math.sin(state.time * q.speedX * Math.PI * 2 + q.phaseX) * CONFIG.driftAmount;
@@ -472,8 +573,8 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     let wantVy = past.vy + ty * CONFIG.followStiffness;
     const wantLen = Math.hypot(wantVx, wantVy);
     // When the leader boosts, the whole formation boosts to keep up.
-    const boosting = past.boosting;
-    const boostMul = boosting ? t.boostMultiplier : 1;
+    const boosting = past.boosting || dashing;
+    const boostMul = Math.max(past.boosting ? t.boostMultiplier : 1, dashMultiplier(fleet));
     const maxV = t.maxSpeed * speedMul * 1.5 * boostMul;
     if (wantLen > maxV) {
       wantVx *= maxV / wantLen;
@@ -518,7 +619,7 @@ function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number
   if (ship.fireTimer <= 0 && Math.abs(wrapAngle(want - ship.angle)) < 0.25) {
     const mul = enemy ? CONFIG.enemyFireCooldownMultiplier : CONFIG.allyFireCooldownMultiplier;
     const spread = enemy ? CONFIG.enemyAimSpread : CONFIG.allyAimSpread;
-    fire(state, ship, t.fireCooldown * mul * randRange(0.85, 1.15), spread);
+    fire(state, ship, ship.stats.fireCooldown * mul * randRange(0.85, 1.15), spread);
   }
 }
 
@@ -596,19 +697,25 @@ function fire(state: GameState, ship: Ship, cooldown: number, spread: number) {
   for (let i = 0; i < st.shots; i++) {
     // Spread the guns across the ship's width.
     const side = st.shots === 1 ? 0 : (i / (st.shots - 1) - 0.5) * st.radius * 0.8;
-    state.bullets.push({
-      team: ship.team,
-      sprite: typeOf(ship).sprites.bullet,
-      tier: ship.tier,
-      x: ship.x + fx * st.gunOffset - fy * side,
-      y: ship.y + fy * st.gunOffset + fx * side,
-      vx: Math.cos(a) * st.bulletSpeed,
-      vy: Math.sin(a) * st.bulletSpeed,
-      life: st.bulletLife,
-      damage: st.bulletDamage,
-      radius: st.bulletRadius,
-    });
+    addBullet(state, ship, ship.x + fx * st.gunOffset - fy * side, ship.y + fy * st.gunOffset + fx * side, a);
   }
+}
+
+/** One shot from `ship` (with its tier's damage, speed and range), starting at (x, y). */
+function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: number) {
+  const st = ship.stats;
+  state.bullets.push({
+    team: ship.team,
+    sprite: typeOf(ship).sprites.bullet,
+    tier: ship.tier,
+    x,
+    y,
+    vx: Math.cos(angle) * st.bulletSpeed,
+    vy: Math.sin(angle) * st.bulletSpeed,
+    life: st.bulletLife,
+    damage: st.bulletDamage,
+    radius: st.bulletRadius,
+  });
 }
 
 function updateBullets(state: GameState, dt: number) {
@@ -637,6 +744,13 @@ function removeDeadShips(state: GameState) {
     if (!s.dead) continue;
     addEffect(state, 'vfx.explosion', s.x, s.y, Math.random() * Math.PI * 2, s.tier);
     addSound(state, 'sfx.explosion', s, s.tier);
+    if (s.team === 'enemy') {
+      state.stats.kills++;
+      state.stats.killValue += tierValue(s.tier);
+    } else {
+      state.stats.losses++;
+      state.stats.lossValue += tierValue(s.tier);
+    }
     // Bigger enemies leave wrecks less often.
     const wreckChance = CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
     if (s.team === 'enemy' && Math.random() < wreckChance) {
@@ -769,6 +883,13 @@ function finishMerge(state: GameState, m: Merge) {
   core.hp = core.stats.maxHp;
   core.merge = null;
   addEffect(state, 'vfx.merge', core.x, core.y, 0, core.tier);
+  // Bonus: a ring of shots in every direction, each as strong as the new ship's normal shot.
+  const n = CONFIG.tiers.mergeBurstShots;
+  for (let i = 0; i < n; i++) {
+    const a = core.angle + (i / n) * Math.PI * 2;
+    addBullet(state, core, core.x + Math.cos(a) * core.stats.radius, core.y + Math.sin(a) * core.stats.radius, a);
+  }
+  if (n > 0) addSound(state, core.team === 'enemy' ? 'sfx.shoot.enemy' : 'sfx.shoot', core, core.tier);
 }
 
 // ---------- Wrecks ----------
@@ -823,8 +944,12 @@ function updateWrecks(state: GameState, dt: number) {
 function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   state.waveTimer -= dt;
   if (state.waveTimer > 0) return;
-  state.waveTimer = CONFIG.waveInterval;
   state.wave++;
+  // Each wave comes a little sooner than the last, with a random swing either way.
+  const base = CONFIG.waveInterval * CONFIG.waveIntervalShrink ** (state.wave - 1);
+  const swing = randRange(1 - CONFIG.waveIntervalRandom, 1 + CONFIG.waveIntervalRandom);
+  state.waveTimer = Math.max(CONFIG.waveIntervalMin, base * swing);
+  state.history.push({ time: state.survived, wave: state.wave, value: fleetValue(state.playerFleet) });
   const center = controlledShip(state);
   if (!center) return;
 
@@ -904,6 +1029,11 @@ export function testRemoveShip(state: GameState) {
   const candidates = state.playerFleet.members.filter((s) => s !== leader && !s.merge);
   const victim = formationOrder(candidates).pop();
   if (victim) victim.dead = true;
+}
+
+/** Destroys your whole fleet (to test the end-of-run screen). */
+export function testDestroyFleet(state: GameState) {
+  for (const s of state.playerFleet.members) s.dead = true;
 }
 
 /** Destroys every enemy inside the given area (they can still leave wrecks). */

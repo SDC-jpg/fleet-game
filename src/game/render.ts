@@ -29,8 +29,11 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   for (const w of state.wrecks) {
     // Blink when about to disappear.
     const blinking = w.life < CONFIG.wreckBlinkTime && Math.floor(w.life * 6) % 2 === 0;
+    const alpha = blinking ? 0.35 : 1;
+    // A marker ring under the wreck, kept full size when zoomed out so wrecks stay easy to spot.
+    r.drawSprite(assets.get(tierSprite(assets, 'ui.wreck-marker', w.tier)), w.x, w.y, 0, state.time, alpha, true);
     const sprite = assets.get(tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck'));
-    r.drawSprite(sprite, w.x, w.y, w.angle, state.time, blinking ? 0.35 : 1);
+    r.drawSprite(sprite, w.x, w.y, w.angle, state.time, alpha);
   }
 
   // Draw every other ship first (small ones under big ones), then the
@@ -60,6 +63,11 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
 /** Draws one ship, plus a small health bar under it if it's damaged. */
 function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
   if (s.absorbed) return; // already inside the ship it's merging into
+  // Dash trail behind the ship, pointing back along its movement. Plays once per dash.
+  if (s.fleet.dashTime > 0 && !isMergePart(s)) {
+    const trail = teamSprite(assets, tierSprite(assets, 'vfx.dash', s.tier), s.team);
+    r.drawSprite(trail, s.x, s.y, Math.atan2(s.vy, s.vx), CONFIG.dash.duration - s.fleet.dashTime);
+  }
   const base = tierSprite(assets, typeOf(s).sprites.ship, s.tier);
   // Ships flying into a merge fade out as they reach the core.
   let alpha = 1;

@@ -31,7 +31,10 @@ export class Input {
       this.mouseY = (e as MouseEvent).clientY - rect.top;
     });
     this.listen(target, 'mousedown', (e) => {
-      if ((e as MouseEvent).button === 0) this.mouseDown = true;
+      const button = (e as MouseEvent).button;
+      if (button === 0) this.mouseDown = true;
+      // Right-click counts as a press of "MouseRight" (read it with wasPressed).
+      if (button === 2) this.presses.set('MouseRight', Math.min((this.presses.get('MouseRight') ?? 0) + 1, 20));
     });
     this.listen(window, 'mouseup', (e) => {
       if ((e as MouseEvent).button === 0) this.mouseDown = false;

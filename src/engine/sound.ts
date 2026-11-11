@@ -12,6 +12,11 @@ interface SoundEntry {
   maxVoices?: number;
   /** Shortest time (seconds) between two starts of this sound. */
   minGap?: number;
+  /**
+   * When a bigger tier has no file of its own, this sound plays at this pitch
+   * per tier up (above 1 = higher/brighter, below 1 = deeper). Default: CONFIG.audio.pitchPerTier.
+   */
+  pitchPerTier?: number;
 }
 
 interface LoadedSound {
@@ -20,6 +25,7 @@ interface LoadedSound {
   pitchVariation: number;
   maxVoices: number;
   minGap: number;
+  pitchPerTier?: number;
   playing: number;
   lastStart: number;
 }
@@ -89,6 +95,7 @@ export class Sounds {
         pitchVariation: entry.pitchVariation ?? 0.05,
         maxVoices: entry.maxVoices ?? 4,
         minGap: entry.minGap ?? 0.03,
+        pitchPerTier: entry.pitchPerTier,
         playing: 0,
         lastStart: -Infinity,
       });
@@ -127,6 +134,11 @@ export class Sounds {
   /** True if the manifest has a sound with this name (and it loaded). */
   has(name: string) {
     return this.sounds.has(name);
+  }
+
+  /** The sound's own pitch change per tier from the manifest, if it has one. */
+  pitchPerTier(name: string) {
+    return this.sounds.get(name)?.pitchPerTier;
   }
 
   /** Play a sound by name. Quietly does nothing if it's missing, muted or playing too often. */

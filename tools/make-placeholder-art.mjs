@@ -336,7 +336,64 @@ function mergeSheet(S) {
   return sheet;
 }
 
+// Dash trail: speed streaks streaming back from the ship (the ship sits at the
+// right edge, see anchorX in the manifest). Sky blue parts get team colours.
+function dashSheet(W, H) {
+  const F = 6, k = H / 28;
+  const sheet = new Img(W * F, H);
+  const streaks = [
+    { y: 0, len: 1, col: '#e8fbff', thick: 3 },
+    { y: -0.45, len: 0.75, col: '#41a6d9', thick: 2 },
+    { y: 0.45, len: 0.75, col: '#41a6d9', thick: 2 },
+    { y: -0.85, len: 0.45, col: '#7ecff2', thick: 2 },
+    { y: 0.85, len: 0.45, col: '#7ecff2', thick: 2 },
+  ];
+  for (let f = 0; f < F; f++) {
+    const t = f / (F - 1);
+    const frame = new Img(W, H);
+    for (const st of streaks) {
+      const len = Math.round((W - 4) * st.len * (1 - t * 0.75));
+      const th = Math.max(1, Math.round(st.thick * k * (1 - t * 0.4)));
+      const y0 = Math.round(H / 2 + st.y * (H / 2 - 3) - th / 2);
+      // Streaks start a little behind the ship's centre and break into dashes as they fade.
+      const x1 = W - Math.round(8 * k);
+      const dash = Math.max(2, Math.round(8 * k));
+      const gap = Math.round(dash * t * 0.8);
+      for (let x = x1 - len; x < x1; x++) {
+        if ((x1 - x) % dash < gap) continue;
+        rect(frame, x, y0, 1, th, hex(st.col));
+      }
+    }
+    outline(frame, hex('#0e1a33'));
+    sheet.blit(frame, f * W, 0);
+  }
+  return sheet;
+}
+
 // ---------- UI ----------
+// Wreck marker: four corner brackets that pulse in and out (loops), so wrecks
+// stand out from the stars when zoomed out.
+function wreckMarker(S = 48) {
+  const F = 6;
+  const sheet = new Img(S * F, S);
+  const arm = Math.round(S * 0.22);
+  const th = Math.max(2, Math.round(S / 24));
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    const inset = 2 + Math.round((1 - Math.cos((f / F) * Math.PI * 2)) * S * 0.04);
+    const c = hex('#ffcf5a');
+    for (const [sx, sy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      const x = sx ? S - inset - arm : inset;
+      const y = sy ? S - inset - th : inset;
+      rect(frame, x, y, arm, th, c); // horizontal arm
+      rect(frame, sx ? S - inset - th : inset, sy ? S - inset - arm : inset, th, arm, c); // vertical arm
+    }
+    outline(frame, hex('#2a1d05'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 function commandRing(S = 44) {
   const img = new Img(S, S);
   const R = S / 2 - 2;
@@ -400,6 +457,8 @@ const FILES = {
   'vfx/hit.png': () => hitSheet(16),
   'vfx/recruit.png': () => recruitSheet(48),
   'ui/command-ring.png': () => commandRing(44),
+  'ui/wreck-marker.png': () => wreckMarker(48),
+  'vfx/dash.png': () => dashSheet(56, 28),
   'ui/arrow-enemy.png': () => edgeArrow('#ff6b5a', '#2a0b0b'),
   'ui/arrow-wreck.png': () => edgeArrow('#b8bcc6', '#16171b'),
   'backgrounds/stars-far.png': starsFar,
@@ -421,6 +480,8 @@ for (const tier of [2, 3, 4]) {
   // The merge flash is sized for the ship it creates.
   FILES[tier === 2 ? 'vfx/merge.png' : `vfx/merge-t${tier}.png`] = () => mergeSheet(TIER_CANVAS[tier]);
   FILES[`ui/command-ring-t${tier}.png`] = () => commandRing(even(44 * k));
+  FILES[`ui/wreck-marker-t${tier}.png`] = () => wreckMarker(even(48 * k));
+  FILES[`vfx/dash-t${tier}.png`] = () => dashSheet(even(56 * k), even(28 * k));
 }
 
 for (const [name, draw] of Object.entries(FILES)) {

@@ -35,7 +35,7 @@
 ## Seeing the game (for Claude)
 - The container has Chromium (installed by the Dockerfile at build time, no firewall change needed). `tools/screenshot.mjs` drives it with `playwright-core` and saves screenshots that Claude can view with the Read tool. It also prints browser errors.
 - Example (dev server must be running): `node tools/screenshot.mjs --out <scratchpad>/shots 'wait:1500' 'press:Equal*10' 'hold:KeyD:800' 'shot:fleet'`. Quote the steps, because the shell (zsh) treats `*` as a filename wildcard. Run it with no steps for a single screenshot.
-- Dev-only test keys help set up scenes: `=`/`-` add/remove ship, `]` add 16 ships, `G` invincible, `K` destroy on-screen enemies.
+- Dev-only test keys help set up scenes: `=`/`-` add/remove ship, `]` add 16 ships, `G` invincible, `K` destroy on-screen enemies, `X` end the run (to see the report).
 - Use it to check visual changes before handing them to the user. The browser has no graphics card, so it can't judge smoothness or performance. The user does that.
 
 ## Code layout
@@ -57,11 +57,15 @@
   - Don't let gameplay depend on the exact pixel size of the art. Use separate collision sizes and anchor points.
   - **One image set per ship design, used by both teams.** Team-colour parts are painted in strong sky blue; the game recolours them per team at load time (`CONFIG.teamColors`). Never ask the user for separate player/enemy versions.
   - **Placeholders must stand out from the user's art.** Never imitate the user's art style when generating new assets. Keep the original placeholder style (simple flat-coloured shapes with a dark 1 px outline, like the first 32×32 fighters).
-  - **Sounds follow the same rules:** sound effects only (no music for now), each in `public/assets/sfx/`, listed by name in the manifest's `"sounds"` section with volume and overlap limits, with `.t2`… tier versions falling back to a lower-pitched smaller tier. Sound is on by default, M or the HUD button toggles it, and wingmen's shots play quieter (`CONFIG.audio.allyShotVolume`; may become silent if distracting).
+  - **Sounds follow the same rules:** sound effects only (no music for now), each in `public/assets/sfx/`, listed by name in the manifest's `"sounds"` section with volume and overlap limits, with `.t2`… tier versions falling back to a lower-pitched smaller tier. The recruit sound gets brighter with the wreck's tier (manifest `pitchPerTier`). Sound is on by default, M or the HUD button toggles it, and wingmen's shots play quieter (`CONFIG.audio.allyShotVolume`; may become silent if distracting).
   - Placeholder art should follow the same conventions, so swapping in real art means replacing files (and maybe editing the manifest), not changing code.
 
 ### Game concept: pixel-art spaceship fleet combat
 - The player starts as a single spaceship and grows a fleet. As the fleet grows, the camera zooms out and the fights get bigger, eventually fleet against fleet.
+- **Movement:** the flagship is 20% faster moving toward where it faces (the cursor) and 18% slower backing away, blended smoothly (`directionalSpeed`). Shift boosts. **Right-click dash:** the whole fleet is kicked to 3× speed at once, fading back over 0.5 s, with a 30 s cooldown and a flipbook trail (`vfx.dash`) behind each ship (`CONFIG.dash`).
+- **Pause:** Esc toggles it. The game also pauses by itself when the window loses focus, and the screen isn't redrawn while paused.
+- **End-of-run report:** ships destroyed and lost (count and value; merged ships aren't losses), and a graph of fleet value with one point per wave start.
+- **Waves:** each gap is 0.5% shorter than the last (starting at 12 s), then randomly ±20%, never below 4 s, to vary pressure and calm.
 - **Fleet control:** the player flies one ship directly (WASD/arrows to move, mouse to aim and fire). The other ships follow in formation and shoot nearby enemies on their own. They only aim and fire within ±15° of their leader's current facing (`allyFireArc`; enemy fleets too, `enemyFireArc`), so the fleet fires where the player aims. Simple fleet orders (formation spacing, attack target, hold back) come later.
 - **Zoom:** in steps at whole-number pixel scales (e.g. 4× → 3× → 2× → 1×) so pixel art stays crisp, with a quick smooth transition between steps. Steps trigger at fleet-size thresholds.
 - **Getting new ships:** start with flying into wrecks to recruit them. Other ways (buying, capturing enemies) may come later.
@@ -73,7 +77,8 @@
   - Fleet value = what every ship is worth in tier-1 ships (T2 = 16, T3 = 256...). It's the score.
   - Once fleet value reaches 32, any 16 ships of one tier merge into one of the next tier, so there are never more than 15 per tier. Merging is automatic for now; merging by choice may come later.
   - Each tier: 12× health and 12× damage per volley, always 2 shots per volley for T2+ (6× per shot at T2, 72× at T3...), 1.5× size, shots 1.2× faster and travelling 1.5× further.
-  - Merge moment: the ships fly into the core, flash, big ship appears. They can't shoot or be hit meanwhile.
+  - Each tier fires 1.25× slower with harder shots, so damage per second still grows exactly 12× (`fireIntervalPerTier`). Prepares for different shot types later.
+  - Merge moment: the ships fly into the core, flash, big ship appears. They can't shoot or be hit meanwhile. The finished merge fires a ring of 16 shots, each as strong as the new ship's normal shot (`mergeBurstShots`).
   - You always fly one of your biggest ships (promoted after a merge or recruiting a bigger wreck). A dead ship takes its whole worth; merged ships never split.
   - Enemy fleets use the same tier rule. Bigger enemies leave wrecks of their tier, less often (×0.4 per tier).
   - Formation by size: biggest ships in the inner rings.

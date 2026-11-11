@@ -66,6 +66,16 @@ The game recolours the "team colour" parts for each side when it starts.
   `src/game/config.ts`. For example, `enemy: 170` turns sky blue (200°) into
   red (10°), and `enemy: 100` would turn it into purple-pink.
 
+## Dash trail and wreck marker
+
+- **`vfx.dash`** plays once behind every ship in your fleet when you dash
+  (right-click), pointing back along its movement. Draw it **facing right with
+  the ship at the right edge**: the trail streams off to the left. `anchorX` in
+  the manifest is the frame width, which puts the ship at that edge. It lasts
+  0.5 s, so 6 frames at 12 fps fits. Sky blue parts get team colours.
+- **`ui.wreck-marker`** is drawn under every wreck and loops. It's never shrunk
+  when the camera zooms out, so wrecks stay easy to spot against the stars.
+
 ## Tiers (bigger ships)
 
 16 ships of one tier merge into one ship of the next tier. Each tier has its
@@ -78,6 +88,8 @@ own art, named by adding `.t2`, `.t3`, `.t4` to the tier-1 name:
 | Explosion, hit spark, recruit ring | `vfx.explosion` etc. | `vfx.explosion.t2` etc. | … | … |
 | Merge flash (sized for the new ship) | — | `vfx.merge` | `vfx.merge.t3` | `vfx.merge.t4` |
 | Command ring | `ui.command-ring` | `ui.command-ring.t2` | … | … |
+| Wreck marker | `ui.wreck-marker` | `ui.wreck-marker.t2` | … | … |
+| Dash trail | `vfx.dash` | `vfx.dash.t2` | … | … |
 
 - Suggested canvas sizes (each tier is 1.5× the last): ships 64 → 96 → 144 →
   216 px. The game doesn't care about the exact size: hit sizes are in
@@ -104,6 +116,7 @@ file name in the manifest).
 | `sfx.recruit` | `recruit.wav` | you pick up a wreck |
 | `sfx.merge` | `merge.wav` | 16 ships start merging (charge-up, then flash ~0.5 s in) |
 | `sfx.boost` | `boost.wav` | you start boosting |
+| `sfx.dash` | `dash.wav` | you dash (right-click) |
 | `sfx.alert` | `alert.wav` | an enemy fleet arrives |
 | `sfx.command` | `command.wav` | your flagship dies and command passes on |
 | `sfx.gameover` | `gameover.wav` | your whole fleet is destroyed |
@@ -114,10 +127,12 @@ file name in the manifest).
 | `pitchVariation` | Random pitch change per play (0.05 = ±5%), so repeats sound less robotic | 0.05 |
 | `maxVoices` | How many copies can play at once (stops 15 ships firing from becoming noise) | 4 |
 | `minGap` | Shortest time between two starts, in seconds | 0.03 |
+| `pitchPerTier` | When a bigger tier has no file of its own, play this sound at this pitch per tier up (above 1 = brighter, below 1 = deeper) | 0.85 (from `config.ts`) |
 
 - **Tiers:** any sound can have `.t2`, `.t3`, `.t4` versions for bigger ships
   (e.g. `sfx.shoot.t3`). If one is missing, the smaller tier's sound plays at
-  a lower pitch.
+  a lower pitch, or a higher one if the sound has `pitchPerTier` above 1 (the
+  recruit sound does: bigger wrecks sound brighter).
 - Sounds are louder near the middle of the screen, fade off-screen, and pan
   left/right. Overall volume and wingman volume are in `audio` in
   `src/game/config.ts`.

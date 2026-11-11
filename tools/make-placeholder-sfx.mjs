@@ -168,6 +168,19 @@ function boost() {
   return render(0.4, (t, k) => lp(r() * 2 - 1, sweep(400, 2500, Math.min(1, k * 1.5))) * decay(t, 6, 0.05));
 }
 
+/** Dash: a quick "fwoosh" of noise that opens up, plus a rising zip. */
+function dash() {
+  const r = rng(21);
+  const lp = lowpass();
+  const zip = oscillator('triangle');
+  return render(0.45, (t, k) => {
+    const open = k < 0.25 ? sweep(500, 6000, k / 0.25) : sweep(6000, 300, (k - 0.25) / 0.75);
+    const air = lp(r() * 2 - 1, open) * 1.4;
+    const tone = zip(sweep(220, 1100, Math.min(1, k * 3))) * Math.exp(-t * 12) * 0.5;
+    return (air + tone) * decay(t, 7, 0.01);
+  });
+}
+
 function alert() {
   const osc = oscillator('square');
   return render(0.72, (t) => {
@@ -209,6 +222,7 @@ const FILES = {
   'recruit.wav': recruit,
   'merge.wav': merge,
   'boost.wav': boost,
+  'dash.wav': dash,
   'alert.wav': alert,
   'command.wav': command,
   'gameover.wav': gameOver,

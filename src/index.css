@@ -75,3 +75,44 @@ body {
 .hud .sound-toggle:hover {
   border-color: #6b77a8;
 }
+
+/* End-of-run report */
+.report table {
+  margin: 8px auto;
+  border-collapse: collapse;
+}
+.report th,
+.report td {
+  padding: 2px 12px;
+  text-align: right;
+}
+.report th:first-child,
+.report td:first-child {
+  text-align: left;
+}
+.report th {
+  font-weight: normal;
+  opacity: 0.6;
+}
+.graph {
+  margin: 10px 0 4px;
+}
+.graph .hint {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-bottom: 2px;
+}
+.graph svg text {
+  fill: #8f9bbf;
+  font-size: 10px;
+  font-family: inherit;
+}
+.graph .axis {
+  stroke: #3a4160;
+}
+.graph .line {
+  fill: none;
+  stroke: #7ecff2;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}

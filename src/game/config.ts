@@ -85,8 +85,31 @@ export const CONFIG = {
     rangePerTier: 1.5,
     /** Each tier up multiplies the chance of leaving a wreck by this. */
     wreckChancePerTier: 0.4,
+    /** Each tier up fires this many times slower, with harder shots so damage per second still grows by powerPerTier. */
+    fireIntervalPerTier: 1.25,
     /** Seconds for the merging ships to fly together before the big ship appears. */
     mergeDuration: 1,
+    /** Shots fired in a ring when a merge finishes (each hits like the new ship's normal shot). 0 = off. */
+    mergeBurstShots: 16,
+  },
+
+  /**
+   * The ship you fly is faster moving toward where it faces (the mouse) and
+   * slower backing away. Sideways is normal speed, with a smooth blend between.
+   */
+  directionalSpeed: {
+    forward: 1.2,
+    backward: 0.82,
+  },
+
+  /** Right-click dash: the whole fleet gets a burst of speed that fades out. */
+  dash: {
+    /** Speed at the start of the dash, compared to normal speed. */
+    speedMultiplier: 3,
+    /** Seconds for the dash to fade back to normal speed. */
+    duration: 0.5,
+    /** Seconds before you can dash again. */
+    cooldown: 30,
   },
   /** Distance between rings in a formation. */
   formationSpacing: 40,
@@ -146,7 +169,14 @@ export const CONFIG = {
   wreckMagnetAccel: 400,
 
   firstWaveDelay: 2,
+  /** Seconds between waves at the start... */
   waveInterval: 12,
+  /** ...multiplied by this after every wave (0.995 = 0.5% shorter each time)... */
+  waveIntervalShrink: 0.995,
+  /** ...then randomly up to this much shorter or longer (0.2 = ±20%), so the pace varies... */
+  waveIntervalRandom: 0.2,
+  /** ...but never shorter than this. */
+  waveIntervalMin: 4,
   /** Lone enemies per wave = 1 + wave number × this. */
   loneEnemiesPerWave: 0.25,
   maxLoneEnemiesPerWave: 12,
