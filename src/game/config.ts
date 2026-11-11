@@ -163,6 +163,5 @@ export const CONFIG = {
     { minFleet: 8, zoom: 2 },
     { minTier: 2, zoom: 1 },
     { minTier: 3, zoom: 0.5 },
-    { minTier: 4, zoom: 0.25 },
   ] as { minFleet?: number; minTier?: number; zoom: number }[],
 };
