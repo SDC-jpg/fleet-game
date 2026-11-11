@@ -4,6 +4,8 @@ import { spriteDuration, type Assets } from '../engine/assets';
 import { Input } from '../engine/input';
 import { startLoop } from '../engine/loop';
 import { PixelRenderer } from '../engine/renderer';
+import type { Sounds } from '../engine/sound';
+import { clamp } from '../engine/math';
 import { renderGame, tierSprite } from './render';
 import { CONFIG } from './config';
 import {
@@ -16,6 +18,7 @@ import {
   updateGame,
   type Controls,
   type GameState,
+  type SoundEvent,
 } from './world';
 
 /**
@@ -35,6 +38,7 @@ export interface HudInfo {
   time: number;
   gameOver: boolean;
   invincible: boolean;
+  soundOn: boolean;
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
   assetProblems: string[];
@@ -45,6 +49,7 @@ export class Game {
   private renderer: PixelRenderer;
   private input: Input;
   private assets: Assets;
+  private sounds: Sounds;
   private onHud: (hud: HudInfo) => void;
   private stopLoop: (() => void) | null = null;
   private hudTimer = 0;
@@ -53,8 +58,9 @@ export class Game {
   private fpsStart = performance.now();
   private onResize = () => this.renderer.resize();
 
-  constructor(canvas: HTMLCanvasElement, assets: Assets, onHud: (hud: HudInfo) => void) {
+  constructor(canvas: HTMLCanvasElement, assets: Assets, sounds: Sounds, onHud: (hud: HudInfo) => void) {
     this.assets = assets;
+    this.sounds = sounds;
     this.onHud = onHud;
     this.renderer = new PixelRenderer(canvas);
     this.input = new Input(canvas);
@@ -85,6 +91,11 @@ export class Game {
     this.state = this.newState();
   }
 
+  /** Switch sound on/off (M key or the speaker button). */
+  toggleSound() {
+    this.sounds.toggle();
+  }
+
   private readControls(): Controls {
     const i = this.input;
     const aim = this.renderer.screenToWorld(i.mouseX, i.mouseY);
@@ -101,10 +112,41 @@ export class Game {
   private update(dt: number) {
     const i = this.input;
     if (this.state.gameOver && i.isDown('KeyR')) this.restart();
+    if (i.wasPressed('KeyM')) this.toggleSound();
     if (TEST_KEYS_ENABLED) this.handleTestKeys();
     // Spawn enemies a bit outside the visible area.
     const spawnDistance = Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2 + CONFIG.spawnMargin;
     updateGame(this.state, this.readControls(), dt, spawnDistance);
+    for (const e of this.state.sounds) this.playSound(e);
+    this.state.sounds.length = 0;
+  }
+
+  /**
+   * Play a sound the rules announced. Sounds near the middle of the screen
+   * are loudest; off-screen ones fade out, and they pan left/right.
+   */
+  private playSound(e: SoundEvent) {
+    const a = CONFIG.audio;
+    let volume = e.volume;
+    let pan = 0;
+    if (!e.global) {
+      const r = this.renderer;
+      const halfW = r.viewWidth / 2;
+      const halfH = r.viewHeight / 2;
+      const dx = (e.x - r.camX) / halfW;
+      const dy = (e.y - r.camY) / halfH;
+      const far = Math.max(Math.abs(dx), Math.abs(dy)); // 1 = screen edge
+      if (far > 1) volume *= clamp(1 - (far - 1) / (a.silentAt - 1), 0, 1);
+      pan = clamp(dx, -1, 1) * a.panAmount;
+    }
+    if (volume <= 0) return;
+    // Use the tier's own sound if there is one. Otherwise a smaller tier's, played lower.
+    for (let t = e.tier; t >= 1; t--) {
+      const name = t === 1 ? e.name : `${e.name}.t${t}`;
+      if (t > 1 && !this.sounds.has(name)) continue;
+      this.sounds.play(name, { volume, pan, pitch: a.pitchPerTier ** (e.tier - t) });
+      return;
+    }
   }
 
   private handleTestKeys() {
@@ -153,8 +195,9 @@ export class Game {
         time: this.state.time,
         gameOver: this.state.gameOver,
         invincible: this.state.invincible,
+        soundOn: this.sounds.enabled,
         fps: this.fps,
-        assetProblems: [...this.assets.problems],
+        assetProblems: [...this.assets.problems, ...this.sounds.problems],
       });
     }
   }

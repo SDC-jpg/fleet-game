@@ -107,6 +107,22 @@ export interface Wreck {
   life: number;
 }
 
+/**
+ * Something that should make a sound. The rules only announce it; Game.ts
+ * plays it (louder near the middle of the screen, panned left/right).
+ */
+export interface SoundEvent {
+  /** Base sound name; the tier picks a bigger version (see Game.ts). */
+  name: string;
+  tier: number;
+  x: number;
+  y: number;
+  /** Extra volume factor, 0–1. */
+  volume: number;
+  /** Not tied to a place (alerts, game over): always full volume, centred. */
+  global: boolean;
+}
+
 /** A visual effect that plays once (explosion, hit spark...). */
 export interface Effect {
   sprite: string;
@@ -125,6 +141,8 @@ export interface GameState {
   wrecks: Wreck[];
   effects: Effect[];
   merges: Merge[];
+  /** Sounds announced this step. Game.ts plays and clears them. */
+  sounds: SoundEvent[];
   playerFleet: Fleet;
   enemyFleets: Fleet[];
   wave: number;
@@ -209,6 +227,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     wrecks: [],
     effects: [],
     merges: [],
+    sounds: [],
     playerFleet: newFleet('player'),
     enemyFleets: [],
     wave: 0,
@@ -366,7 +385,10 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
     if (reached) zoom = Math.min(zoom, step.zoom);
   }
   state.zoom = zoom;
-  if (fleet.members.length === 0) state.gameOver = true;
+  if (fleet.members.length === 0) {
+    state.gameOver = true;
+    addSound(state, 'sfx.gameover', { x: 0, y: 0 }, 1, 1, true);
+  }
 }
 
 /** Steer a ship's velocity toward a desired velocity, limited by its acceleration. */
@@ -395,6 +417,7 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   const boosting = c.boost && len > 0;
   const mul = boosting ? t.boostMultiplier : 1;
   steer(ship, mx * t.maxSpeed * mul, my * t.maxSpeed * mul, t.accel * mul, dt);
+  if (boosting && ship.thrust !== 'boost') addSound(state, 'sfx.boost', ship, ship.tier);
   ship.thrust = boosting ? 'boost' : len > 0 ? 'move' : 'idle';
   ship.angle = turnToward(ship.angle, Math.atan2(c.aimY - ship.y, c.aimX - ship.x), t.turnRate * dt);
   if (c.fire && ship.fireTimer <= 0 && !ship.merge) fire(state, ship, t.fireCooldown, 0);
@@ -552,6 +575,10 @@ function fire(state: GameState, ship: Ship, cooldown: number, spread: number) {
   const a = ship.angle + randRange(-spread, spread);
   const fx = Math.cos(ship.angle);
   const fy = Math.sin(ship.angle);
+  // One sound per volley. Your wingmen are quieter than the ship you fly.
+  const enemy = ship.team === 'enemy';
+  const volume = enemy || ship === controlledShip(state) ? 1 : CONFIG.audio.allyShotVolume;
+  addSound(state, enemy ? 'sfx.shoot.enemy' : 'sfx.shoot', ship, ship.tier, volume);
   for (let i = 0; i < st.shots; i++) {
     // Spread the guns across the ship's width.
     const side = st.shots === 1 ? 0 : (i / (st.shots - 1) - 0.5) * st.radius * 0.8;
@@ -583,6 +610,7 @@ function updateBullets(state: GameState, dt: number) {
       if (!(s.team === 'player' && state.invincible)) s.hp -= b.damage;
       b.life = 0;
       addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
+      addSound(state, 'sfx.hit', b, b.tier);
       if (s.hp <= 0) s.dead = true;
       break;
     }
@@ -594,6 +622,7 @@ function removeDeadShips(state: GameState) {
   for (const s of state.ships) {
     if (!s.dead) continue;
     addEffect(state, 'vfx.explosion', s.x, s.y, Math.random() * Math.PI * 2, s.tier);
+    addSound(state, 'sfx.explosion', s, s.tier);
     // Bigger enemies leave wrecks less often.
     const wreckChance = CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
     if (s.team === 'enemy' && Math.random() < wreckChance) {
@@ -611,7 +640,10 @@ function removeDeadShips(state: GameState) {
     }
     const fleet = s.fleet;
     fleet.members = fleet.members.filter((m) => m !== s);
-    if (fleet.leader === s) fleet.leader = pickNewLeader(fleet, s);
+    if (fleet.leader === s) {
+      fleet.leader = pickNewLeader(fleet, s);
+      if (fleet === state.playerFleet && fleet.leader) addSound(state, 'sfx.command', s, 1, 1, true);
+    }
   }
   state.ships = state.ships.filter((s) => !s.dead);
   state.enemyFleets = state.enemyFleets.filter((f) => f.members.length > 0);
@@ -677,6 +709,7 @@ function startMerges(state: GameState) {
       core.merge = merge;
       for (const p of parts) p.merge = merge;
       state.merges.push(merge);
+      addSound(state, 'sfx.merge', core, core.tier); // deeper for bigger merges
     }
   }
 }
@@ -762,6 +795,7 @@ function updateWrecks(state: GameState, dt: number) {
         ship.vx = s.vx;
         ship.vy = s.vy;
         addEffect(state, 'vfx.recruit', w.x, w.y, 0, w.tier);
+        addSound(state, 'sfx.recruit', w, w.tier);
         w.life = 0;
         break;
       }
@@ -789,6 +823,7 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
     // One enemy fleet in formation, worth a bit more than yours.
     const value = Math.max(3, Math.round(playerValue * CONFIG.enemyFleetSizeRatio) + 2);
     spawnEnemyFleet(state, center, spawnDistance, value, room);
+    addSound(state, 'sfx.alert', center, 1, 1, true);
   } else {
     // A handful of lone fighters from random directions.
     const count = Math.min(
@@ -864,7 +899,11 @@ export function testKillEnemies(state: GameState, view: { x: number; y: number; 
       s.dead = true;
 }
 
-// ---------- Effects ----------
+// ---------- Effects and sounds ----------
+
+function addSound(state: GameState, name: string, at: { x: number; y: number }, tier = 1, volume = 1, global = false) {
+  state.sounds.push({ name, tier, x: at.x, y: at.y, volume, global });
+}
 
 function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0, tier = 1) {
   state.effects.push({ sprite, tier, x, y, angle, age: 0 });

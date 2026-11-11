@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "make-art": "node tools/make-placeholder-art.mjs",
+    "make-sfx": "node tools/make-placeholder-sfx.mjs",
     "screenshot": "node tools/screenshot.mjs"
   },
   "dependencies": {

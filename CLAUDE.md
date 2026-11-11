@@ -36,12 +36,14 @@
 - Use it to check visual changes before handing them to the user. The browser has no graphics card, so it can't judge smoothness or performance. The user does that.
 
 ## Code layout
-- `src/engine/`: the small homegrown engine (asset loading from the manifest, pixel renderer with whole-number zoom, input, fixed 60 Hz game loop).
+- `src/engine/`: the small homegrown engine (asset loading from the manifest, pixel renderer with whole-number zoom, sound playback (`sound.ts`), input, fixed 60 Hz game loop).
 - `src/game/config.ts`: every tuning number (speeds, health, waves, zoom steps, ship types and their hit sizes).
-- `src/game/world.ts`: game rules (no drawing). `src/game/render.ts`: drawing. `src/game/Game.ts`: connects input, rules and drawing.
+- `src/game/world.ts`: game rules (no drawing; it queues sound events in `state.sounds`, which `Game.ts` plays). `src/game/render.ts`: drawing. `src/game/Game.ts`: connects input, rules and drawing.
 - `src/App.tsx`: React canvas and HUD.
-- `public/assets/`: all art, plus `manifest.json` (sprite names → files) and `README.md` (art guide for the user).
+- `public/assets/`: all art and sound effects (`sfx/`), plus `manifest.json` (sprite and sound names → files) and `README.md` (art and sound guide for the user).
 - `tools/make-placeholder-art.mjs` (`npm run make-art`): generates placeholder PNGs and never overwrites existing files unless run with `--force`.
+- `tools/make-placeholder-sfx.mjs` (`npm run make-sfx`): generates placeholder WAV sound effects (simple retro synth), same no-overwrite rule.
+- Claude can't hear sounds in the container: check them by recording which sounds start (patch `AudioBufferSourceNode.prototype.start` in a Playwright script). The user judges how they sound.
 
 ## Decisions
 <!-- Things the user asked to remember, or asked Claude not to suggest again. -->
@@ -52,6 +54,7 @@
   - Don't let gameplay depend on the exact pixel size of the art. Use separate collision sizes and anchor points.
   - **One image set per ship design, used by both teams.** Team-colour parts are painted in strong sky blue; the game recolours them per team at load time (`CONFIG.teamColors`). Never ask the user for separate player/enemy versions.
   - **Placeholders must stand out from the user's art.** Never imitate the user's art style when generating new assets. Keep the original placeholder style (simple flat-coloured shapes with a dark 1 px outline, like the first 32×32 fighters).
+  - **Sounds follow the same rules:** sound effects only (no music for now), each in `public/assets/sfx/`, listed by name in the manifest's `"sounds"` section with volume and overlap limits, with `.t2`… tier versions falling back to a lower-pitched smaller tier. Sound is on by default, M or the HUD button toggles it, and wingmen's shots play quieter (`CONFIG.audio.allyShotVolume`; may become silent if distracting).
   - Placeholder art should follow the same conventions, so swapping in real art means replacing files (and maybe editing the manifest), not changing code.
 
 ### Game concept: pixel-art spaceship fleet combat

@@ -58,3 +58,20 @@ body {
   border: none;
   cursor: pointer;
 }
+
+/* Speaker button in the HUD (the HUD itself ignores the mouse, this button doesn't). */
+.hud .sound-toggle {
+  pointer-events: auto;
+  margin-top: 4px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: #dfe6ff;
+  background: rgba(20, 24, 40, 0.8);
+  border: 1px solid #3a4160;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.hud .sound-toggle:hover {
+  border-color: #6b77a8;
+}

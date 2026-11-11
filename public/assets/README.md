@@ -88,6 +88,43 @@ own art, named by adding `.t2`, `.t3`, `.t4` to the tier-1 name:
 - Tier 3 and up are seen zoomed out below 1×, where the art is shrunk and
   looks a little softer.
 
+## Sounds
+
+Sound effects live in `sfx/` and are listed in the `"sounds"` section of
+`manifest.json`, the same way as art. To replace one, overwrite its file
+(`.wav`, `.ogg` and `.mp3` all work; if you change the format, update the
+file name in the manifest).
+
+| Name | File | When it plays |
+| --- | --- | --- |
+| `sfx.shoot` | `shoot.wav` | your ships fire (wingmen quieter than your own ship) |
+| `sfx.shoot.enemy` | `shoot-enemy.wav` | enemies fire |
+| `sfx.hit` | `hit.wav` | a shot hits a ship |
+| `sfx.explosion` (+ `.t2`–`.t4`) | `explosion.wav`, `explosion-t2.wav`… | a ship is destroyed |
+| `sfx.recruit` | `recruit.wav` | you pick up a wreck |
+| `sfx.merge` | `merge.wav` | 16 ships start merging (charge-up, then flash ~0.5 s in) |
+| `sfx.boost` | `boost.wav` | you start boosting |
+| `sfx.alert` | `alert.wav` | an enemy fleet arrives |
+| `sfx.command` | `command.wav` | your flagship dies and command passes on |
+| `sfx.gameover` | `gameover.wav` | your whole fleet is destroyed |
+
+| Option | Meaning | Default |
+| --- | --- | --- |
+| `volume` | Loudness of this sound, 0–1 | 1 |
+| `pitchVariation` | Random pitch change per play (0.05 = ±5%), so repeats sound less robotic | 0.05 |
+| `maxVoices` | How many copies can play at once (stops 15 ships firing from becoming noise) | 4 |
+| `minGap` | Shortest time between two starts, in seconds | 0.03 |
+
+- **Tiers:** any sound can have `.t2`, `.t3`, `.t4` versions for bigger ships
+  (e.g. `sfx.shoot.t3`). If one is missing, the smaller tier's sound plays at
+  a lower pitch.
+- Sounds are louder near the middle of the screen, fade off-screen, and pan
+  left/right. Overall volume and wingman volume are in `audio` in
+  `src/game/config.ts`.
+- **M** or the speaker button turns sound on/off (remembered by the browser).
+- `npm run make-sfx` recreates any missing placeholder sounds, and never
+  overwrites existing files unless you add `-- --force`.
+
 ## Conventions
 
 - **Ships face right** in the image. The game rotates them.

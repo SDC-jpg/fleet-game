@@ -48,5 +48,20 @@
 
     "bg.stars-far": { "file": "backgrounds/stars-far.png" },
     "bg.stars-near": { "file": "backgrounds/stars-near.png" }
+  },
+  "sounds": {
+    "sfx.shoot": { "file": "sfx/shoot.wav", "volume": 0.3, "maxVoices": 4, "minGap": 0.04 },
+    "sfx.shoot.enemy": { "file": "sfx/shoot-enemy.wav", "volume": 0.3, "maxVoices": 4, "minGap": 0.04 },
+    "sfx.hit": { "file": "sfx/hit.wav", "volume": 0.3, "maxVoices": 3 },
+    "sfx.explosion": { "file": "sfx/explosion.wav", "volume": 0.55, "maxVoices": 5, "minGap": 0.05 },
+    "sfx.explosion.t2": { "file": "sfx/explosion-t2.wav", "volume": 0.65, "maxVoices": 3 },
+    "sfx.explosion.t3": { "file": "sfx/explosion-t3.wav", "volume": 0.75, "maxVoices": 2 },
+    "sfx.explosion.t4": { "file": "sfx/explosion-t4.wav", "volume": 0.85, "maxVoices": 2 },
+    "sfx.recruit": { "file": "sfx/recruit.wav", "volume": 0.45, "maxVoices": 3, "pitchVariation": 0 },
+    "sfx.merge": { "file": "sfx/merge.wav", "volume": 0.6, "maxVoices": 2, "pitchVariation": 0 },
+    "sfx.boost": { "file": "sfx/boost.wav", "volume": 0.35, "maxVoices": 1 },
+    "sfx.alert": { "file": "sfx/alert.wav", "volume": 0.4, "maxVoices": 1, "pitchVariation": 0 },
+    "sfx.command": { "file": "sfx/command.wav", "volume": 0.5, "maxVoices": 1, "pitchVariation": 0 },
+    "sfx.gameover": { "file": "sfx/gameover.wav", "volume": 0.6, "maxVoices": 1, "pitchVariation": 0 }
   }
 }

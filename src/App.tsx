@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Assets } from './engine/assets';
+import { Sounds } from './engine/sound';
+import { CONFIG } from './game/config';
 import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
 
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -13,10 +15,10 @@ export default function App() {
   // Load the art, then start the game. Stop it when the page closes.
   useEffect(() => {
     let cancelled = false;
-    Assets.load()
-      .then((assets) => {
+    Promise.all([Assets.load(), Sounds.load(CONFIG.audio.masterVolume)])
+      .then(([assets, sounds]) => {
         if (cancelled || !canvasRef.current) return;
-        const game = new Game(canvasRef.current, assets, setHud);
+        const game = new Game(canvasRef.current, assets, sounds, setHud);
         gameRef.current = game;
         game.start();
       })
@@ -44,6 +46,16 @@ export default function App() {
           <div>Wave: {hud.wave}</div>
           <div>Time: {formatTime(hud.time)}</div>
           <div>FPS: {hud.fps}</div>
+          <button
+            className="sound-toggle"
+            onClick={(e) => {
+              gameRef.current?.toggleSound();
+              e.currentTarget.blur(); // so Space doesn't press it again
+            }}
+            title="Sound on/off (M)"
+          >
+            {hud.soundOn ? '🔊 Sound on' : '🔇 Sound off'} (M)
+          </button>
           <div className="hint">WASD move · Shift boost · mouse aim · click/space fire · fly into wrecks to recruit</div>
           {TEST_KEYS_ENABLED && (
             <div className="hint">
@@ -53,7 +65,7 @@ export default function App() {
           )}
           {hud.assetProblems.length > 0 && (
             <div className="warn">
-              Art problems:
+              Art / sound problems:
               {hud.assetProblems.map((p) => (
                 <div key={p}>· {p}</div>
               ))}

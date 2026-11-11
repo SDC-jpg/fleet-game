@@ -153,6 +153,20 @@ export const CONFIG = {
   /** Enemy fleet value compared to yours (1.1 = 10% bigger, plus 2). */
   enemyFleetSizeRatio: 1.1,
 
+  /** Sound settings. Per-sound volumes are in public/assets/manifest.json. */
+  audio: {
+    /** Overall volume, 0–1. */
+    masterVolume: 0.6,
+    /** Your wingmen's shots, compared to the ship you fly (0 = silent). */
+    allyShotVolume: 0.4,
+    /** When a tier has no sound of its own, the smaller tier's sound plays this much lower per tier. */
+    pitchPerTier: 0.85,
+    /** Left/right panning strength for sounds at the screen edge (0 = none, 1 = full). */
+    panAmount: 0.7,
+    /** Sounds off-screen fade out, reaching silence this many screen-halves from the centre. */
+    silentAt: 2,
+  },
+
   /**
    * Camera zoom. Every step you've reached (biggest fleet value, or biggest
    * tier) counts, and the most zoomed-out one wins. Below 1 the art is shrunk,
