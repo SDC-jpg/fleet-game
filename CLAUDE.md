@@ -74,7 +74,7 @@
   - You always fly one of your biggest ships (promoted after a merge or recruiting a bigger wreck). A dead ship takes its whole worth; merged ships never split.
   - Enemy fleets use the same tier rule. Bigger enemies leave wrecks of their tier, less often (×0.4 per tier).
   - Formation by size: biggest ships in the inner rings.
-  - Zoom follows the highest tier: 1× at T2, 0.5× from T3 on (art shrunk smoothly). A 0.25× step for T4 was tried and removed: everything looked too small.
+  - Zoom follows the highest tier: 1× at T2, 0.75× from T3 on (art shrunk smoothly). Tried and rejected as too zoomed out: 0.5× at T3, 0.25× at T4.
   - Each tier has its own art (`ship.fighter.t2`...), canvases growing 1.5× per tier from the 64 px fighter.
 
 ### First prototype scope
