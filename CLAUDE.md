@@ -28,7 +28,7 @@
 - Public repo: https://github.com/SDC-jpg/fleet-game. Live game: https://sdc-jpg.github.io/fleet-game/ (the user shares this with a teammate).
 - Every push to `main` rebuilds and republishes through `.github/workflows/deploy.yml`, with test keys on (`VITE_TEST_KEYS`). Pushing publishes publicly. **Only push when the user says to.** Don't ask after each change, because the user will say when.
 - **Discord logs** (webhook URLs are GitHub secrets, never in files):
-  - `.github/workflows/push-log.yml` posts every push's commit messages to the push-log channel (`DISCORD_WEBHOOK_PUSH`).
+  - `.github/workflows/push-log.yml` posts every push to the push-log channel: the `CHANGELOG.md` lines added in that push, then the commit list in small text (`DISCORD_WEBHOOK_PUSH`).
   - The `notify` job in `deploy.yml` runs `.github/scripts/discord-build-log.sh`, which posts "version N is live" plus the `- ` lines added to `CHANGELOG.md` since the last successful publish to the build-log channel (`DISCORD_WEBHOOK_BUILD`), or a failure notice.
   - **For every player-facing change, add one plain-language line to `CHANGELOG.md`** (under today's `## YYYY-MM-DD` heading, newest first) in the same commit. Write it for players, not as a code note.
 - Commits use the user's GitHub noreply email (set in this repo's git config). Never commit with their personal email.
