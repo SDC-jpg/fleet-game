@@ -209,9 +209,13 @@ body {
 /* Body shop screen */
 .shop {
   background: rgba(8, 10, 22, 0.96);
+  /* A fixed size, so the window doesn't jump around while you shop. The ship
+     list and the details scroll on their own if they don't fit. */
   width: min(960px, 94vw);
-  max-height: 88vh;
-  overflow-y: auto;
+  height: min(640px, 88vh);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   text-align: left;
   font-size: 14px;
 }
@@ -252,7 +256,8 @@ body {
 .shop-body {
   display: flex;
   gap: 16px;
-  align-items: flex-start;
+  flex: 1;
+  min-height: 0;
 }
 .shop-list {
   display: flex;
@@ -260,6 +265,8 @@ body {
   gap: 4px;
   width: 260px;
   flex-shrink: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .shop .ship-card {
   display: flex;
@@ -302,6 +309,7 @@ body {
 .shop-details {
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
 }
 .shop-details h2 {
   font-size: 14px;

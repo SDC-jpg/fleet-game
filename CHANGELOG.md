@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-11
 
+- The body shop window keeps a fixed size instead of resizing while you shop.
 - The ship you fly is easier to spot: a white arrow bobs above it, and its ring is thicker and brighter.
 - A ship's main class icon is now much bigger than its second class icon.
 - **The body shop is open!** Every few waves a station visits (follow the green arrow). Fly in to spend scrap: swap modules between ships, convert modules to another class, make modules rare, pick your combo, and repair. The game pauses while you shop.
