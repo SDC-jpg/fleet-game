@@ -118,6 +118,14 @@ the fighter). Bigger tiers all use the one `ship.fighter.t2`… design.
   nose-up, empty space around it trimmed).
 - The lance and missile face right and are recoloured per team like shots
   (paint team parts in sky blue). The shield bubble isn't recoloured.
+- **The Lance is meant to stand out:** `projectile.lance` is a big 3-frame
+  flickering bolt (40 px long at tier 1), with its anchor near the tip (the tip
+  is where it hits). `vfx.lance-flash` plays at the gun when it fires, and
+  `vfx.lance-trail` (a short streak that thins away) is left behind every
+  step, drawing a line that lingers for a moment. Tip: fade effects by
+  shrinking or breaking them up rather than with see-through pixels, which
+  look muddy against dark space.
+- `projectile.splinter` is the small bolt for the Splinter Volley combo.
 
 ## Tiers (bigger ships)
 

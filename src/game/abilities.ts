@@ -246,6 +246,7 @@ function fireLance(state: GameState, s: Ship, angle: number) {
     radius: L.radius * s.stats.size,
     pierce: [],
   });
+  addEffect(state, 'vfx.lance-flash', s.x + Math.cos(angle) * off, s.y + Math.sin(angle) * off, angle, s.tier);
   addSound(state, 'sfx.lance', s, s.tier);
 }
 
@@ -371,7 +372,7 @@ export function hitShip(state: GameState, s: Ship, b: Bullet) {
       spawnBullet(state, {
         team: b.team,
         kind: 'lance',
-        sprite: 'projectile.lance',
+        sprite: 'projectile.splinter',
         tier: Math.max(1, b.tier - 1),
         x: b.x,
         y: b.y,

@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-11
 
+- The Lancer's Lance is now much easier to see: a big white-hot bolt with a muzzle flash and a glowing trail.
 - The body shop window keeps a fixed size instead of resizing while you shop.
 - The ship you fly is easier to spot: a white arrow bobs above it, and its ring is thicker and brighter.
 - A ship's main class icon is now much bigger than its second class icon.

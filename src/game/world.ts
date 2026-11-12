@@ -875,6 +875,12 @@ function updateBullets(state: GameState, dt: number) {
     if (b.homing > 0) steerMissile(state, b, dt);
     b.x += b.vx * dt;
     b.y += b.vy * dt;
+    // A Lance leaves a glowing trail that lingers a moment, so you can see where it went.
+    if (b.sprite === 'projectile.lance') {
+      const a = Math.atan2(b.vy, b.vx);
+      const half = (Math.hypot(b.vx, b.vy) * dt) / 2;
+      addEffect(state, 'vfx.lance-trail', b.x - Math.cos(a) * half, b.y - Math.sin(a) * half, a, b.tier);
+    }
     b.life -= dt;
     for (const s of state.ships) {
       // Merging ships can't be hit: shots pass through.
@@ -883,7 +889,8 @@ function updateBullets(state: GameState, dt: number) {
       const r = s.stats.radius + b.radius;
       if (distSq(b.x, b.y, s.x, s.y) > r * r) continue;
       hitShip(state, s, b);
-      addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
+      // A Lance's hits spark one size bigger, so they stand out.
+      addEffect(state, 'vfx.hit', b.x, b.y, 0, b.kind === 'lance' ? b.tier + 1 : b.tier);
       addSound(state, 'sfx.hit', b, b.tier);
       // A Lance keeps going through every ship in its path.
       if (b.pierce) {

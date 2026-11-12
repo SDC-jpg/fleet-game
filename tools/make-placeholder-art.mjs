@@ -416,8 +416,8 @@ function commandRing(S = 44) {
 
 // ---------- Abilities ----------
 
-// Lance (Lancer ability): a long bright bolt, facing right. Sky blue edges get team colours.
-function lance(tier = 1) {
+// Splinter (Splinter Volley combo): a small bright bolt, facing right. Sky blue edges get team colours.
+function splinter(tier = 1) {
   const k = 1.5 ** (tier - 1);
   const len = Math.round(18 * k), thick = Math.max(3, Math.round(3 * k) | 1);
   const img = new Img(len + 2, thick + 2);
@@ -444,6 +444,70 @@ function missile(tier = 1) {
   fillPolygon(img, [[sx(0), sy(-0.8)], [sx(3), sy(-0.8)], [sx(3), sy(0.8)], [sx(0), sy(0.8)]], () => hex('#ffb347'));
   outline(img, hex('#1a1d26'));
   return img;
+}
+
+// Lance (Lancer ability): a big white-hot bolt with a gold glow and a flickering,
+// fraying tail, facing right. Sky blue edges get team colours. 3 looping frames.
+function lanceBolt(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const len = Math.round(40 * k), thick = Math.max(5, Math.round(5 * k) | 1);
+  const W = len + 2, H = thick + 2, F = 3;
+  const sheet = new Img(W * F, H);
+  const mid = (H - 1) / 2;
+  for (let f = 0; f < F; f++)
+    for (let i = 0; i < len; i++) {
+      const along = i / len; // 0 = tail end, 1 = tip
+      // The bolt narrows to a point at the tip and thins out along the tail.
+      const half = (thick / 2) * Math.min(1, (1 - along) * 6) * (0.45 + 0.55 * Math.min(1, along * 2.2));
+      for (let j = 0; j < H; j++) {
+        const d = Math.abs(j - mid);
+        if (d > half) continue;
+        // Tail pixels flicker: some drop out, differently each frame.
+        if (along < 0.45 && noise(i, j, f) > along * 2.1) continue;
+        const color = d < half * 0.35 ? '#ffffff' : d < half * 0.7 ? '#fff1a8' : '#41a6d9';
+        sheet.set(f * W + 1 + i, j, hex(color));
+      }
+    }
+  return sheet;
+}
+
+// Lance muzzle flash: a white core and a forward cone of light that shrink away
+// (solid colours, no see-through fading, which looks muddy on dark space). Faces right. 5 frames, plays once.
+function lanceFlash(S = 28) {
+  const F = 5;
+  const sheet = new Img(S * F, S);
+  const c = S / 2;
+  for (let f = 0; f < F; f++) {
+    const size = 1 - f / F;
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const dx = x + 0.5 - c, dy = y + 0.5 - c;
+        const d = Math.hypot(dx, dy);
+        const ahead = dx > 0 && Math.abs(dy) < (dx * 0.45 + 1.5) * size && d < c * (0.5 + 0.5 * size);
+        if (d < c * 0.35 * size) sheet.set(f * S + x, y, hex('#ffffff'));
+        else if (ahead) sheet.set(f * S + x, y, hex(f < 2 ? '#fff1a8' : '#ffd34a'));
+      }
+  }
+  return sheet;
+}
+
+// Lance trail: one short streak segment left behind each step, thinning away
+// (white, then gold, then a thin line). Faces right. 6 frames, plays once.
+function lanceTrail(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const W = Math.round(18 * k), H = Math.max(3, Math.round(3 * k) | 1) + 2, F = 6;
+  const sheet = new Img(W * F, H);
+  const mid = (H - 1) / 2;
+  for (let f = 0; f < F; f++) {
+    const half = ((H - 2) / 2) * (1 - f / F) + 0.3;
+    for (let x = 0; x < W; x++)
+      for (let y = 0; y < H; y++) {
+        if (Math.abs(y - mid) > half) continue;
+        if (f >= 4 && (x + f) % 2) continue; // last frames break up
+        sheet.set(f * W + x, y, hex(f < 2 ? '#ffffff' : f < 4 ? '#fff1a8' : '#ffd34a'));
+      }
+  }
+  return sheet;
 }
 
 // Aegis shield bubble (Knight ability): a shimmering mint ring around a ship. 4 looping frames.
@@ -597,7 +661,10 @@ const FILES = {
   'vfx/recruit.png': () => recruitSheet(48),
   'ui/command-ring.png': () => commandRing(44),
   'ui/flagship-marker.png': flagshipMarker,
-  'projectiles/lance.png': () => lance(1),
+  'projectiles/lance.png': () => lanceBolt(1),
+  'projectiles/splinter.png': () => splinter(1),
+  'vfx/lance-flash.png': () => lanceFlash(28),
+  'vfx/lance-trail.png': () => lanceTrail(1),
   'projectiles/missile.png': () => missile(1),
   'vfx/shield.png': () => shieldSheet(40),
   'ui/class-lancer.png': () => classIcon('lancer', 13),
@@ -641,7 +708,10 @@ for (const tier of [2, 3, 4]) {
   FILES[`ui/command-ring-t${tier}.png`] = () => commandRing(even(44 * k));
   FILES[`ui/wreck-marker-t${tier}.png`] = () => wreckMarker(even(48 * k));
   FILES[`vfx/dash-t${tier}.png`] = () => dashSheet(even(56 * k), even(28 * k));
-  FILES[`projectiles/lance-t${tier}.png`] = () => lance(tier);
+  FILES[`projectiles/lance-t${tier}.png`] = () => lanceBolt(tier);
+  FILES[`projectiles/splinter-t${tier}.png`] = () => splinter(tier);
+  FILES[`vfx/lance-flash-t${tier}.png`] = () => lanceFlash(even(28 * k));
+  FILES[`vfx/lance-trail-t${tier}.png`] = () => lanceTrail(tier);
   FILES[`projectiles/missile-t${tier}.png`] = () => missile(tier);
   FILES[`vfx/shield-t${tier}.png`] = () => shieldSheet(even(40 * k));
   FILES[`ui/wreck-marker-rare-t${tier}.png`] = () => wreckMarker(even(48 * k), RARE, '#2a0520');
