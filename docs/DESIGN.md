@@ -93,17 +93,22 @@ qualify, the pair with the most modules wins, and ties are picked at random.
 5. **Big enemies drop part of their modules** (25%, at most 8) as tier-1 wrecks,
    and still have a lower chance (half of before) of leaving a whole big wreck.
 
-### Phase C: the body shop
-- **How it appears:** a station shows up every few waves, away from you, with an
-  edge arrow pointing to it. It leaves after a while if you don't visit.
-- **Visiting:** flying into it **pauses the game** and opens the shop screen,
-  which lists your ships with their module bars. Prices are in **scrap** and live in `config.ts`.
+### Phase C: the body shop (done)
+- **How it appears:** from wave 3, a station shows up every 4 waves, just
+  off-screen, with a lime edge arrow and a countdown in the Run panel. It
+  leaves after 45 s if you don't visit (if the next one is due first, it just
+  stays longer). It leaves after one visit.
+- **Visiting:** flying the ship you control into it **pauses the game** and
+  opens the shop screen: your ships on the left (biggest first), the selected
+  ship's options on the right. Prices are in **scrap** (`CONFIG.shop`).
 - **Actions, most important first:**
-  1. **Swap modules** between two ships of the same tier.
-  2. **Convert** a module to another class.
-  3. **Buy a rare module** (it replaces a normal one of its class).
-  4. **Choose the combo** when several qualify.
-  5. **Repair** ships.
+  1. **Swap modules** between two ships of the same tier (T2+): 3 scrap.
+  2. **Convert** a module to another class, keeping its rarity: 8 scrap.
+  3. **Make a module rare:** 25 scrap.
+  4. **Choose the combo** when several qualify: free. The choice sticks while it still qualifies.
+  5. **Repair** ships: the ship's value × the share of health missing.
+- Converting tier-1 ships changes their class, which steers what merges
+  together later (like merges with like).
 - **Art:** a station sprite, plus shop screen panels (images from the manifest
   where it helps, so they're easy to paint).
 

@@ -4,6 +4,7 @@ import { Sounds } from './engine/sound';
 import { CONFIG } from './game/config';
 import { Game, TEST_KEYS_ENABLED, type FlagshipInfo, type HudInfo } from './game/Game';
 import type { HistoryPoint } from './game/world';
+import { ShopScreen } from './ShopScreen';
 
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
@@ -58,7 +59,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div className="hint">
               Test keys: = / - add/remove ship · 1 2 3 add Lancer/Knight/Ballista · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
-              enemies on screen · X end run · E spawn elite
+              enemies on screen · X end run · E spawn elite · B body shop · C +100 scrap
             </div>
           )}
           {hud.assetProblems.length > 0 && (
@@ -72,7 +73,9 @@ export default function App() {
         </div>
       )}
 
-      {hud && !hud.gameOver && (
+      {hud?.shop && <ShopScreen shop={hud.shop} game={gameRef.current} />}
+
+      {hud && !hud.gameOver && !hud.shop && (
         <div className="bottom-hud">
           <RunPanel hud={hud} />
           {hud.flagship && <FlagshipPanel ship={hud.flagship} hud={hud} game={gameRef.current} />}
@@ -139,6 +142,13 @@ function RunPanel({ hud }: { hud: HudInfo }) {
       <Row label="Destroyed" value={`${hud.stats.kills}`} note={`value ${hud.stats.killValue}`} />
       <Row label="Lost" value={`${hud.stats.losses}`} note={`value ${hud.stats.lossValue}`} />
       <Row label="Scrap" value={`${hud.scrap}`} />
+      {hud.shopLeavesIn !== null && (
+        <div className="row shop-row">
+          <span className="label">Body shop</span>
+          <span className="value">{Math.ceil(hud.shopLeavesIn)}s</span>
+          <span className="note">follow the green arrow</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -36,7 +36,7 @@
 - The container has Chromium (installed by the Dockerfile at build time, no firewall change needed). `tools/screenshot.mjs` drives it with `playwright-core` and saves screenshots that Claude can view with the Read tool. It also prints browser errors.
 - Example (dev server must be running): `node tools/screenshot.mjs --out <scratchpad>/shots 'wait:1500' 'press:Equal*10' 'hold:KeyD:800' 'shot:fleet'`. Quote the steps, because the shell (zsh) treats `*` as a filename wildcard. Run it with no steps for a single screenshot.
 - Steps also include `rclick` (right-click) and `wheel:down` / `wheel:up`.
-- Dev-only test keys help set up scenes: `=`/`-` add/remove ship (random class), `1`/`2`/`3` add a Lancer/Knight/Ballista, `]` add 16 ships, `E` spawn an elite, `G` invincible, `K` destroy on-screen enemies, `X` end the run (to see the report).
+- Dev-only test keys help set up scenes: `=`/`-` add/remove ship (random class), `1`/`2`/`3` add a Lancer/Knight/Ballista, `]` add 16 ships, `E` spawn an elite, `B` body shop next to you, `C` +100 scrap, `G` invincible, `K` destroy on-screen enemies, `X` end the run (to see the report).
 - Use it to check visual changes before handing them to the user. The browser has no graphics card, so it can't judge smoothness or performance. The user does that.
 
 ## Code layout
@@ -87,7 +87,8 @@
   - Class icons darken while their ability recharges and refill from the bottom (manifest `<icon>.cooldown` art overrides the automatic darkening).
   - Mouse wheel: at T1 it cycles one ship per class (the least damaged of each); at T2+ every ship of the top tier.
   - **Loot (Phase B, done):** ships track `modules` and `rare` counts per class. Rare modules give noticeably stronger versions of the same ability (`CONFIG.rare`: Lance reach, Aegis duration, missile count), scaled by the class's rare share. Elites (`CONFIG.elites`) glow pink, are tougher, carry only rare modules and always leave a wreck. Big enemies drop some modules as T1 wrecks (`CONFIG.moduleDrops`) and keep a lower chance of a whole big wreck (the user's choice). Scrap (`CONFIG.scrap`) comes from kills. Rare = pink everywhere.
-  - **Roadmap** in `docs/DESIGN.md`: Phase C body shop (pauses the game; scrap currency; actions by priority: swap modules, convert, buy rare, choose combo, repair), Phase D (perks at merges, merge choice, more classes).
+  - **Body shop (Phase C, done; `CONFIG.shop`, rules in `src/game/shop.ts`, screen in `src/ShopScreen.tsx`):** a station visits from wave 3 every 4 waves (45 s, lime edge arrow, Run panel countdown; an unvisited one stays if the next is due). Flying the flagship in pauses the game and opens the shop; leaving (button or Esc) sends the station away. Actions in the user's priority order: swap modules between same-tier T2+ ships, convert a module's class (keeps rarity), make a module rare, choose combo (sticks via `comboChoice`), repair. Scrap is the currency.
+  - **Roadmap** in `docs/DESIGN.md`: Phase D (perks at merges, merge choice, more classes).
 - **Tiers and merging** (numbers in `CONFIG.tiers`):
   - Fleet value = what every ship is worth in tier-1 ships (T2 = 8, T3 = 64...). It's the score.
   - Once fleet value reaches 16, any 8 ships of one tier merge into one of the next tier, so there are never more than 7 per tier (since 2026-11-11: 8 per merge balances finer module blends with fast play; earlier 16/32, then 4/8 for testing). Merging is automatic for now; merging by choice may come later.

@@ -199,3 +199,138 @@ body {
 .bar > div {
   height: 100%;
 }
+
+/* Run panel: a body shop is waiting */
+.run-panel .shop-row .label,
+.run-panel .shop-row .value {
+  color: #b8ff5a;
+}
+
+/* Body shop screen */
+.shop {
+  background: rgba(8, 10, 22, 0.96);
+  width: min(960px, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  text-align: left;
+  font-size: 14px;
+}
+.shop button {
+  font-family: inherit;
+  font-size: 12px;
+  margin: 2px;
+  padding: 4px 8px;
+}
+.shop button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.shop button.active {
+  background: #3d7a3d;
+  opacity: 1;
+}
+.shop button.rare-button {
+  background: #8a2f70;
+}
+.shop-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.shop-head h1 {
+  margin: 0;
+  color: #b8ff5a;
+}
+.shop-head .scrap {
+  flex: 1;
+}
+.shop-message {
+  color: #ff9ad5;
+  margin: 6px 0;
+  font-size: 12px;
+}
+.shop-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.shop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 260px;
+  flex-shrink: 0;
+}
+.shop .ship-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  text-align: left;
+  background: rgba(30, 38, 70, 0.7);
+  border: 2px solid transparent;
+}
+.shop .ship-card.selected {
+  border-color: #b8ff5a;
+}
+.shop .portrait {
+  image-rendering: pixelated;
+  background: rgba(40, 50, 90, 0.35);
+  border: 2px solid #2c3a66;
+  flex-shrink: 0;
+}
+.shop .chips span {
+  margin-right: 6px;
+}
+.shop .chips .rare-chip {
+  text-decoration: underline;
+  text-decoration-color: #ff6ad5;
+  text-decoration-thickness: 2px;
+}
+.shop .rare-tag {
+  color: #ff6ad5;
+}
+.shop .damaged {
+  color: #ff6b5a;
+}
+.shop .note {
+  opacity: 0.6;
+}
+.shop .combo {
+  color: #ffd34a;
+}
+.shop-details {
+  flex: 1;
+  min-width: 0;
+}
+.shop-details h2 {
+  font-size: 14px;
+  color: #9fd3ff;
+  margin: 14px 0 4px;
+}
+.shop .ship-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.shop .title {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+.shop .module-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0;
+}
+.shop .module-name {
+  min-width: 190px;
+}
+.shop .swap select {
+  font-family: ui-monospace, Consolas, monospace;
+  margin: 0 6px;
+  background: #141a30;
+  color: inherit;
+  border: 1px solid #2c3a66;
+}

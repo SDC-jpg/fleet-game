@@ -58,6 +58,8 @@ export interface Ship {
   rare: Modules;
   /** Elite enemy: tougher, glowing, all modules rare, always leaves a wreck. */
   elite: boolean;
+  /** Combo chosen at the body shop (used while it still qualifies). */
+  comboChoice: ComboId | null;
   /** What the modules add up to: abilities, their strength, combo (see abilities.ts). */
   build: Build;
   /** Seconds until each ability can be used again. */
@@ -177,6 +179,14 @@ export interface Wreck {
   life: number;
 }
 
+/** The body shop station: sits still until you fly in, or until it leaves. */
+export interface Shop {
+  x: number;
+  y: number;
+  /** Seconds before it leaves. */
+  life: number;
+}
+
 /**
  * Something that should make a sound. The rules only announce it; Game.ts
  * plays it (louder near the middle of the screen, panned left/right).
@@ -240,6 +250,10 @@ export interface GameState {
   dashCooldown: number;
   /** Currency for the body shop, earned from kills. */
   scrap: number;
+  /** The body shop station, while one is visiting. */
+  shop: Shop | null;
+  /** True while you're inside the body shop (the game is paused meanwhile). */
+  shopOpen: boolean;
   /** Boost stamina, 0–1 (shown by the ring around the ship you fly). */
   boostStamina: number;
   /** True after the bar ran dry, until it refills to CONFIG.boost.restartAt. */
@@ -346,6 +360,8 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     waveTimer: CONFIG.firstWaveDelay,
     dashCooldown: 0,
     scrap: 0,
+    shop: null,
+    shopOpen: false,
     boostStamina: 1,
     boostLocked: false,
     boostRest: 0,
@@ -390,6 +406,7 @@ function addShip(
     modules,
     rare,
     elite,
+    comboChoice: null,
     build,
     abilityTimers: timers,
     abilityCooldowns: { ...timers },
@@ -522,6 +539,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   updateBullets(state, dt);
   removeDeadShips(state);
   updateWrecks(state, dt);
+  updateShop(state, dt);
   startMerges(state);
   promoteFlagship(state);
   updateWaves(state, dt, spawnDistance);
@@ -950,6 +968,19 @@ function addWreck(state: GameState, s: Ship, tier: number, modules: Modules, rar
   });
 }
 
+/**
+ * Work a ship's build and stats out again after its modules changed (body shop).
+ * Ties between classes keep their old order, and a chosen combo stays if it still qualifies.
+ */
+export function refreshShip(ship: Ship) {
+  ship.build = computeBuild(ship.modules, ship.rare, ship.tier, {
+    order: [ship.build.main, ...ship.build.abilities],
+    combo: ship.comboChoice,
+  });
+  ship.stats = shipStats(ship.type, ship.team, ship.tier, ship.build, ship.elite);
+  ship.hp = Math.min(ship.hp, ship.stats.maxHp);
+}
+
 /** When a leader dies, the closest of the biggest surviving ships takes command. */
 function pickNewLeader(fleet: Fleet, old: Ship): Ship | null {
   let best: Ship | null = null;
@@ -1106,6 +1137,7 @@ function finishMerge(state: GameState, m: Merge) {
     core.modules = addModules(core.modules, p.modules);
     core.rare = addModules(core.rare, p.rare);
   }
+  core.comboChoice = null;
   core.build = computeBuild(core.modules, core.rare, core.tier);
   core.stats = shipStats(core.type, core.team, core.tier, core.build);
   core.hp = core.stats.maxHp;
@@ -1168,6 +1200,39 @@ function updateWrecks(state: GameState, dt: number) {
   state.wrecks = state.wrecks.filter((w) => w.life > 0);
 }
 
+// ---------- Body shop ----------
+
+/** The body shop waits (and eventually leaves). Flying the ship you control into it opens it. */
+function updateShop(state: GameState, dt: number) {
+  const shop = state.shop;
+  if (!shop) return;
+  shop.life -= dt;
+  if (shop.life <= 0) {
+    state.shop = null;
+    return;
+  }
+  const ship = controlledShip(state);
+  if (!ship || ship.merge) return;
+  const reach = CONFIG.shop.radius + ship.stats.radius;
+  if (distSq(ship.x, ship.y, shop.x, shop.y) < reach * reach) {
+    state.shopOpen = true;
+    ship.vx = ship.vy = 0;
+    addSound(state, 'sfx.shop', ship, 1, 1, true);
+  }
+}
+
+/** Leave the body shop: the station departs and the game goes on. */
+export function closeShop(state: GameState) {
+  state.shopOpen = false;
+  state.shop = null;
+}
+
+/** Test helper: a body shop appears near you right away. */
+export function testSpawnShop(state: GameState) {
+  const c = controlledShip(state);
+  if (c) state.shop = { x: c.x + 120, y: c.y, life: CONFIG.shop.lifetime };
+}
+
 // ---------- Enemy waves ----------
 
 function updateWaves(state: GameState, dt: number, spawnDistance: number) {
@@ -1181,6 +1246,19 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   state.history.push({ time: state.survived, wave: state.wave, value: fleetValue(state.playerFleet) });
   const center = controlledShip(state);
   if (!center) return;
+
+  // Every few waves the body shop visits, a little way off. If the last one is
+  // still waiting, it just stays longer.
+  const S = CONFIG.shop;
+  if (state.wave >= S.firstWave && (state.wave - S.firstWave) % S.everyNWaves === 0) {
+    if (state.shop) state.shop.life = S.lifetime;
+    else {
+      const a = Math.random() * Math.PI * 2;
+      const d = spawnDistance * S.distance;
+      state.shop = { x: center.x + Math.cos(a) * d, y: center.y + Math.sin(a) * d, life: S.lifetime };
+      addSound(state, 'sfx.shop', center, 1, 1, true);
+    }
+  }
 
   const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
   const playerValue = fleetValue(state.playerFleet);

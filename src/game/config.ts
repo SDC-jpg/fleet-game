@@ -208,6 +208,30 @@ export const CONFIG = {
     eliteBonus: 10,
   },
 
+  /** The body shop: a station that visits every few waves. Fly into it to rework your ships (pauses the game). */
+  shop: {
+    /** First wave with a body shop. */
+    firstWave: 3,
+    /** After that, a body shop comes every this-many waves. */
+    everyNWaves: 4,
+    /** Seconds before an unvisited body shop leaves (it blinks in its last 10). */
+    lifetime: 45,
+    /** Where it appears, as a share of the distance enemies appear at (1 = same; lower = closer). */
+    distance: 0.75,
+    /** How close (game pixels, plus your ship's size) your ship must fly to enter. */
+    radius: 30,
+    /** Scrap to swap one module between two ships of the same tier (tier 2+). */
+    swapCost: 3,
+    /** Scrap to convert one module into another class (keeps its rarity). */
+    convertCost: 8,
+    /** Scrap to make one module rare. */
+    rareCost: 25,
+    /** Scrap to choose which combo a ship uses, when several qualify. */
+    comboCost: 0,
+    /** Scrap for a full repair, times the ship's value (half-damaged = half price). */
+    repairCostPerValue: 1,
+  },
+
   /** Big enemies (tier 2+) drop some of their modules as tier-1 wrecks when destroyed. */
   moduleDrops: {
     /** Share of their modules they drop. */

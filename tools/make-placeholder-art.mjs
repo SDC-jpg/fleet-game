@@ -484,6 +484,34 @@ function classIcon(cls, S, edge = '#10131a') {
   return img;
 }
 
+// Body shop station: a grey ring with a hub and four lime lights that blink in turn. 4 looping frames.
+function shopStation(S = 64) {
+  const F = 4;
+  const sheet = new Img(S * F, S);
+  const c = S / 2;
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+        if (d > c - 6 && d < c - 2) frame.set(x, y, hex('#8a93a6'));
+        else if (d < 10) frame.set(x, y, hex(d < 5 ? '#b8ff5a' : '#5d6578'));
+        else if (Math.abs(x + 0.5 - c) < 2 || Math.abs(y + 0.5 - c) < 2) {
+          if (d < c - 5) frame.set(x, y, hex('#4a5163'));
+        }
+      }
+    // Four lights on the ring, one brighter each frame.
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const lx = c + Math.cos(a) * (c - 4), ly = c + Math.sin(a) * (c - 4);
+      rect(frame, Math.round(lx - 2), Math.round(ly - 2), 4, 4, hex(i === f ? '#eaffc8' : '#6f9a2c'));
+    }
+    outline(frame, hex('#14171f'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 // Rare things are pink: rare wreck markers, rare icon outlines, the elite glow.
 const RARE = '#ff6ad5';
 
@@ -574,6 +602,8 @@ const FILES = {
   'vfx/dash.png': () => dashSheet(56, 28),
   'ui/arrow-enemy.png': () => edgeArrow('#ff6b5a', '#2a0b0b'),
   'ui/arrow-wreck.png': () => edgeArrow('#b8bcc6', '#16171b'),
+  'ui/arrow-shop.png': () => edgeArrow('#b8ff5a', '#1b2a08'),
+  'stations/shop.png': () => shopStation(64),
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,
 };

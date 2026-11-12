@@ -63,11 +63,18 @@ export function addModules(a: Modules, b: Modules): Modules {
  * Work out a ship's abilities, their strength and its combo from its modules
  * (`rare` says how many of each class's modules are rare).
  */
-export function computeBuild(modules: Modules, rare: Modules, tier: number): Build {
+export function computeBuild(
+  modules: Modules,
+  rare: Modules,
+  tier: number,
+  prefer?: { order?: ClassId[]; combo?: ComboId | null },
+): Build {
   const M = CONFIG.modules;
   const total = CLASS_IDS.reduce((sum, c) => sum + modules[c], 0) || 1;
-  // Biggest class first; equal ones in random order (sort keeps the shuffled order for ties).
-  const order = shuffled(CLASS_IDS).sort((a, b) => modules[b] - modules[a]);
+  // Biggest class first; equal ones in random order (sort keeps the shuffled order
+  // for ties), or in the preferred order, so reworking a ship doesn't reshuffle it.
+  const start = prefer?.order ? [...new Set([...prefer.order, ...shuffled(CLASS_IDS)])] : shuffled(CLASS_IDS);
+  const order = start.sort((a, b) => modules[b] - modules[a]);
   const share = noModules();
   for (const c of CLASS_IDS) share[c] = modules[c] / total;
   const abilities = order.filter((c) => modules[c] > 0 && share[c] >= M.minShare - 1e-9);
@@ -79,19 +86,26 @@ export function computeBuild(modules: Modules, rare: Modules, tier: number): Bui
     else smallShare += share[c];
   }
   // A combo needs both of its classes to have an ability. The pair with the most modules wins.
-  let combo: ComboId | null = null;
+  // A combo chosen at the body shop wins while it still qualifies.
+  const options = comboOptions(abilities);
+  let combo: ComboId | null = prefer?.combo && options.includes(prefer.combo) ? prefer.combo : null;
   let best = 0;
-  for (const id of shuffled(Object.keys(COMBOS) as ComboId[])) {
-    const [a, b] = COMBOS[id].classes;
-    if (!abilities.includes(a) || !abilities.includes(b)) continue;
-    if (modules[a] + modules[b] > best) {
-      best = modules[a] + modules[b];
-      combo = id;
+  if (!combo)
+    for (const id of shuffled(options)) {
+      const [a, b] = COMBOS[id].classes;
+      if (modules[a] + modules[b] > best) {
+        best = modules[a] + modules[b];
+        combo = id;
+      }
     }
-  }
   const rareShare = noModules();
   for (const c of CLASS_IDS) rareShare[c] = modules[c] > 0 ? rare[c] / modules[c] : 0;
   return { main: order[0], abilities, share, strength, rareShare, gunBonus: 1 + M.smallShareGunBonus * smallShare, combo };
+}
+
+/** The combos a ship with these abilities qualifies for. */
+export function comboOptions(abilities: ClassId[]): ComboId[] {
+  return (Object.keys(COMBOS) as ComboId[]).filter((id) => COMBOS[id].classes.every((c) => abilities.includes(c)));
 }
 
 /** A rare bonus: `full` when all of a class's modules are rare, less when only some are. */

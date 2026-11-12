@@ -107,6 +107,9 @@ the fighter). Bigger tiers all use the one `ship.fighter.t2`… design.
   `sfx.rare` plays when you pick one up.
 - **Elites** have `vfx.elite` (+ tiers) looping under them, a glow sized for
   the ship. Not team-recoloured.
+- **Body shop:** `station.shop` is the station (a 4-frame looping sheet,
+  64 px; any size works), `ui.arrow.shop` its edge arrow. Sounds: `sfx.shop`
+  (it arrives / you dock) and `sfx.buy` (a purchase).
 - The HUD at the bottom shows the ship you fly, using its own art (rotated
   nose-up, empty space around it trimmed).
 - The lance and missile face right and are recoloured per team like shots

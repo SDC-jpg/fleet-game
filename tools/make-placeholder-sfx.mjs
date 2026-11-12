@@ -220,6 +220,28 @@ function rare() {
   });
 }
 
+/** Body shop arrives / you dock: a friendly two-note "ding-dong". */
+function shop() {
+  const a = oscillator('sine'), b = oscillator('triangle');
+  return render(0.7, (t) => {
+    const second = t > 0.22;
+    const f = second ? 784 : 1047;
+    const local = second ? t - 0.22 : t;
+    return (a(f) + b(f * 2) * 0.3) * Math.exp(-local * 6) * Math.min(1, local / 0.005);
+  });
+}
+
+/** Shop purchase: a quick metallic "ka-ching". */
+function buy() {
+  const r = rng(51);
+  const a = oscillator('square'), b = oscillator('square');
+  return render(0.35, (t) => {
+    const click = t < 0.03 ? (r() * 2 - 1) * (1 - t / 0.03) : 0;
+    const ring = t > 0.05 ? (a(1568) + b(2093) * 0.7) * Math.exp(-(t - 0.05) * 14) * 0.5 : 0;
+    return click + ring;
+  });
+}
+
 function alert() {
   const osc = oscillator('square');
   return render(0.72, (t) => {
@@ -266,6 +288,8 @@ const FILES = {
   'shield.wav': shield,
   'missile.wav': missile,
   'rare.wav': rare,
+  'shop.wav': shop,
+  'buy.wav': buy,
   'alert.wav': alert,
   'command.wav': command,
   'gameover.wav': gameOver,

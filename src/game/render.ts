@@ -40,6 +40,13 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     r.drawSprite(sprite, w.x, w.y, w.angle, state.time, alpha);
   }
 
+  // The body shop station (blinks before it leaves).
+  const shop = state.shop;
+  if (shop) {
+    const leaving = shop.life < 10 && Math.floor(shop.life * 4) % 2 === 0;
+    r.drawSprite(assets.get('station.shop'), shop.x, shop.y, 0, state.time, leaving ? 0.4 : 1);
+  }
+
   // Draw every other ship first (small ones under big ones), then the
   // command ring and the ship you fly on top.
   const flagship = controlledShip(state);
@@ -75,6 +82,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   // Arrows at the screen edge pointing to things you can't see.
   const wreckArrow = assets.get('ui.arrow.wreck');
   for (const w of state.wrecks) drawEdgeArrow(r, wreckArrow, w.x, w.y, state.time);
+  if (shop) drawEdgeArrow(r, assets.get('ui.arrow.shop'), shop.x, shop.y, state.time);
   const enemyArrow = assets.get('ui.arrow.enemy');
   for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, enemyArrow, s.x, s.y, state.time);
 }

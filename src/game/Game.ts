@@ -7,7 +7,9 @@ import { PixelRenderer } from '../engine/renderer';
 import type { Sounds } from '../engine/sound';
 import { clamp } from '../engine/math';
 import { renderGame, shipPortrait, tierSprite } from './render';
-import { CLASS_IDS, CLASSES, COMBOS, CONFIG } from './config';
+import { CLASS_IDS, CLASSES, COMBOS, CONFIG, type ClassId, type ComboId } from './config';
+import { comboOptions } from './abilities';
+import { applyShopAction, countOf, kindsOf, repairCost, type ShopAction } from './shop';
 import {
   controlledShip,
   createGame,
@@ -16,6 +18,8 @@ import {
   testDestroyFleet,
   testKillEnemies,
   testRemoveShip,
+  testSpawnShop,
+  closeShop,
   testSpawnElite,
   switchOptions,
   updateGame,
@@ -24,6 +28,7 @@ import {
   type HistoryPoint,
   type RunStats,
   type SoundEvent,
+  type Ship,
 } from './world';
 
 /**
@@ -48,6 +53,10 @@ export interface HudInfo {
   dashCooldown: number;
   /** Currency for the body shop. */
   scrap: number;
+  /** Seconds before the visiting body shop leaves (null = none around). */
+  shopLeavesIn: number | null;
+  /** The body shop screen, while you're docked (null = closed). */
+  shop: ShopInfo | null;
   /** The ship you fly, for the flagship panel (null once the fleet is gone). */
   flagship: FlagshipInfo | null;
   /** How many ships the mouse wheel switches between. */
@@ -60,6 +69,34 @@ export interface HudInfo {
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
   assetProblems: string[];
+}
+
+/** One of your ships, as listed in the body shop. */
+export interface ShopShip {
+  id: number;
+  /** Changes when the ship's art may change (redraws its picture). */
+  key: string;
+  tier: number;
+  flagship: boolean;
+  className: string;
+  hp: number;
+  maxHp: number;
+  repairCost: number;
+  /** Its modules, one entry per kind (class + rarity). */
+  kinds: { cls: ClassId; rare: boolean; count: number; name: string; color: string }[];
+  abilities: string[];
+  combo: string | null;
+  /** Combos it qualifies for (a choice only when there are 2 or more). */
+  comboChoices: { id: ComboId; name: string; text: string; active: boolean }[];
+}
+
+/** What the body shop screen shows. */
+export interface ShopInfo {
+  scrap: number;
+  prices: { swap: number; convert: number; rare: number; combo: number };
+  ships: ShopShip[];
+  /** Why the last action didn't work, if it didn't. */
+  message: string | null;
 }
 
 /** The ship you fly, as shown in the bottom HUD panel. */
@@ -104,6 +141,8 @@ export class Game {
   private onVisibility = () => {
     if (document.hidden) this.setPaused(true);
   };
+  /** Why the last body shop action didn't work (shown in the shop). */
+  private shopMessage: string | null = null;
 
   constructor(canvas: HTMLCanvasElement, assets: Assets, sounds: Sounds, onHud: (hud: HudInfo) => void) {
     this.assets = assets;
@@ -145,7 +184,8 @@ export class Game {
 
   /** Pause or resume (Esc, the Resume button, or automatically when the window loses focus). */
   setPaused(paused: boolean) {
-    if (this.state.gameOver) paused = false;
+    // The body shop already pauses the game.
+    if (this.state.gameOver || this.state.shopOpen) paused = false;
     this.paused = paused;
     this.needsDraw = true;
   }
@@ -154,10 +194,11 @@ export class Game {
    * Draw the ship you fly into a small HUD canvas, nose up, enlarged by a whole
    * number so the pixels stay crisp.
    */
-  drawPortrait(canvas: HTMLCanvasElement) {
+  drawPortrait(canvas: HTMLCanvasElement, shipId?: number) {
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const ship = controlledShip(this.state);
+    const ship =
+      shipId === undefined ? controlledShip(this.state) : this.state.playerFleet.members.find((s) => s.id === shipId);
     if (!ship) return;
     const f = frameAt(shipPortrait(this.assets, ship), this.state.time);
     // Only the drawn part of the image counts (art often has empty space around it).
@@ -170,6 +211,20 @@ export class Game {
     ctx.rotate(-Math.PI / 2);
     ctx.drawImage(f.image, b.x, b.y, b.w, b.h, -b.w / 2, -b.h / 2, b.w, b.h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  /** Do something at the body shop (button in the shop screen). */
+  shopAction(action: ShopAction) {
+    this.shopMessage = applyShopAction(this.state, action);
+    this.playQueuedSounds();
+    this.sendHud();
+  }
+
+  /** Leave the body shop and carry on. */
+  leaveShop() {
+    closeShop(this.state);
+    this.shopMessage = null;
+    this.sendHud();
   }
 
   /** Switch sound on/off (M key or the speaker button). */
@@ -197,8 +252,11 @@ export class Game {
     const i = this.input;
     if (this.state.gameOver && i.isDown('KeyR')) this.restart();
     if (i.wasPressed('KeyM')) this.toggleSound();
-    if (i.wasPressed('Escape')) this.setPaused(!this.paused);
-    if (this.paused) {
+    if (i.wasPressed('Escape')) {
+      if (this.state.shopOpen) this.leaveShop();
+      else this.setPaused(!this.paused);
+    }
+    if (this.paused || this.state.shopOpen) {
       // Ignore one-off presses made while paused.
       i.wasPressed('MouseRight');
       i.wasPressed('Space');
@@ -210,6 +268,15 @@ export class Game {
     // Spawn enemies a bit outside the visible area.
     const spawnDistance = Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2 + CONFIG.spawnMargin;
     updateGame(this.state, this.readControls(), dt, spawnDistance);
+    this.playQueuedSounds();
+    // Docking at the body shop freezes the picture, like a pause.
+    if (this.state.shopOpen) {
+      this.needsDraw = true;
+      this.sendHud();
+    }
+  }
+
+  private playQueuedSounds() {
     for (const e of this.state.sounds) this.playSound(e);
     this.state.sounds.length = 0;
   }
@@ -257,6 +324,8 @@ export class Game {
     if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
+    if (i.wasPressed('KeyB')) testSpawnShop(s);
+    if (i.wasPressed('KeyC')) s.scrap += 100;
     if (i.wasPressed('KeyE')) testSpawnElite(s, Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2);
   }
 
@@ -270,8 +339,9 @@ export class Game {
       r.camY += (ship.y - r.camY) * k;
     }
     r.setZoom(this.state.zoom);
-    if (!this.paused || this.needsDraw) {
-      r.begin(this.paused ? 0 : frameDt);
+    const frozen = this.paused || this.state.shopOpen;
+    if (!frozen || this.needsDraw) {
+      r.begin(frozen ? 0 : frameDt);
       renderGame(this.state, r, this.assets);
       r.end();
       this.needsDraw = false;
@@ -288,27 +358,31 @@ export class Game {
 
     // Update the HUD about 10 times a second (React doesn't need every frame).
     this.hudTimer -= frameDt;
-    if (this.hudTimer <= 0) {
-      this.hudTimer = 0.1;
-      this.onHud({
-        fleetSize: fleetValue(this.state.playerFleet),
-        fleetMix: fleetMix(this.state),
-        maxFleetSize: this.state.maxFleetSize,
-        wave: this.state.wave,
-        time: this.state.survived,
-        gameOver: this.state.gameOver,
-        paused: this.paused,
-        dashCooldown: this.state.dashCooldown,
-        scrap: this.state.scrap,
-        ...flagshipInfo(this.state),
-        stats: { ...this.state.stats },
-        history: this.state.history,
-        invincible: this.state.invincible,
-        soundOn: this.sounds.enabled,
-        fps: this.fps,
-        assetProblems: [...this.assets.problems, ...this.sounds.problems],
-      });
-    }
+    if (this.hudTimer <= 0) this.sendHud();
+  }
+
+  private sendHud() {
+    this.hudTimer = 0.1;
+    this.onHud({
+      fleetSize: fleetValue(this.state.playerFleet),
+      fleetMix: fleetMix(this.state),
+      maxFleetSize: this.state.maxFleetSize,
+      wave: this.state.wave,
+      time: this.state.survived,
+      gameOver: this.state.gameOver,
+      paused: this.paused,
+      dashCooldown: this.state.dashCooldown,
+      scrap: this.state.scrap,
+      shopLeavesIn: this.state.shop && !this.state.shopOpen ? this.state.shop.life : null,
+      shop: this.state.shopOpen ? shopInfo(this.state, this.shopMessage) : null,
+      ...flagshipInfo(this.state),
+      stats: { ...this.state.stats },
+      history: this.state.history,
+      invincible: this.state.invincible,
+      soundOn: this.sounds.enabled,
+      fps: this.fps,
+      assetProblems: [...this.assets.problems, ...this.sounds.problems],
+    });
   }
 }
 
@@ -381,4 +455,38 @@ function opaqueBox(image: CanvasImageSource, sx: number, sy: number, w: number, 
   if (!boxCache.has(image)) boxCache.set(image, new Map());
   boxCache.get(image)!.set(key, box);
   return box;
+}
+
+/** Everything the body shop screen needs: your ships (biggest first) and the prices. */
+function shopInfo(state: GameState, message: string | null): ShopInfo {
+  const S = CONFIG.shop;
+  const flagship = controlledShip(state);
+  const ships = state.playerFleet.members
+    .filter((s) => !s.merge)
+    .sort((a, b) => b.tier - a.tier || a.id - b.id)
+    .map((s) => shopShip(s, s === flagship));
+  return { scrap: state.scrap, prices: { swap: S.swapCost, convert: S.convertCost, rare: S.rareCost, combo: S.comboCost }, ships, message };
+}
+
+function shopShip(s: Ship, flagship: boolean): ShopShip {
+  const options = comboOptions(s.build.abilities);
+  return {
+    id: s.id,
+    key: `${s.id}-${s.tier}-${s.build.main}`,
+    tier: s.tier,
+    flagship,
+    className: CLASSES[s.build.main].name,
+    hp: s.hp,
+    maxHp: s.stats.maxHp,
+    repairCost: repairCost(s),
+    kinds: kindsOf(s).map((k) => ({
+      ...k,
+      count: countOf(s, k),
+      name: CLASSES[k.cls].name,
+      color: CLASSES[k.cls].color,
+    })),
+    abilities: s.build.abilities.map((c) => CLASSES[c].ability),
+    combo: s.build.combo ? COMBOS[s.build.combo].name : null,
+    comboChoices: options.map((id) => ({ id, name: COMBOS[id].name, text: COMBOS[id].text, active: s.build.combo === id })),
+  };
 }
