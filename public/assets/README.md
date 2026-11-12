@@ -72,7 +72,7 @@ The game recolours the "team colour" parts for each side when it starts.
   stamina meter**. It's a flipbook whose frames are fill levels: the **first
   frame is empty, the last is full**, and the game shows the frame matching the
   stamina left (it doesn't play as an animation). Use as many frames as you
-  like (the placeholder has 17). It's drawn faded while boost is locked after
+  like (the placeholder has 33). It's drawn faded while boost is locked after
   running dry. Not team-recoloured.
 
 - **`vfx.dash`** plays once behind every ship in your fleet when you dash

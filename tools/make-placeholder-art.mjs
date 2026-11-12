@@ -395,21 +395,19 @@ function wreckMarker(S = 48) {
 }
 
 // Command ring around the ship you fly, doubling as the boost stamina meter.
-// 17 frames: frame N has N of the 16 dashes lit, filling clockwise from the top.
+// 33 frames: frame N has N/32 of the ring lit, filling clockwise from the top.
 function commandRing(S = 44) {
-  const DASHES = 16;
-  const sheet = new Img(S * (DASHES + 1), S);
+  const STEPS = 32;
+  const sheet = new Img(S * (STEPS + 1), S);
   const R = S / 2 - 2;
-  for (let f = 0; f <= DASHES; f++)
+  for (let f = 0; f <= STEPS; f++)
     for (let y = 0; y < S; y++)
       for (let x = 0; x < S; x++) {
         const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
         if (Math.abs(Math.hypot(dx, dy) - R) >= 0.7) continue;
         // 0 at the top, growing clockwise, 0–1.
         const turn = ((Math.atan2(dy, dx) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
-        const half = Math.floor(turn * DASHES * 2);
-        if (half % 2 !== 0) continue;
-        const lit = Math.floor(half / 2) < f;
+        const lit = turn < f / STEPS;
         sheet.set(f * S + x, y, hex(lit ? '#9fd3ff' : '#4a5a70', lit ? 200 : 90));
       }
   return sheet;
