@@ -241,6 +241,17 @@ function freeze() {
   });
 }
 
+/** Item picked up: a quick bright sparkle (rising arpeggio). */
+function loot() {
+  const osc = oscillator('triangle');
+  const notes = [880, 1109, 1319, 1760];
+  return render(0.5, (t) => {
+    const n = Math.min(notes.length - 1, Math.floor(t / 0.07));
+    const local = t - n * 0.07;
+    return osc(notes[n]) * Math.exp(-local * 10) * (t < 0.28 ? 1 : Math.exp(-(t - 0.28) * 12));
+  });
+}
+
 /** Level up: a bright rising fanfare. */
 function levelUp() {
   const a = oscillator('square'), b = oscillator('triangle');
@@ -310,6 +321,7 @@ const FILES = {
   'freeze.wav': freeze,
   'levelup.wav': levelUp,
   'card.wav': card,
+  'loot.wav': loot,
   'alert.wav': alert,
   'command.wav': command,
   'gameover.wav': gameOver,

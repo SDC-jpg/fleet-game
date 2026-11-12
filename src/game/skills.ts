@@ -27,8 +27,8 @@ const COOLDOWNS: Record<SkillId, () => number> = {
   freeze: () => CONFIG.freeze.cooldown,
 };
 
-/** Seconds between uses of a skill (shorter with "rate" upgrades). */
-export const cooldownOf = (sk: OwnedSkill) => COOLDOWNS[sk.id]() / sk.mods.rate;
+/** Seconds between uses of a skill (shorter with "rate" upgrades and Capacitor equipment). */
+export const cooldownOf = (state: GameState, sk: OwnedSkill) => COOLDOWNS[sk.id]() / (sk.mods.rate * state.bonus.skillRate);
 
 export function updateSkills(state: GameState, c: Controls, dt: number) {
   // Shields fade; beams and mines age.
@@ -49,7 +49,7 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
     // Weapons fire while you hold left click; defences go off when you right-click.
     const wants = SKILLS[sk.id].side === 'left' ? c.fire : c.defend;
     if (!wants) continue;
-    sk.timer = cooldownOf(sk);
+    sk.timer = cooldownOf(state, sk);
     USE[sk.id](state, ship, c, sk);
   }
 }

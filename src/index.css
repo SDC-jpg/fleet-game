@@ -263,3 +263,102 @@ body {
 .skill-slot .pips .on {
   background: #ffd34a;
 }
+
+/* Equipment (pause) screen: a fixed size so it doesn't jump around. */
+.equipment {
+  width: min(860px, 94vw);
+  height: min(560px, 88vh);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  background: rgba(8, 10, 22, 0.95);
+}
+.equipment-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.equipment-head h1 {
+  margin: 0;
+}
+.equipment-head .note {
+  flex: 1;
+}
+.equipment .note {
+  opacity: 0.6;
+  font-size: 12px;
+  margin-top: 6px;
+}
+.equipment-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 20px;
+  margin-top: 10px;
+}
+.equipment-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.equipment h2 {
+  font-size: 14px;
+  color: #9fd3ff;
+  margin: 8px 0 6px;
+}
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.item-list.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.equipment .item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 4px 8px;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  background: rgba(30, 38, 70, 0.7);
+  border: 2px solid #2c3a66;
+  cursor: pointer;
+}
+.equipment .item:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.equipment .item .item-bonus {
+  opacity: 0.8;
+}
+.equipment .empty-slot {
+  height: 40px;
+  opacity: 0.4;
+  border-style: dashed;
+  cursor: default;
+}
+.equipment .totals {
+  font-size: 13px;
+}
+
+/* "Found: ..." message after picking up an item */
+.found-toast {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  background: rgba(8, 10, 22, 0.85);
+  border: 1px solid #3a4160;
+  pointer-events: none;
+  text-shadow: 0 1px 2px #000;
+}

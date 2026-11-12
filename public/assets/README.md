@@ -105,6 +105,16 @@ width) are drawn enlarged, so they look a little blockier; that's expected.
 Sounds: `sfx.laser`, `sfx.missile`, `sfx.mine` (dropped), `sfx.mine-blast`,
 `sfx.shield`, `sfx.repulse`, `sfx.freeze`, `sfx.levelup`, `sfx.card` (card picked).
 
+## Equipment
+
+| Name | What it is |
+| --- | --- |
+| `ui.item.damage`, `.fire-rate`, `.health`, `.speed`, `.stamina`, `.boost-speed`, `.skill-rate` | Item icons (16 px placeholders), one per bonus type |
+| `ui.loot.common`, `.uncommon`, `.rare`, `.epic` | A dropped item floating in space, loops. Never shrunk |
+| `ui.arrow.loot` | Edge arrow pointing to dropped items |
+
+Sound: `sfx.loot` (item picked up).
+
 Rank-up cards are coloured by rarity: Common white, Uncommon green, Rare gold,
 Epic purple (`RARITIES` in `src/game/config.ts`).
 

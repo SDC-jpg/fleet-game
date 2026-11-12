@@ -5,6 +5,7 @@ import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../en
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyFleetValue } from './curves';
 import { gainXp } from './progress';
+import { maybeDropItem, noBonus, updateLoot, type FleetBonus, type Item, type Loot } from './equipment';
 import { updateSkills } from './skills';
 
 export type Team = 'player' | 'enemy';
@@ -257,8 +258,17 @@ export interface GameState {
   cards: Card[] | null;
   /** Skills you've picked, in the order you got them. */
   skills: OwnedSkill[];
-  /** Bonuses for your whole fleet (1 = none, 1.1 = +10%). */
-  bonus: { damage: number; fireRate: number };
+  /** Extra damage and fire rate from bonus cards (0.1 = +10%). */
+  cardBonus: { damage: number; fireRate: number };
+  /** All bonuses for your whole fleet, from cards and equipment (1 = none, 1.1 = +10%). See updateBonuses. */
+  bonus: FleetBonus;
+  /** Every item you've found (your inventory), and the ids of the ones equipped. */
+  items: Item[];
+  equipped: number[];
+  /** Items floating in space, waiting to be picked up. */
+  loot: Loot[];
+  /** The last item picked up, and when (for a short message on screen). */
+  found: { item: Item; time: number } | null;
   beams: Beam[];
   mines: Mine[];
   /** Boost stamina, 0–1 (shown by the ring around the ship you fly). */
@@ -369,7 +379,12 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     pendingLevels: 0,
     cards: null,
     skills: [],
-    bonus: { damage: 1, fireRate: 1 },
+    cardBonus: { damage: 0, fireRate: 0 },
+    bonus: noBonus(),
+    items: [],
+    equipped: [],
+    loot: [],
+    found: null,
     beams: [],
     mines: [],
     boostStamina: 1,
@@ -400,7 +415,7 @@ function addShip(
   y: number,
   angle: number,
 ) {
-  const stats = statsFor(type, team, tier);
+  const stats = shipStats(state, type, team, tier);
   const ship: Ship = {
     id: state.nextId++,
     team,
@@ -433,6 +448,13 @@ function addShip(
   state.ships.push(ship);
   fleet.members.push(ship);
   return ship;
+}
+
+/** A ship's tier stats, with your fleet's health bonus (equipment) for your ships. */
+function shipStats(state: GameState, type: ShipTypeId, team: Team, tier: number) {
+  const stats = statsFor(type, team, tier);
+  if (team === 'player') stats.maxHp = Math.round(stats.maxHp * state.bonus.health);
+  return stats;
 }
 
 /** The ship the player is currently flying (null if the whole fleet is gone). */
@@ -529,6 +551,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   updateBullets(state, dt);
   removeDeadShips(state);
   updateWrecks(state, dt);
+  updateLoot(state, dt);
   startMerges(state);
   promoteFlagship(state);
   updateWaves(state, dt, spawnDistance);
@@ -596,8 +619,8 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   const steering = mx !== 0 || my !== 0;
   // Boost only counts while you're actually steering somewhere. A dash outdoes it.
   const boosting = useBoostStamina(state, ship, c.boost && len > 0, dt);
-  const mul = Math.max(boosting ? t.boostMultiplier : 1, dashMultiplier(fleet));
-  const speed = t.maxSpeed * mul * directionFactor(ship.angle, mx, my);
+  const mul = Math.max(boosting ? t.boostMultiplier * state.bonus.boostSpeed : 1, dashMultiplier(fleet));
+  const speed = t.maxSpeed * state.bonus.speed * mul * directionFactor(ship.angle, mx, my);
   steer(ship, mx * speed, my * speed, t.accel * mul, dt);
   if (boosting && ship.thrust !== 'boost') addSound(state, 'sfx.boost', ship, ship.tier);
   ship.thrust = boosting || fleet.dashTime > 0 ? 'boost' : steering ? 'move' : 'idle';
@@ -614,7 +637,7 @@ function useBoostStamina(state: GameState, ship: Ship, wants: boolean, dt: numbe
   const b = CONFIG.boost;
   if (wants && !state.boostLocked && state.boostStamina > 0) {
     // Bigger ships have more boost time.
-    const duration = b.duration * b.durationPerTier ** (ship.tier - 1);
+    const duration = b.duration * b.durationPerTier ** (ship.tier - 1) * state.bonus.stamina;
     state.boostStamina = Math.max(0, state.boostStamina - dt / duration);
     state.boostRest = 0;
     if (state.boostStamina === 0) state.boostLocked = true;
@@ -640,7 +663,7 @@ function startDash(state: GameState, fleet: Fleet, leader: Ship, mx: number, my:
   // Zoomed out, the screen shows more of the world, so the dash gets stronger to match.
   const zoomScale = d.scaleWithZoom ? CONFIG.zoomSteps[0].zoom / state.zoom : 1;
   fleet.dashPower = 1 + (d.speedMultiplier - 1) * zoomScale;
-  const speed = typeOf(leader).maxSpeed * directionFactor(leader.angle, mx, my) * fleet.dashPower;
+  const speed = typeOf(leader).maxSpeed * state.bonus.speed * directionFactor(leader.angle, mx, my) * fleet.dashPower;
   fleet.dashTime = d.duration;
   fleet.dashX = mx;
   fleet.dashY = my;
@@ -705,8 +728,10 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     const wantLen = Math.hypot(wantVx, wantVy);
     // When the leader boosts, the whole formation boosts to keep up.
     const boosting = past.boosting || dashing;
-    const boostMul = Math.max(past.boosting ? t.boostMultiplier : 1, dashMultiplier(fleet));
-    const maxV = t.maxSpeed * speedMul * 1.5 * boostMul;
+    // Your fleet's speed and boost-speed bonuses (equipment) apply to every ship in it.
+    const yours = ship.team === 'player';
+    const boostMul = Math.max(past.boosting ? t.boostMultiplier * (yours ? state.bonus.boostSpeed : 1) : 1, dashMultiplier(fleet));
+    const maxV = t.maxSpeed * speedMul * (yours ? state.bonus.speed : 1) * 1.5 * boostMul;
     if (wantLen > maxV) {
       wantVx *= maxV / wantLen;
       wantVy *= maxV / wantLen;
@@ -921,6 +946,7 @@ function removeDeadShips(state: GameState) {
       state.stats.kills++;
       state.stats.killValue += tierValue(s.tier);
       gainXp(state, tierValue(s.tier) * CONFIG.levels.xpPerValue);
+      maybeDropItem(state, s);
     } else {
       state.stats.losses++;
       state.stats.lossValue += tierValue(s.tier);
@@ -1055,7 +1081,7 @@ function finishMerge(state: GameState, m: Merge) {
   core.fleet.members = core.fleet.members.filter((s) => !gone.has(s));
   state.ships = state.ships.filter((s) => !gone.has(s));
   core.tier++;
-  core.stats = statsFor(core.type, core.team, core.tier);
+  core.stats = shipStats(state, core.type, core.team, core.tier);
   core.hp = core.stats.maxHp;
   core.merge = null;
   addEffect(state, 'vfx.merge', core.x, core.y, 0, core.tier);

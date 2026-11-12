@@ -675,6 +675,74 @@ const SKILL_ICONS = {
   },
 };
 
+// ---------- Equipment ----------
+
+// Item icons (16×16): one per bonus type.
+const ITEM_ICONS = {
+  damage: (img) => {
+    // Crosshair.
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) if (Math.abs(Math.hypot(x + 0.5 - 8, y + 0.5 - 8) - 5.5) < 0.8) img.set(x, y, hex('#ff7a3c'));
+    rect(img, 7, 1, 2, 5, hex('#ff7a3c'));
+    rect(img, 7, 10, 2, 5, hex('#ff7a3c'));
+    rect(img, 1, 7, 5, 2, hex('#ff7a3c'));
+    rect(img, 10, 7, 5, 2, hex('#ff7a3c'));
+  },
+  'fire-rate': (img) => {
+    // Three shells.
+    for (const x of [2, 7, 12]) {
+      rect(img, x, 5, 3, 8, hex('#ffd34a'));
+      rect(img, x, 3, 3, 2, hex('#c9ced8'));
+    }
+  },
+  health: (img) => {
+    // Armour plate.
+    fillPolygon(img, [[2, 2], [14, 2], [14, 9], [8, 14.5], [2, 9]], () => hex('#8a93a6'));
+    rect(img, 7, 4, 2, 7, hex('#7fe07f'));
+    rect(img, 5, 6, 6, 2, hex('#7fe07f'));
+  },
+  speed: (img) => {
+    // Thruster with a flame.
+    rect(img, 6, 2, 5, 8, hex('#8a93a6'));
+    fillPolygon(img, [[6, 10], [11, 10], [8.5, 15.5]], () => hex('#ffb347'));
+  },
+  stamina: (img) => {
+    // Fuel cell.
+    rect(img, 4, 3, 8, 12, hex('#5d6578'));
+    rect(img, 6, 1, 4, 2, hex('#8a93a6'));
+    rect(img, 5, 8, 6, 6, hex('#7ecff2'));
+  },
+  'boost-speed': (img) => {
+    // Double chevron pointing right.
+    for (const x0 of [2, 8]) fillPolygon(img, [[x0, 2], [x0 + 3, 2], [x0 + 7, 8], [x0 + 3, 14], [x0, 14], [x0 + 4, 8]], () => hex('#c890ff'));
+  },
+  'skill-rate': (img) => {
+    // Lightning bolt.
+    fillPolygon(img, [[9, 0.5], [3, 9], [7.5, 9], [6, 15.5], [13, 6], [8.5, 6]], () => hex('#ffd34a'));
+  },
+};
+
+// Loot crate: a small box with a pulsing glow in its rarity's colour. 4 looping frames.
+function lootCrate(color) {
+  const S = 20, F = 4;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    const glow = 7 + [0, 1, 2, 1][f];
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2);
+        if (Math.abs(d - glow) < 0.8) frame.set(x, y, hex(color));
+      }
+    rect(frame, 6, 6, 8, 8, hex('#8a6a3c'));
+    rect(frame, 6, 9, 8, 2, hex(color));
+    rect(frame, 9, 6, 2, 8, hex(color));
+    outline(frame, hex('#14171f'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 const FILES = {
   // One image for both teams; the game recolours its blue parts for enemies.
   'ships/fighter.png': playerFighter,
@@ -688,6 +756,12 @@ const FILES = {
   'vfx/dash.png': () => dashSheet(56, 28),
   'ui/arrow-enemy.png': () => edgeArrow('#ff6b5a', '#2a0b0b'),
   'ui/arrow-wreck.png': () => edgeArrow('#b8bcc6', '#16171b'),
+  'ui/arrow-loot.png': () => edgeArrow('#ffe08a', '#2a1d05'),
+  'ui/loot-common.png': () => lootCrate('#e8ecf4'),
+  'ui/loot-uncommon.png': () => lootCrate('#6fe07a'),
+  'ui/loot-rare.png': () => lootCrate('#ffd34a'),
+  'ui/loot-epic.png': () => lootCrate('#c890ff'),
+  ...Object.fromEntries(Object.entries(ITEM_ICONS).map(([name, draw]) => [`ui/item-${name}.png`, () => icon16(draw)])),
   'vfx/laser.png': () => laserSegment(1),
   'projectiles/missile.png': () => missile(1),
   'projectiles/mine.png': () => mine(1),

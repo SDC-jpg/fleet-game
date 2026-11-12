@@ -5,6 +5,7 @@
 import { CONFIG, RARITIES, SKILLS, type Rarity, type SkillId, type SkillStat } from './config';
 import { xpToNextLevel } from './curves';
 import { addSound, type Card, type GameState } from './world';
+import { updateBonuses } from './equipment';
 
 /** Add XP. Every level reached waits for a card pick (the game pauses while cards are shown). */
 export function gainXp(state: GameState, amount: number) {
@@ -83,9 +84,10 @@ export function pickCard(state: GameState, index: number) {
       sk.rank++;
       sk.mods[card.stat] += card.amount;
     }
-  } else if (card.kind === 'damage') state.bonus.damage += C.damageBonus;
-  else if (card.kind === 'fireRate') state.bonus.fireRate += C.fireRateBonus;
+  } else if (card.kind === 'damage') state.cardBonus.damage += C.damageBonus;
+  else if (card.kind === 'fireRate') state.cardBonus.fireRate += C.fireRateBonus;
   else for (const s of state.playerFleet.members) s.hp = s.stats.maxHp;
+  updateBonuses(state);
   addSound(state, 'sfx.card', { x: 0, y: 0 }, 1, 1, true);
   state.pendingLevels--;
   state.cards = state.pendingLevels > 0 ? drawCards(state) : null;

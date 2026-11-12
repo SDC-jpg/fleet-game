@@ -7,9 +7,10 @@ import { PixelRenderer } from '../engine/renderer';
 import type { Sounds } from '../engine/sound';
 import { clamp } from '../engine/math';
 import { renderGame, tierSprite } from './render';
-import { CONFIG, SKILLS, type SkillId } from './config';
+import { CONFIG, ITEM_STATS, SKILLS, type ItemStat, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
+import { describeItem, equip, rollItem, slotCount, unequip, type Item } from './equipment';
 import { cooldownOf } from './skills';
 import {
   controlledShip,
@@ -55,6 +56,10 @@ export interface HudInfo {
   skills: { id: SkillId; name: string; side: 'left' | 'right'; icon: string; rank: number; cooldown: number; total: number }[];
   /** Level-up cards on offer (the game is paused meanwhile), or null. */
   cards: CardInfo[] | null;
+  /** Your equipment (only sent while paused, for the equipment screen). */
+  equipment: EquipmentInfo | null;
+  /** The item you just picked up (shown for a few seconds), or null. */
+  found: ItemInfo | null;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -63,6 +68,28 @@ export interface HudInfo {
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
   assetProblems: string[];
+}
+
+/** One item, as shown on screen. */
+export interface ItemInfo {
+  id: number;
+  name: string;
+  bonus: string;
+  icon: string;
+  color: string;
+  equipped: boolean;
+}
+
+/** What the equipment screen shows. */
+export interface EquipmentInfo {
+  slots: number;
+  equipped: ItemInfo[];
+  /** Items not equipped, best rarity first. */
+  inventory: ItemInfo[];
+  /** Your fleet's total bonuses from cards and equipment, e.g. "+12% damage". */
+  totals: string[];
+  /** Slots you get from your next tier, and which tier that is. */
+  next: { tier: number; slots: number };
 }
 
 export class Game {
@@ -147,6 +174,18 @@ export class Game {
     const h = f.h * scale;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+  }
+
+  /** Equipment screen: put an inventory item into a free slot. */
+  equipItem(id: number) {
+    equip(this.state, id);
+    this.sendHud();
+  }
+
+  /** Equipment screen: take an item out of its slot. */
+  unequipItem(id: number) {
+    unequip(this.state, id);
+    this.sendHud();
   }
 
   /** Take level-up card number `index` (click, or keys 1–3). */
@@ -249,6 +288,11 @@ export class Game {
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
     if (i.wasPressed('KeyL')) gainXp(s, xpToNextLevel(s.level) - s.xp);
     if (i.wasPressed('KeyJ')) testGiveAllSkills(s);
+    if (i.wasPressed('KeyI')) {
+      // Drop 3 random items right next to you.
+      const f = controlledShip(s);
+      if (f) for (let n = 0; n < 3; n++) s.loot.push({ item: rollItem(s), x: f.x + 60 + n * 25, y: f.y - 40, vx: 0, vy: 0, life: 40 });
+    }
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
@@ -306,9 +350,11 @@ export class Game {
         icon: SKILLS[sk.id].icon,
         rank: sk.rank,
         cooldown: sk.timer,
-        total: cooldownOf(sk),
+        total: cooldownOf(st, sk),
       })),
       cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
+      equipment: this.paused ? equipmentInfo(st) : null,
+      found: st.found && st.time - st.found.time < 3 ? itemInfo(st, st.found.item) : null,
       stats: { ...st.stats },
       history: st.history,
       invincible: st.invincible,
@@ -327,4 +373,32 @@ function fleetMix(state: GameState) {
     .sort((a, b) => b[0] - a[0])
     .map(([tier, n]) => `${n}×T${tier}`)
     .join(' ');
+}
+
+const RARITY_RANK = { common: 0, uncommon: 1, rare: 2, epic: 3 };
+
+function itemInfo(state: GameState, it: Item): ItemInfo {
+  return { id: it.id, ...describeItem(it), equipped: state.equipped.includes(it.id) };
+}
+
+/** Everything the equipment screen needs. */
+function equipmentInfo(state: GameState): EquipmentInfo {
+  const equipped = state.equipped
+    .map((id) => state.items.find((it) => it.id === id))
+    .filter((it): it is Item => !!it)
+    .map((it) => itemInfo(state, it));
+  const inventory = state.items
+    .filter((it) => !state.equipped.includes(it.id))
+    .sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity] || b.amount - a.amount)
+    .map((it) => itemInfo(state, it));
+  const totals = (Object.keys(ITEM_STATS) as ItemStat[])
+    .filter((k) => state.bonus[k] > 1.001)
+    .map((k) => `+${Math.round((state.bonus[k] - 1) * 100)}% ${ITEM_STATS[k].bonus}`);
+  return {
+    slots: slotCount(state),
+    equipped,
+    inventory,
+    totals,
+    next: { tier: state.maxTier + 1, slots: CONFIG.items.slotsPerTier },
+  };
 }

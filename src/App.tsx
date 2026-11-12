@@ -6,6 +6,7 @@ import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
 import type { HistoryPoint } from './game/world';
 import { CardScreen } from './CardScreen';
 import { SkillBar } from './SkillBar';
+import { EquipmentScreen, FoundToast } from './EquipmentScreen';
 
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
@@ -69,12 +70,12 @@ export default function App() {
           >
             {hud.soundOn ? '🔊 Sound on' : '🔇 Sound off'} (M)
           </button>
-          <div className="hint">WASD move · Shift boost · Space dash · mouse aim · click fire · right-click defend · Esc pause · fly into wrecks to
+          <div className="hint">WASD move · Shift boost · Space dash · mouse aim · click fire · right-click defend · Esc pause & equipment · fly into wrecks to
             recruit</div>
           {TEST_KEYS_ENABLED && (
             <div className="hint">
               Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
-              enemies on screen · X end run · L level up · J all skills
+              enemies on screen · X end run · L level up · J all skills · I drop items
             </div>
           )}
           {hud.assetProblems.length > 0 && (
@@ -91,19 +92,8 @@ export default function App() {
       {hud && !hud.gameOver && <SkillBar hud={hud} game={gameRef.current} />}
       {hud?.cards && !hud.gameOver && <CardScreen hud={hud} game={gameRef.current} />}
 
-      {hud?.paused && (
-        <div className="panel center">
-          <h1>Paused</h1>
-          <button
-            onClick={(e) => {
-              gameRef.current?.setPaused(false);
-              e.currentTarget.blur();
-            }}
-          >
-            Resume (Esc)
-          </button>
-        </div>
-      )}
+      {hud?.paused && <EquipmentScreen hud={hud} game={gameRef.current} />}
+      {hud && !hud.gameOver && <FoundToast hud={hud} />}
 
       {hud?.gameOver && (
         <div className="panel center report">

@@ -6,6 +6,8 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-12
 
+- **Equipment!** Destroyed enemies sometimes drop items (bigger enemies more often). Fly over them to pick them up. Each item boosts your whole fleet: damage, fire rate, health, speed, boost time, boost speed or skill recharge. Rarer items give bigger boosts.
+- Press **Esc** to pause and manage your equipment. You get 3 slots per ship tier you reach.
 - **Skill upgrades:** level-up cards can now rank up a skill you have (up to rank 5), improving its damage, fire rate or size. Upgrade cards come in four rarities: Common, Uncommon, Rare (gold) and Epic (purple). Rarer cards give bigger bonuses.
 - New defence skill: **Freeze**. Enemies in a cone in front of you stop moving and shooting for a moment.
 - A **skill bar** at the bottom of the screen shows your skills, their cooldowns and their ranks.

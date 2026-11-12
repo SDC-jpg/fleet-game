@@ -36,6 +36,12 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     r.drawSprite(sprite, w.x, w.y, w.angle, state.time, alpha);
   }
 
+  // Loot: a crate glowing in its rarity's colour (blinks before it disappears).
+  for (const l of state.loot) {
+    const blinking = l.life < CONFIG.wreckBlinkTime && Math.floor(l.life * 6) % 2 === 0;
+    r.drawSprite(assets.get(`ui.loot.${l.item.rarity}`), l.x, l.y, 0, state.time, blinking ? 0.35 : 1, true);
+  }
+
   // Mines (team-coloured, looping blink).
   for (const m of state.mines) {
     const sprite = teamSprite(assets, tierSprite(assets, 'projectile.mine', m.tier), m.team);
@@ -89,6 +95,8 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   // Arrows at the screen edge pointing to things you can't see.
   const wreckArrow = assets.get('ui.arrow.wreck');
   for (const w of state.wrecks) drawEdgeArrow(r, wreckArrow, w.x, w.y, state.time);
+  const lootArrow = assets.get('ui.arrow.loot');
+  for (const l of state.loot) drawEdgeArrow(r, lootArrow, l.x, l.y, state.time);
   const enemyArrow = assets.get('ui.arrow.enemy');
   for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, enemyArrow, s.x, s.y, state.time);
 }

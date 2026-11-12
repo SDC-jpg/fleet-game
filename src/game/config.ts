@@ -132,6 +132,22 @@ export const RARITIES = {
 
 export type Rarity = keyof typeof RARITIES;
 
+/**
+ * Equipment: each item gives your whole fleet one bonus. Its size depends on
+ * its rarity (see CONFIG.items for the common-rarity bonus of each).
+ */
+export const ITEM_STATS = {
+  damage: { name: 'Targeting Computer', bonus: 'damage', icon: 'ui.item.damage' },
+  fireRate: { name: 'Autoloader', bonus: 'fire rate', icon: 'ui.item.fire-rate' },
+  health: { name: 'Hull Plating', bonus: 'max health', icon: 'ui.item.health' },
+  speed: { name: 'Thrusters', bonus: 'speed', icon: 'ui.item.speed' },
+  stamina: { name: 'Fuel Cells', bonus: 'boost time', icon: 'ui.item.stamina' },
+  boostSpeed: { name: 'Afterburner', bonus: 'boost speed', icon: 'ui.item.boost-speed' },
+  skillRate: { name: 'Capacitor', bonus: 'skill recharge', icon: 'ui.item.skill-rate' },
+};
+
+export type ItemStat = keyof typeof ITEM_STATS;
+
 export const CONFIG = {
   /**
    * Both teams use the same ship images. Team-colour parts are painted in a hue
@@ -264,6 +280,36 @@ export const CONFIG = {
     epicBonus: 0.32,
     /** Random spread around each bonus (0.2 = up to 20% lower or higher). */
     spread: 0.2,
+  },
+
+  /**
+   * Equipment items: rare drops from destroyed enemies. Each gives the whole
+   * fleet one bonus; rarer items give more (scaled like CONFIG.rarity's card
+   * bonuses: Epic is about 3× Common). Slots = slotsPerTier × your highest tier this run.
+   */
+  items: {
+    /** Chance a destroyed tier-1 enemy drops an item. */
+    dropChance: 0.03,
+    /** Bigger enemies drop more often: chance × (their value ^ this). 0.5 = a value-16 enemy is 4× as likely. */
+    dropChanceGrowth: 0.5,
+    /** Seconds before an item nobody picked up disappears. */
+    lifetime: 40,
+    /** Equipment slots per tier of your biggest ship so far. */
+    slotsPerTier: 3,
+    /** Common Targeting Computer: extra damage (0.05 = +5%). */
+    damageBonus: 0.05,
+    /** Common Autoloader: faster firing. */
+    fireRateBonus: 0.05,
+    /** Common Hull Plating: more max health. */
+    healthBonus: 0.08,
+    /** Common Thrusters: faster flying. */
+    speedBonus: 0.04,
+    /** Common Fuel Cells: longer boost. */
+    staminaBonus: 0.1,
+    /** Common Afterburner: faster boost. */
+    boostSpeedBonus: 0.05,
+    /** Common Capacitor: skills recharge faster. */
+    skillRateBonus: 0.05,
   },
 
   /** Laser skill: an instant beam that hits every enemy along it. Damage and size grow with your ship's tier. */
