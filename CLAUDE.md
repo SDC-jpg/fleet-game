@@ -34,14 +34,15 @@
 
 ## Seeing the game (for Claude)
 - The container has Chromium (installed by the Dockerfile at build time, no firewall change needed). `tools/screenshot.mjs` drives it with `playwright-core` and saves screenshots that Claude can view with the Read tool. It also prints browser errors.
-- Example (dev server must be running): `node tools/screenshot.mjs --out <scratchpad>/shots 'wait:1500' 'press:Equal*10' 'hold:KeyD:800' 'shot:fleet'`. Quote the steps, because the shell (zsh) treats `*` as a filename wildcard. Run it with no steps for a single screenshot.
-- Dev-only test keys help set up scenes: `=`/`-` add/remove ship, `]` add 16 ships, `G` invincible, `K` destroy on-screen enemies, `X` end the run (to see the report).
+- Example (dev server must be running): `node tools/screenshot.mjs --out <scratchpad>/shots 'wait:1500' 'press:Equal*10' 'hold:KeyD:800' 'shot:fleet'`. Quote the steps, because the shell (zsh) treats `*` as a filename wildcard. Run it with no steps for a single screenshot. Steps also include `rclick` and `wheel:down`/`wheel:up`.
+- Dev-only test keys help set up scenes: `=`/`-` add/remove ship, `]` add 16 ships, `G` invincible, `K` destroy on-screen enemies, `X` end the run (to see the report), `L` gain a level.
 - Use it to check visual changes before handing them to the user. The browser has no graphics card, so it can't judge smoothness or performance. The user does that.
 
 ## Code layout
 - `src/engine/`: the small homegrown engine (asset loading from the manifest, pixel renderer with whole-number zoom, sound playback (`sound.ts`), input, fixed 60 Hz game loop).
 - `src/game/config.ts`: every tuning number (speeds, health, waves, zoom steps, ship types and their hit sizes). Its comments also feed the public tuning page: give every new setting a one-line `/** */` description, and start a group of plain settings with a `// == Title: note ==` line.
 - `tools/make-tuning-page.mjs`: runs at the end of `npm run build` and writes `dist/tuning.html`, a table of every setting with its value and description, read from `config.ts`. It's published at https://sdc-jpg.github.io/fleet-game/tuning.html (the user's teammate uses it) and linked in the Discord build post. It warns about settings with no description.
+- `src/game/skills.ts`, `progress.ts`, `curves.ts`: pilot skills; XP, levels and cards; progression formulas.
 - `src/game/world.ts`: game rules (no drawing; it queues sound events in `state.sounds`, which `Game.ts` plays). `src/game/render.ts`: drawing. `src/game/Game.ts`: connects input, rules and drawing.
 - `src/App.tsx`: React canvas and HUD.
 - `public/assets/`: all art and sound effects (`sfx/`), plus `manifest.json` (sprite and sound names → files) and `README.md` (art and sound guide for the user).
@@ -93,6 +94,16 @@
 - Versions 12–13 explored ship classes (Lancer/Knight/Ballista modules, combos, right-click abilities, wheel switching), loot (rare modules, elites, module drops, scrap), a body shop, a bottom HUD with pixel font, class icons and a flagship marker. **The user and teammate found them not convincing** and rolled back to version 11 (`f45f444`). Don't bring those features back unless the user asks.
 - That work is kept on the `explore/classes-and-shop` branch (also on GitHub), including its design doc `docs/DESIGN.md`. Pieces can be copied from there when asked.
 - Kept from the exploration: boost stamina and its ring (continuous line), +50% boost time per tier, 8× dash, 25% slower turning per tier, the user's zoom steps, the user's T2 art, first kill always leaves a wreck, Space dash and left-click-only fire. The testing merge values (4 / 8 / 0.6) stay.
+
+### Progression: levels, skills, equipment (planned 2026-11-12)
+- **Pilot vs fleet:** XP, levels and skills belong to the pilot (they act from the ship you fly and survive flagship changes); equipment bonuses apply to the whole fleet.
+- **Enemy pressure grows by wave, not with your fleet:** enemy fleet value = `enemyFleetValueStart + enemyFleetValuePerWave × wave^enemyFleetValueCurve` (from `enemyFleetsFromWave`, every `enemyFleetEveryNthWave`). Formulas live in `src/game/curves.ts`; the tuning page shows a preview table worked out with that code.
+- **XP** = enemy value × `levels.xpPerValue`; XP for the next level = `firstLevelXp × growth^(level − 1)` (growth 1.15; 1.25 was too steep).
+- **Level-up:** the game pauses and shows 3 cards (`src/CardScreen.tsx`; click or keys 1–3): new skills (more likely), or fleet bonus cards (damage, fire rate, repair). Rules in `src/game/progress.ts`.
+- **Skills** (`SKILLS` in config, rules in `src/game/skills.ts`): they stack, up to 3 weapons and 2 defences. Holding left click fires the gun plus every ready weapon; right click fires every ready defence. Cooldowns about 3 s. Damage and size grow with the flagship's tier and the fleet damage bonus. Weapons: Laser (instant piercing beam), Missiles (homing cluster), Mines (dropped behind, blow up when an enemy comes near, fizzle after 6 s). Defences: Shield (bubble on you and nearby ships), Repulse (pushback shockwave that also wipes enemy shots).
+- **Plan:** Phase 1 (done): curves, XP, levels, cards, 5 skills at rank 1. Phase 2: ranks 2–5 as enhancement cards with rarity rolls (fire rate, size, damage), Freeze cone, cooldowns in the HUD. Phase 3: equipment (rare drops you fly over; 3 slots per highest tier reached this run; unlimited inventory; Esc screen; fleet-wide stat bonuses with rarity ranges). Phase 4: balancing.
+- **Rarity** (items and cards): Common white, Uncommon green, Rare gold (not blue: that's the team colour), Epic purple.
+- Everything resets each run; enemies don't use skills.
 
 ### First prototype scope
 1. Fly a ship around empty space and shoot.

@@ -116,3 +116,92 @@ body {
   stroke-width: 2;
   stroke-linejoin: round;
 }
+
+/* XP bar and skills in the HUD */
+.hud .xp-bar {
+  display: inline-block;
+  width: 120px;
+  height: 6px;
+  margin: 0 8px;
+  background: #1a2038;
+  border: 1px solid #3a4160;
+  vertical-align: middle;
+}
+.hud .xp-bar span {
+  display: block;
+  height: 100%;
+  background: #ffd34a;
+}
+.hud .skill.cooling {
+  opacity: 0.55;
+}
+
+/* Level-up cards */
+.card-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 6, 14, 0.6);
+  text-align: center;
+}
+.card-screen h1 {
+  margin: 0;
+  color: #ffd34a;
+  text-shadow: 0 2px 4px #000;
+}
+.card-screen .hint {
+  opacity: 0.7;
+  margin: 4px 0 18px;
+  font-size: 13px;
+}
+.card-screen .cards {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.card-screen .card {
+  position: relative;
+  width: 200px;
+  min-height: 250px;
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  color: inherit;
+  background: rgba(14, 18, 36, 0.95);
+  border: 2px solid #3a4b80;
+  cursor: pointer;
+}
+.card-screen .card:hover {
+  border-color: #ffd34a;
+  transform: translateY(-4px);
+}
+.card-screen .card .number {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  opacity: 0.5;
+}
+.card-screen .card .label {
+  font-size: 11px;
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.card-screen .card .title {
+  font-size: 18px;
+  color: #ffd34a;
+}
+.card-screen .card .text {
+  font-size: 13px;
+  line-height: 1.4;
+}
+.sprite-icon {
+  image-rendering: pixelated;
+}

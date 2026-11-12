@@ -2,7 +2,10 @@
 // No drawing happens here, only updating numbers.
 
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
-import { CONFIG, SHIP_TYPES, type ShipType, type ShipTypeId } from './config';
+import { CONFIG, SHIP_TYPES, type ShipType, type ShipTypeId, type SkillId } from './config';
+import { enemyFleetValue } from './curves';
+import { gainXp } from './progress';
+import { updateSkills } from './skills';
 
 export type Team = 'player' | 'enemy';
 export type Thrust = 'idle' | 'move' | 'boost';
@@ -51,6 +54,9 @@ export interface Ship {
   absorbed: boolean;
   /** What the engine is doing. Picks the image: normal, ".move" or ".boost". */
   thrust: Thrust;
+  /** Damage a Shield (skill) will still absorb, and seconds until it fades. */
+  shield: number;
+  shieldTime: number;
   /** Personal randomness so ships in a formation don't move in perfect sync. */
   quirk: { phaseX: number; phaseY: number; speedX: number; speedY: number; delay: number };
 }
@@ -114,6 +120,9 @@ export interface Bullet {
   life: number;
   damage: number;
   radius: number;
+  /** Homing missiles: how fast they turn toward `target` (0 = fly straight). */
+  homing: number;
+  target: Ship | null;
 }
 
 export interface Wreck {
@@ -171,6 +180,44 @@ export interface HistoryPoint {
   value: number;
 }
 
+/** A skill you've picked, with its rank (1–5) and seconds until it's ready again. */
+export interface OwnedSkill {
+  id: SkillId;
+  rank: number;
+  timer: number;
+}
+
+/** A level-up card. */
+export type Card =
+  | { kind: 'skill'; skill: SkillId }
+  | { kind: 'damage' }
+  | { kind: 'fireRate' }
+  | { kind: 'repair' };
+
+/** A laser beam, drawn for a moment after it fires (it hits instantly). */
+export interface Beam {
+  team: Team;
+  tier: number;
+  x: number;
+  y: number;
+  angle: number;
+  length: number;
+  age: number;
+}
+
+/** A mine waiting for an enemy to come near. */
+export interface Mine {
+  team: Team;
+  tier: number;
+  x: number;
+  y: number;
+  /** Seconds since it was dropped (it arms after CONFIG.mines.armTime). */
+  age: number;
+  damage: number;
+  triggerRadius: number;
+  blastRadius: number;
+}
+
 export interface GameState {
   /** Clock for animations. Keeps running after game over. */
   time: number;
@@ -189,6 +236,19 @@ export interface GameState {
   waveTimer: number;
   /** Seconds until you can dash again (0 = ready). */
   dashCooldown: number;
+  /** Your level, and XP gathered toward the next one. */
+  level: number;
+  xp: number;
+  /** Level-ups waiting for a card to be picked. */
+  pendingLevels: number;
+  /** The level-up cards on offer (the game is paused while there are some). */
+  cards: Card[] | null;
+  /** Skills you've picked, in the order you got them. */
+  skills: OwnedSkill[];
+  /** Bonuses for your whole fleet (1 = none, 1.1 = +10%). */
+  bonus: { damage: number; fireRate: number };
+  beams: Beam[];
+  mines: Mine[];
   /** Boost stamina, 0–1 (shown by the ring around the ship you fly). */
   boostStamina: number;
   /** True after the bar ran dry, until it refills to CONFIG.boost.restartAt. */
@@ -220,6 +280,8 @@ export interface Controls {
   boost: boolean;
   /** Dash pressed this step (Space). */
   dash: boolean;
+  /** Right click pressed this step: use your defence skills. */
+  defend: boolean;
 }
 
 export const typeOf = (ship: Ship): ShipType => SHIP_TYPES[ship.type];
@@ -290,6 +352,14 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     wave: 0,
     waveTimer: CONFIG.firstWaveDelay,
     dashCooldown: 0,
+    level: 1,
+    xp: 0,
+    pendingLevels: 0,
+    cards: null,
+    skills: [],
+    bonus: { damage: 1, fireRate: 1 },
+    beams: [],
+    mines: [],
     boostStamina: 1,
     boostLocked: false,
     boostRest: 0,
@@ -337,6 +407,8 @@ function addShip(
     merge: null,
     absorbed: false,
     thrust: 'idle',
+    shield: 0,
+    shieldTime: 0,
     quirk: {
       phaseX: Math.random() * Math.PI * 2,
       phaseY: Math.random() * Math.PI * 2,
@@ -425,6 +497,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
 
   updatePlayerLeader(state, controls, dt);
   for (const fleet of [state.playerFleet, ...state.enemyFleets]) updateFleet(state, fleet, dt);
+  updateSkills(state, controls, dt);
   updateMerges(state, dt);
   separateShips(state, dt);
 
@@ -562,13 +635,13 @@ function startDash(state: GameState, fleet: Fleet, leader: Ship, mx: number, my:
 }
 
 /** A direction (radians) and how far either side of it a ship may aim. */
-interface FireArc {
+export interface FireArc {
   center: number;
   half: number;
 }
 
 /** Nearest enemy within `maxDist` (and inside `arc`, if given). */
-function findNearestEnemy(state: GameState, ship: Ship, maxDist: number, arc?: FireArc): Ship | null {
+export function findNearestEnemy(state: GameState, ship: Ship, maxDist: number, arc?: FireArc): Ship | null {
   let best: Ship | null = null;
   let bestD = maxDist * maxDist;
   for (const other of state.ships) {
@@ -724,7 +797,8 @@ function separateShips(state: GameState, dt: number) {
 /** Fire one volley. Bigger tiers fire several shots side by side. */
 function fire(state: GameState, ship: Ship, cooldown: number, spread: number) {
   const st = ship.stats;
-  ship.fireTimer = cooldown;
+  // Your fleet's fire-rate bonus makes the wait between volleys shorter.
+  ship.fireTimer = ship.team === 'player' ? cooldown / state.bonus.fireRate : cooldown;
   const a = ship.angle + randRange(-spread, spread);
   const fx = Math.cos(ship.angle);
   const fy = Math.sin(ship.angle);
@@ -751,13 +825,55 @@ function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: nu
     vx: Math.cos(angle) * st.bulletSpeed,
     vy: Math.sin(angle) * st.bulletSpeed,
     life: st.bulletLife,
-    damage: st.bulletDamage,
+    damage: st.bulletDamage * (ship.team === 'player' ? state.bonus.damage : 1),
     radius: st.bulletRadius,
+    homing: 0,
+    target: null,
   });
+}
+
+/**
+ * Damage a ship: a Shield soaks it up first, then health. Your ships take no
+ * damage in invincible test mode. Returns true if this destroyed it.
+ */
+export function damageShip(state: GameState, s: Ship, amount: number) {
+  if (s.dead) return false;
+  if (s.shield > 0) {
+    const absorbed = Math.min(s.shield, amount);
+    s.shield -= absorbed;
+    amount -= absorbed;
+  }
+  if (!(s.team === 'player' && state.invincible)) s.hp -= amount;
+  if (s.hp <= 0) s.dead = true;
+  return s.dead;
+}
+
+/** Turn a homing missile toward its target, or the nearest enemy if its target is gone. */
+function steerMissile(state: GameState, b: Bullet, dt: number) {
+  if (!b.target || b.target.dead || b.target.merge) {
+    b.target = null;
+    let bestD = 500 * 500;
+    for (const s of state.ships) {
+      if (s.team === b.team || s.dead || s.merge) continue;
+      const d = distSq(b.x, b.y, s.x, s.y);
+      if (d < bestD) {
+        bestD = d;
+        b.target = s;
+      }
+    }
+  }
+  if (!b.target) return;
+  const speed = Math.hypot(b.vx, b.vy);
+  const now = Math.atan2(b.vy, b.vx);
+  const want = Math.atan2(b.target.y - b.y, b.target.x - b.x);
+  const turn = clamp(wrapAngle(want - now), -b.homing * dt, b.homing * dt);
+  b.vx = Math.cos(now + turn) * speed;
+  b.vy = Math.sin(now + turn) * speed;
 }
 
 function updateBullets(state: GameState, dt: number) {
   for (const b of state.bullets) {
+    if (b.homing > 0) steerMissile(state, b, dt);
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     b.life -= dt;
@@ -766,11 +882,10 @@ function updateBullets(state: GameState, dt: number) {
       if (s.team === b.team || s.dead || s.merge) continue;
       const r = s.stats.radius + b.radius;
       if (distSq(b.x, b.y, s.x, s.y) > r * r) continue;
-      if (!(s.team === 'player' && state.invincible)) s.hp -= b.damage;
+      damageShip(state, s, b.damage);
       b.life = 0;
       addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
       addSound(state, 'sfx.hit', b, b.tier);
-      if (s.hp <= 0) s.dead = true;
       break;
     }
   }
@@ -785,6 +900,7 @@ function removeDeadShips(state: GameState) {
     if (s.team === 'enemy') {
       state.stats.kills++;
       state.stats.killValue += tierValue(s.tier);
+      gainXp(state, tierValue(s.tier) * CONFIG.levels.xpPerValue);
     } else {
       state.stats.losses++;
       state.stats.lossValue += tierValue(s.tier);
@@ -994,14 +1110,12 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   if (!center) return;
 
   const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
-  const playerValue = fleetValue(state.playerFleet);
-  const fleetWave =
-    playerValue >= CONFIG.enemyFleetMinPlayerSize && state.wave % CONFIG.enemyFleetEveryNthWave === 0;
+  const first = CONFIG.enemyFleetsFromWave;
+  const fleetWave = state.wave >= first && (state.wave - first) % CONFIG.enemyFleetEveryNthWave === 0;
 
   if (fleetWave) {
-    // One enemy fleet in formation, worth a bit more than yours.
-    const value = Math.max(3, Math.round(playerValue * CONFIG.enemyFleetSizeRatio) + 2);
-    spawnEnemyFleet(state, center, spawnDistance, value, room);
+    // One enemy fleet in formation. It grows with the wave number (see curves.ts), not with your fleet.
+    spawnEnemyFleet(state, center, spawnDistance, enemyFleetValue(state.wave), room);
     addSound(state, 'sfx.alert', center, 1, 1, true);
   } else {
     // A handful of lone fighters from random directions.
@@ -1085,11 +1199,11 @@ export function testKillEnemies(state: GameState, view: { x: number; y: number; 
 
 // ---------- Effects and sounds ----------
 
-function addSound(state: GameState, name: string, at: { x: number; y: number }, tier = 1, volume = 1, global = false) {
+export function addSound(state: GameState, name: string, at: { x: number; y: number }, tier = 1, volume = 1, global = false) {
   state.sounds.push({ name, tier, x: at.x, y: at.y, volume, global });
 }
 
-function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0, tier = 1) {
+export function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0, tier = 1) {
   state.effects.push({ sprite, tier, x, y, angle, age: 0 });
 }
 

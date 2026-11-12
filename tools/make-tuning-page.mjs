@@ -11,6 +11,7 @@ import ts from 'typescript';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { execSync } from 'node:child_process';
+import { buildSync } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -147,6 +148,35 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
     }
     flat.rows.push(row(prop, 'CONFIG', docOf(prop)));
   }
+}
+
+// Preview of the progression curves (src/game/curves.ts), worked out with the
+// game's own code so the numbers always match what the game does.
+{
+  const bundle = buildSync({
+    entryPoints: [`${ROOT}/src/game/curves.ts`],
+    bundle: true,
+    format: 'esm',
+    write: false,
+    logLevel: 'silent',
+  }).outputFiles[0].text;
+  const curves = await import(`data:text/javascript;base64,${Buffer.from(bundle).toString('base64')}`);
+  const points = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50];
+  let total = 0;
+  const totals = {};
+  for (let level = 1; level <= 50; level++) {
+    totals[level] = total;
+    total += curves.xpToNextLevel(level);
+  }
+  sections.push({
+    title: 'Progression preview',
+    where: 'src/game/curves.ts',
+    intro:
+      'Worked out from the settings above. Enemy fleet value is the fleet that comes in that wave ' +
+      '(fleet waves only; see enemyFleetsFromWave and enemyFleetEveryNthWave). XP columns are for reaching that level.',
+    columns: ['wave / level', 'enemy fleet value', 'XP for next level', 'total XP to reach it'],
+    items: points.map((n) => [String(n), String(curves.enemyFleetValue(n)), String(curves.xpToNextLevel(n)), String(totals[n])]),
+  });
 }
 
 // Per-art and per-sound options in the asset manifest (these are features of the engine, not numbers).

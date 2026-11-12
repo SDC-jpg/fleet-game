@@ -6,6 +6,9 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-12
 
+- **Levels and skills!** Destroying enemies earns XP. Each level-up pauses the game and lets you pick one of three cards: a new skill or a fleet bonus.
+- Five skills to start: **Laser**, **Missiles** and **Mines** fire with your gun while you hold left click; **Shield** and **Repulse** go off when you right-click. You can stack up to 3 weapons and 2 defences.
+- Enemy fleets now grow steadily with each wave instead of matching your fleet size.
 - **Rolled back to version 11.** Ship classes, loot, the body shop and the new HUD are gone for now (they're saved for later). Some favourites come back below.
 - Back: bigger ships turn more slowly (25% slower per tier), so they feel heavier and you have to aim ahead. Small ships stay nimble.
 - Back: boost (Shift) now runs on stamina: about 3 seconds from full, shown by the ring around your ship, which refills when you let go. Boost is faster to make up for it.

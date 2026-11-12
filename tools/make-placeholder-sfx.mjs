@@ -181,6 +181,73 @@ function dash() {
   });
 }
 
+/** Laser: a bright, buzzing zap that drops in pitch. */
+function laser() {
+  const a = oscillator('saw'), b = oscillator('square');
+  return render(0.32, (t, k) => (a(sweep(1800, 400, k)) * 0.7 + b(sweep(1810, 405, k)) * 0.3) * decay(t, 8));
+}
+
+/** Missiles: a low thump and a hissing launch. */
+function missile() {
+  const r = rng(41);
+  const lp = lowpass();
+  const thump = oscillator('sine');
+  return render(0.4, (t, k) => {
+    const hiss = lp(r() * 2 - 1, sweep(3000, 600, k)) * decay(t, 6, 0.01);
+    return hiss + thump(sweep(140, 50, Math.min(1, k * 4))) * Math.exp(-t * 18) * 0.9;
+  });
+}
+
+/** Mine dropped: a short metallic clunk-beep. */
+function mineDrop() {
+  const a = oscillator('square'), b = oscillator('sine');
+  return render(0.18, (t) => (b(160) * Math.exp(-t * 40) + (t > 0.06 ? a(1320) * Math.exp(-(t - 0.06) * 30) * 0.4 : 0)));
+}
+
+/** Mine blast: a sharp bang with a short rumble. */
+function mineBlast() {
+  const r = rng(61);
+  const lp = lowpass();
+  const boom = oscillator('sine');
+  return render(0.55, (t, k) => lp(r() * 2 - 1, sweep(5000, 300, k)) * decay(t, 7, 0.002) + boom(sweep(120, 40, k)) * Math.exp(-t * 9) * 0.8);
+}
+
+/** Shield: a soft rising shimmer (three notes with a wobble). */
+function shield() {
+  const a = oscillator('triangle'), b = oscillator('triangle'), c = oscillator('sine');
+  return render(0.6, (t, k) => {
+    const wob = 1 + 0.15 * Math.sin(t * 2 * Math.PI * 18);
+    const up = sweep(1, 1.5, Math.min(1, k * 2));
+    return (a(330 * up) + b(495 * up) * 0.7 + c(660 * up) * 0.5) * wob * decay(t, 4, 0.06);
+  });
+}
+
+/** Repulse: a deep "whoomp" that swells outward. */
+function repulse() {
+  const r = rng(71);
+  const lp = lowpass();
+  const low = oscillator('sine');
+  return render(0.5, (t, k) => low(sweep(90, 45, k)) * decay(t, 6, 0.02) + lp(r() * 2 - 1, sweep(300, 1800, k)) * decay(t, 7, 0.05) * 0.6);
+}
+
+/** Level up: a bright rising fanfare. */
+function levelUp() {
+  const a = oscillator('square'), b = oscillator('triangle');
+  const notes = [523, 659, 784, 1047];
+  return render(0.75, (t) => {
+    const n = Math.min(notes.length - 1, Math.floor(t / 0.09));
+    const local = t - n * 0.09;
+    const fade = n === notes.length - 1 ? Math.exp(-local * 5) : 1;
+    return (a(notes[n]) * 0.35 + b(notes[n] * 2) * 0.4) * fade * Math.min(1, local / 0.004);
+  });
+}
+
+/** Card picked: a crisp two-tone click. */
+function card() {
+  const a = oscillator('triangle');
+  return render(0.16, (t) => a(t < 0.05 ? 880 : 1320) * Math.exp(-t * 18));
+}
+
 function alert() {
   const osc = oscillator('square');
   return render(0.72, (t) => {
@@ -223,6 +290,14 @@ const FILES = {
   'merge.wav': merge,
   'boost.wav': boost,
   'dash.wav': dash,
+  'laser.wav': laser,
+  'missile.wav': missile,
+  'mine.wav': mineDrop,
+  'mine-blast.wav': mineBlast,
+  'shield.wav': shield,
+  'repulse.wav': repulse,
+  'levelup.wav': levelUp,
+  'card.wav': card,
   'alert.wav': alert,
   'command.wav': command,
   'gameover.wav': gameOver,

@@ -453,6 +453,171 @@ function starsNear() {
 }
 
 // ---------- Write files ----------
+// ---------- Skills ----------
+
+// Laser beam segment: repeated along the beam. White core, sky blue edges (team
+// colour). 5 frames, plays once: the beam narrows away.
+function laserSegment(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const W = 8, H = Math.max(6, Math.round(6 * k)) + 2, F = 5;
+  const sheet = new Img(W * F, H);
+  const mid = (H - 1) / 2;
+  for (let f = 0; f < F; f++) {
+    const half = ((H - 2) / 2) * (1 - f / F) + 0.4;
+    for (let x = 0; x < W; x++)
+      for (let y = 0; y < H; y++) {
+        const d = Math.abs(y - mid);
+        if (d > half) continue;
+        sheet.set(f * W + x, y, hex(d < half * 0.45 ? '#ffffff' : '#41a6d9'));
+      }
+  }
+  return sheet;
+}
+
+// Missile: grey body, sky blue fins (team colour), orange flame. Faces right.
+function missile(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const W = Math.round(12 * k) + 2, H = Math.round(7 * k) + 2;
+  const img = new Img(W, H);
+  const cy = H / 2;
+  const sx = (v) => 1 + v * k, sy = (v) => cy + v * k;
+  fillPolygon(img, [[sx(3), sy(-3)], [sx(5), sy(-1)], [sx(5), sy(1)], [sx(3), sy(3)], [sx(1.5), sy(3)], [sx(2.5), sy(0)], [sx(1.5), sy(-3)]], () => hex('#41a6d9'));
+  fillPolygon(img, [[sx(3), sy(-1)], [sx(9), sy(-1)], [sx(11), sy(0)], [sx(9), sy(1)], [sx(3), sy(1)]], () => hex('#c9ced8'));
+  fillPolygon(img, [[sx(0), sy(-0.8)], [sx(3), sy(-0.8)], [sx(3), sy(0.8)], [sx(0), sy(0.8)]], () => hex('#ffb347'));
+  outline(img, hex('#1a1d26'));
+  return img;
+}
+
+// Mine: a dark round body with four spikes and a light that blinks (sky blue = team colour). 2 looping frames.
+function mine(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const S = Math.round(12 * k) + 2, F = 2;
+  const sheet = new Img(S * F, S);
+  const c = S / 2, r = 3.5 * k;
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    disc(frame, c, c, r, hex('#5d6578'));
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+      rect(frame, Math.round(c + dx * (r + 1) - 1), Math.round(c + dy * (r + 1) - 1), 2, 2, hex('#8a93a6'));
+    disc(frame, c, c, Math.max(1, 1.4 * k), hex(f === 0 ? '#7ecff2' : '#28739e'));
+    outline(frame, hex('#14171f'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
+// Mine blast: a quick orange-white burst that grows into a ring and breaks up. 7 frames, plays once.
+function mineBlast(S = 112) {
+  const F = 7;
+  const sheet = new Img(S * F, S);
+  const c = S / 2;
+  for (let f = 0; f < F; f++) {
+    const grow = (f + 1) / F;
+    const R = (c - 2) * (0.35 + 0.65 * grow);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+        if (f < 2 && d < R * 0.8) sheet.set(f * S + x, y, hex(d < R * 0.4 ? '#ffffff' : '#ffd34a'));
+        else if (Math.abs(d - R) < 2.5 - f * 0.25 && noise(x, y, f) > f / F) sheet.set(f * S + x, y, hex(f < 4 ? '#ffb347' : '#ff7a3c'));
+      }
+  }
+  return sheet;
+}
+
+// Shield bubble: a shimmering mint ring around a ship. 4 looping frames.
+function shieldSheet(S = 40) {
+  const F = 4;
+  const sheet = new Img(S * F, S);
+  const R = S / 2 - 1.5;
+  for (let f = 0; f < F; f++)
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
+        const d = Math.hypot(dx, dy);
+        if (d > R + 0.5) continue;
+        const a = Math.atan2(dy, dx);
+        // A brighter band slides around the ring.
+        const shine = 0.5 + 0.5 * Math.cos(a * 2 - (f / F) * Math.PI * 2);
+        if (d > R - 1.2) sheet.set(f * S + x, y, hex('#7fe0b0', Math.round(110 + 120 * shine)));
+        else if (d > R - 3) sheet.set(f * S + x, y, hex('#7fe0b0', 45));
+        else sheet.set(f * S + x, y, hex('#7fe0b0', 18));
+      }
+  return sheet;
+}
+
+// Repulse shockwave: a pale ring racing outward and breaking up. 6 frames, plays once.
+function repulseRing(S = 304) {
+  const F = 6;
+  const sheet = new Img(S * F, S);
+  const c = S / 2;
+  for (let f = 0; f < F; f++) {
+    const R = (c - 3) * ((f + 1) / F);
+    const thick = 4 - f * 0.4;
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+        if (Math.abs(d - R) > thick) continue;
+        if (f >= 3 && noise(x, y, f) < (f - 2) / F) continue;
+        sheet.set(f * S + x, y, hex(Math.abs(d - R) < thick * 0.4 ? '#ffffff' : '#bfe6ff'));
+      }
+  }
+  return sheet;
+}
+
+// Skill and card icons (16×16, flat shapes with a dark outline).
+function icon16(draw) {
+  const img = new Img(16, 16);
+  draw(img);
+  outline(img, hex('#10131a'));
+  return img;
+}
+const SKILL_ICONS = {
+  laser: (img) => {
+    rect(img, 1, 6, 4, 4, hex('#8a93a6'));
+    rect(img, 5, 7, 10, 2, hex('#ffffff'));
+    rect(img, 5, 6, 10, 1, hex('#7ecff2'));
+    rect(img, 5, 9, 10, 1, hex('#7ecff2'));
+  },
+  missiles: (img) => {
+    for (const [x, y] of [[2, 10], [6, 5], [9, 11]]) {
+      rect(img, x, y, 5, 2, hex('#c9ced8'));
+      rect(img, x - 2, y, 2, 2, hex('#ffb347'));
+    }
+  },
+  mines: (img) => {
+    disc(img, 8, 8, 4.5, hex('#5d6578'));
+    for (const [x, y] of [[7, 1], [7, 13], [1, 7], [13, 7]]) rect(img, x, y, 2, 2, hex('#8a93a6'));
+    disc(img, 8, 8, 1.6, hex('#ff6b5a'));
+  },
+  shield: (img) => {
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) {
+        const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+        if (d < 7 && d > 5) img.set(x, y, hex('#7fe0b0'));
+        else if (d <= 5) img.set(x, y, hex('#2f6b55'));
+      }
+  },
+  repulse: (img) => {
+    disc(img, 8, 8, 2, hex('#ffffff'));
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) {
+        const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+        if (Math.abs(d - 4.5) < 0.6 || Math.abs(d - 7) < 0.6) img.set(x, y, hex('#bfe6ff'));
+      }
+  },
+  'card-damage': (img) => {
+    fillPolygon(img, [[8, 0.5], [10, 6], [15.5, 6], [11, 9.5], [13, 15.5], [8, 11.5], [3, 15.5], [5, 9.5], [0.5, 6], [6, 6]], () => hex('#ff7a3c'));
+    disc(img, 8, 8.5, 2, hex('#ffd34a'));
+  },
+  'card-fire-rate': (img) => {
+    for (const x0 of [1, 6, 11]) fillPolygon(img, [[x0, 3], [x0 + 2, 3], [x0 + 5, 8], [x0 + 2, 13], [x0, 13], [x0 + 3, 8]], () => hex('#ffd34a'));
+  },
+  'card-repair': (img) => {
+    rect(img, 6, 2, 4, 12, hex('#7fe07f'));
+    rect(img, 2, 6, 12, 4, hex('#7fe07f'));
+  },
+};
+
 const FILES = {
   // One image for both teams; the game recolours its blue parts for enemies.
   'ships/fighter.png': playerFighter,
@@ -466,6 +631,13 @@ const FILES = {
   'vfx/dash.png': () => dashSheet(56, 28),
   'ui/arrow-enemy.png': () => edgeArrow('#ff6b5a', '#2a0b0b'),
   'ui/arrow-wreck.png': () => edgeArrow('#b8bcc6', '#16171b'),
+  'vfx/laser.png': () => laserSegment(1),
+  'projectiles/missile.png': () => missile(1),
+  'projectiles/mine.png': () => mine(1),
+  'vfx/mine-blast.png': () => mineBlast(112),
+  'vfx/shield.png': () => shieldSheet(40),
+  'vfx/repulse.png': () => repulseRing(304),
+  ...Object.fromEntries(Object.entries(SKILL_ICONS).map(([name, draw]) => [`ui/${name.startsWith('card') ? name : 'skill-' + name}.png`, () => icon16(draw)])),
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,
 };
@@ -487,6 +659,12 @@ for (const tier of [2, 3, 4]) {
   FILES[`ui/command-ring-t${tier}.png`] = () => commandRing(even(44 * k));
   FILES[`ui/wreck-marker-t${tier}.png`] = () => wreckMarker(even(48 * k));
   FILES[`vfx/dash-t${tier}.png`] = () => dashSheet(even(56 * k), even(28 * k));
+  FILES[`vfx/laser-t${tier}.png`] = () => laserSegment(tier);
+  FILES[`projectiles/missile-t${tier}.png`] = () => missile(tier);
+  FILES[`projectiles/mine-t${tier}.png`] = () => mine(tier);
+  FILES[`vfx/mine-blast-t${tier}.png`] = () => mineBlast(even(112 * k));
+  FILES[`vfx/shield-t${tier}.png`] = () => shieldSheet(even(40 * k));
+  FILES[`vfx/repulse-t${tier}.png`] = () => repulseRing(even(304 * k));
 }
 
 for (const [name, draw] of Object.entries(FILES)) {

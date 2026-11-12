@@ -4,6 +4,7 @@ import { Sounds } from './engine/sound';
 import { CONFIG } from './game/config';
 import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
 import type { HistoryPoint } from './game/world';
+import { CardScreen } from './CardScreen';
 
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
@@ -47,6 +48,30 @@ export default function App() {
           <div>Wave: {hud.wave}</div>
           <div>Time: {formatTime(hud.time)}</div>
           <div>Dash (Space): {hud.dashCooldown > 0 ? `${Math.ceil(hud.dashCooldown)} s` : 'ready'}</div>
+          <div className="level">
+            Level {hud.level}
+            <span className="xp-bar">
+              <span style={{ width: `${Math.min(100, (hud.xp / hud.xpNext) * 100)}%` }} />
+            </span>
+            <span className="hint">
+              {Math.floor(hud.xp)} / {hud.xpNext} XP
+            </span>
+          </div>
+          {(['left', 'right'] as const).map((side) => {
+            const list = hud.skills.filter((sk) => sk.side === side);
+            if (!list.length) return null;
+            return (
+              <div key={side}>
+                {side === 'left' ? 'Left click: ' : 'Right click: '}
+                {list.map((sk, i) => (
+                  <span key={sk.id} className={sk.cooldown > 0 ? 'skill cooling' : 'skill'}>
+                    {i > 0 && ' · '}
+                    {sk.name} {sk.cooldown > 0 ? `${sk.cooldown.toFixed(1)} s` : 'ready'}
+                  </span>
+                ))}
+              </div>
+            );
+          })}
           <div>FPS: {hud.fps}</div>
           <button
             className="sound-toggle"
@@ -58,12 +83,12 @@ export default function App() {
           >
             {hud.soundOn ? '🔊 Sound on' : '🔇 Sound off'} (M)
           </button>
-          <div className="hint">WASD move · Shift boost · Space dash · mouse aim · click fire · Esc pause · fly into wrecks to
+          <div className="hint">WASD move · Shift boost · Space dash · mouse aim · click fire · right-click defend · Esc pause · fly into wrecks to
             recruit</div>
           {TEST_KEYS_ENABLED && (
             <div className="hint">
               Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
-              enemies on screen · X end run
+              enemies on screen · X end run · L level up
             </div>
           )}
           {hud.assetProblems.length > 0 && (
@@ -76,6 +101,8 @@ export default function App() {
           )}
         </div>
       )}
+
+      {hud?.cards && !hud.gameOver && <CardScreen hud={hud} game={gameRef.current} />}
 
       {hud?.paused && (
         <div className="panel center">

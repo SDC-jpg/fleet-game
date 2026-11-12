@@ -7,7 +7,10 @@ import { PixelRenderer } from '../engine/renderer';
 import type { Sounds } from '../engine/sound';
 import { clamp } from '../engine/math';
 import { renderGame, tierSprite } from './render';
-import { CONFIG } from './config';
+import { CONFIG, SKILLS, type SkillId } from './config';
+import { xpToNextLevel } from './curves';
+import { describeCard, gainXp, pickCard } from './progress';
+import { cooldownOf } from './skills';
 import {
   controlledShip,
   createGame,
@@ -44,6 +47,14 @@ export interface HudInfo {
   paused: boolean;
   /** Seconds until the dash is ready (0 = ready). */
   dashCooldown: number;
+  level: number;
+  /** XP toward the next level, and how much it needs. */
+  xp: number;
+  xpNext: number;
+  /** Your skills and seconds until each is ready. */
+  skills: { id: SkillId; name: string; side: 'left' | 'right'; icon: string; rank: number; cooldown: number; total: number }[];
+  /** Level-up cards on offer (the game is paused meanwhile), or null. */
+  cards: { title: string; text: string; icon: string; label: string }[] | null;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -119,9 +130,31 @@ export class Game {
 
   /** Pause or resume (Esc, the Resume button, or automatically when the window loses focus). */
   setPaused(paused: boolean) {
-    if (this.state.gameOver) paused = false;
+    // Level-up cards already stop the game.
+    if (this.state.gameOver || this.state.cards) paused = false;
     this.paused = paused;
     this.needsDraw = true;
+  }
+
+  /** Draw one sprite from the manifest (first frame) into a small HUD canvas, enlarged crisply. */
+  drawIcon(canvas: HTMLCanvasElement, name: string) {
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!this.assets.has(name)) return;
+    const f = this.assets.get(name).frames[0];
+    const scale = Math.max(1, Math.floor(Math.min(canvas.width / f.w, canvas.height / f.h)));
+    const w = f.w * scale;
+    const h = f.h * scale;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+  }
+
+  /** Take level-up card number `index` (click, or keys 1–3). */
+  pickCard(index: number) {
+    pickCard(this.state, index);
+    this.playQueuedSounds();
+    this.needsDraw = true;
+    this.sendHud();
   }
 
   /** Switch sound on/off (M key or the speaker button). */
@@ -140,6 +173,7 @@ export class Game {
       fire: i.mouseDown,
       boost: i.isDown('ShiftLeft', 'ShiftRight'),
       dash: i.wasPressed('Space'),
+      defend: i.wasPressed('MouseRight'),
     };
   }
 
@@ -148,14 +182,28 @@ export class Game {
     if (this.state.gameOver && i.isDown('KeyR')) this.restart();
     if (i.wasPressed('KeyM')) this.toggleSound();
     if (i.wasPressed('Escape')) this.setPaused(!this.paused);
-    if (this.paused) {
-      i.wasPressed('Space'); // ignore dashes pressed while paused
+    // Level-up cards: pick with 1, 2 or 3 (or a click).
+    const cards = this.state.cards;
+    if (cards && !this.paused) {
+      const n = cards.findIndex((_, k) => i.wasPressed(`Digit${k + 1}`));
+      if (n >= 0) this.pickCard(n);
+    }
+    if (this.paused || this.state.cards) {
+      // Ignore one-off presses made while the game is stopped.
+      i.wasPressed('Space');
+      i.wasPressed('MouseRight');
       return;
     }
     if (TEST_KEYS_ENABLED) this.handleTestKeys();
     // Spawn enemies a bit outside the visible area.
     const spawnDistance = Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2 + CONFIG.spawnMargin;
     updateGame(this.state, this.readControls(), dt, spawnDistance);
+    this.playQueuedSounds();
+    // A level-up stops the game until a card is picked: send the cards to the screen now.
+    if (this.state.cards) this.sendHud();
+  }
+
+  private playQueuedSounds() {
     for (const e of this.state.sounds) this.playSound(e);
     this.state.sounds.length = 0;
   }
@@ -199,6 +247,7 @@ export class Game {
     if (i.wasPressed('Minus', 'NumpadSubtract')) testRemoveShip(s);
     if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
+    if (i.wasPressed('KeyL')) gainXp(s, xpToNextLevel(s.level) - s.xp);
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
@@ -212,8 +261,9 @@ export class Game {
       r.camY += (ship.y - r.camY) * k;
     }
     r.setZoom(this.state.zoom);
-    if (!this.paused || this.needsDraw) {
-      r.begin(this.paused ? 0 : frameDt);
+    const frozen = this.paused || this.state.cards !== null;
+    if (!frozen || this.needsDraw) {
+      r.begin(frozen ? 0 : frameDt);
       renderGame(this.state, r, this.assets);
       r.end();
       this.needsDraw = false;
@@ -230,25 +280,41 @@ export class Game {
 
     // Update the HUD about 10 times a second (React doesn't need every frame).
     this.hudTimer -= frameDt;
-    if (this.hudTimer <= 0) {
-      this.hudTimer = 0.1;
-      this.onHud({
-        fleetSize: fleetValue(this.state.playerFleet),
-        fleetMix: fleetMix(this.state),
-        maxFleetSize: this.state.maxFleetSize,
-        wave: this.state.wave,
-        time: this.state.survived,
-        gameOver: this.state.gameOver,
-        paused: this.paused,
-        dashCooldown: this.state.dashCooldown,
-        stats: { ...this.state.stats },
-        history: this.state.history,
-        invincible: this.state.invincible,
-        soundOn: this.sounds.enabled,
-        fps: this.fps,
-        assetProblems: [...this.assets.problems, ...this.sounds.problems],
-      });
-    }
+    if (this.hudTimer <= 0) this.sendHud();
+  }
+
+  private sendHud() {
+    this.hudTimer = 0.1;
+    const st = this.state;
+    this.onHud({
+      fleetSize: fleetValue(st.playerFleet),
+      fleetMix: fleetMix(st),
+      maxFleetSize: st.maxFleetSize,
+      wave: st.wave,
+      time: st.survived,
+      gameOver: st.gameOver,
+      paused: this.paused,
+      dashCooldown: st.dashCooldown,
+      level: st.level,
+      xp: st.xp,
+      xpNext: xpToNextLevel(st.level),
+      skills: st.skills.map((sk) => ({
+        id: sk.id,
+        name: SKILLS[sk.id].name,
+        side: SKILLS[sk.id].side,
+        icon: SKILLS[sk.id].icon,
+        rank: sk.rank,
+        cooldown: sk.timer,
+        total: cooldownOf(sk.id),
+      })),
+      cards: st.cards ? st.cards.map(describeCard) : null,
+      stats: { ...st.stats },
+      history: st.history,
+      invincible: st.invincible,
+      soundOn: this.sounds.enabled,
+      fps: this.fps,
+      assetProblems: [...this.assets.problems, ...this.sounds.problems],
+    });
   }
 }
 

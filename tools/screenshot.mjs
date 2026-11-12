@@ -11,6 +11,8 @@
 //   keyup:KeyD         let go of a key
 //   mouse:900,300      move the mouse to x,y (pixels from the top-left of the page)
 //   down / up          press / release the left mouse button
+//   rclick             right-click (ability)
+//   wheel:down         one mouse-wheel step (down or up)
 //   shot:name          save a screenshot as <out>/name.png
 // With no steps: wait 1.5 s, then take one screenshot called "game".
 
@@ -47,7 +49,9 @@ try {
     if (r.status() >= 400) console.log(`[missing file] ${r.status()} ${r.url()}`);
   });
   await page.goto(url, { waitUntil: 'networkidle' });
-  await page.mouse.move(width / 2 + 100, height / 2);
+  let mouseX = width / 2 + 100;
+  let mouseY = height / 2;
+  await page.mouse.move(mouseX, mouseY);
 
   for (const step of steps) {
     const [cmd, ...rest] = step.split(':');
@@ -64,10 +68,15 @@ try {
     } else if (cmd === 'keydown') await page.keyboard.down(arg);
     else if (cmd === 'keyup') await page.keyboard.up(arg);
     else if (cmd === 'mouse') {
-      const [x, y] = arg.split(',').map(Number);
-      await page.mouse.move(x, y);
+      [mouseX, mouseY] = arg.split(',').map(Number);
+      await page.mouse.move(mouseX, mouseY);
     } else if (cmd === 'down') await page.mouse.down();
     else if (cmd === 'up') await page.mouse.up();
+    else if (cmd === 'rclick') await page.mouse.click(mouseX, mouseY, { button: 'right' });
+    else if (cmd === 'wheel') {
+      await page.mouse.wheel(0, arg === 'up' ? -100 : 100);
+      await page.waitForTimeout(200); // let the game see this step before the next one
+    }
     else if (cmd === 'shot') {
       const file = join(outDir, `${arg || 'shot'}.png`);
       await page.screenshot({ path: file });

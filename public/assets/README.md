@@ -83,6 +83,22 @@ The game recolours the "team colour" parts for each side when it starts.
 - **`ui.wreck-marker`** is drawn under every wreck and loops. It's never shrunk
   when the camera zooms out, so wrecks stay easy to spot against the stars.
 
+## Skills and level-up cards
+
+| Name | What it is |
+| --- | --- |
+| `ui.skill.laser`, `.missiles`, `.mines`, `.shield`, `.repulse` | Skill icons (cards and HUD; placeholders 16 px) |
+| `ui.card.damage`, `ui.card.fire-rate`, `ui.card.repair` | Icons for the fleet bonus cards |
+| `vfx.laser` (+ tiers) | One short **segment** of the laser beam, repeated along its length. Faces right; plays once (the beam narrows away). Sky blue = team colour |
+| `projectile.missile` (+ tiers) | Homing missile, faces right, team-coloured |
+| `projectile.mine` (+ tiers) | Mine, loops (blinking light), team-coloured |
+| `vfx.mine-blast` (+ tiers) | Mine explosion, plays once, sized for the blast reach (112 px at tier 1) |
+| `vfx.shield` (+ tiers) | Bubble over a shielded ship, loops |
+| `vfx.repulse` (+ tiers) | Shockwave ring, plays once, sized for its reach (304 px at tier 1) |
+
+Sounds: `sfx.laser`, `sfx.missile`, `sfx.mine` (dropped), `sfx.mine-blast`,
+`sfx.shield`, `sfx.repulse`, `sfx.levelup`, `sfx.card` (card picked).
+
 ## Tiers (bigger ships)
 
 16 ships of one tier merge into one ship of the next tier. Each tier has its

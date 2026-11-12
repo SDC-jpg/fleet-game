@@ -36,6 +36,12 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     r.drawSprite(sprite, w.x, w.y, w.angle, state.time, alpha);
   }
 
+  // Mines (team-coloured, looping blink).
+  for (const m of state.mines) {
+    const sprite = teamSprite(assets, tierSprite(assets, 'projectile.mine', m.tier), m.team);
+    r.drawSprite(sprite, m.x, m.y, 0, m.age);
+  }
+
   // Draw every other ship first (small ones under big ones), then the
   // command ring and the ship you fly on top.
   const flagship = controlledShip(state);
@@ -46,6 +52,23 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     const ring = assets.get(tierSprite(assets, 'ui.command-ring', flagship.tier));
     r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1);
     drawShip(r, assets, flagship, state.time);
+  }
+
+  // Shield bubbles over shielded ships (fading in their last second).
+  for (const s of state.ships) {
+    if (s.shield <= 0 || s.absorbed) continue;
+    const bubble = assets.get(tierSprite(assets, 'vfx.shield', s.tier));
+    r.drawSprite(bubble, s.x, s.y, 0, state.time, Math.min(1, s.shieldTime));
+  }
+
+  // Laser beams: one short segment image repeated along the beam's length.
+  for (const b of state.beams) {
+    const seg = teamSprite(assets, tierSprite(assets, 'vfx.laser', b.tier), b.team);
+    const w = seg.frames[0].w;
+    const n = Math.ceil(b.length / w);
+    const dx = Math.cos(b.angle);
+    const dy = Math.sin(b.angle);
+    for (let i = 0; i < n; i++) r.drawSprite(seg, b.x + dx * (i + 0.5) * w, b.y + dy * (i + 0.5) * w, b.angle, b.age);
   }
 
   for (const b of state.bullets) {

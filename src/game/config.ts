@@ -62,6 +62,22 @@ export const SHIP_TYPES = {
 
 export type ShipTypeId = keyof typeof SHIP_TYPES;
 
+/**
+ * Pilot skills, picked from cards at each level-up. Weapons (left click) fire
+ * with your gun while you hold the button; defences (right click) go off when
+ * you click. Each fires again once its cooldown is over. Numbers per skill are
+ * in CONFIG (laser, missiles, mines, shield, repulse).
+ */
+export const SKILLS = {
+  laser: { name: 'Laser', side: 'left', icon: 'ui.skill.laser', text: 'A beam that pierces every ship in a line.' },
+  missiles: { name: 'Missiles', side: 'left', icon: 'ui.skill.missiles', text: 'A cluster of homing missiles.' },
+  mines: { name: 'Mines', side: 'left', icon: 'ui.skill.mines', text: 'Drops a mine that blows up when an enemy comes near.' },
+  shield: { name: 'Shield', side: 'right', icon: 'ui.skill.shield', text: 'A bubble that soaks up damage, on you and nearby ships.' },
+  repulse: { name: 'Repulse', side: 'right', icon: 'ui.skill.repulse', text: 'A shockwave that pushes enemies and their shots away.' },
+} satisfies Record<string, { name: string; side: 'left' | 'right'; icon: string; text: string }>;
+
+export type SkillId = keyof typeof SKILLS;
+
 export const CONFIG = {
   /**
    * Both teams use the same ship images. Team-colour parts are painted in a hue
@@ -136,6 +152,103 @@ export const CONFIG = {
     rechargeDelay: 0.75,
     /** After running dry, boost unlocks once the bar refills to this share (0–1). */
     restartAt: 0.3,
+  },
+
+  /**
+   * Experience and levels. Kills give XP (enemy value × xpPerValue). The XP
+   * needed for the next level grows each level: firstLevelXp × growth^(level − 1).
+   */
+  levels: {
+    /** XP per tier-1 ship's worth of enemy destroyed. */
+    xpPerValue: 1,
+    /** XP needed to go from level 1 to level 2. */
+    firstLevelXp: 5,
+    /** Each level needs this many times more XP than the last (1 = always the same). */
+    growth: 1.15,
+  },
+
+  /** Level-up cards. */
+  cards: {
+    /** Cards to choose from at each level-up. */
+    choices: 3,
+    /** Most weapon skills (left click) you can have at once. */
+    maxWeapons: 3,
+    /** Most defence skills (right click) you can have at once. */
+    maxDefences: 2,
+    /** How much more likely a new-skill card is than a bonus card. */
+    newSkillWeight: 3,
+    /** Bonus card: extra damage for the whole fleet (0.1 = +10%). */
+    damageBonus: 0.1,
+    /** Bonus card: faster firing for the whole fleet (0.1 = +10%). */
+    fireRateBonus: 0.1,
+  },
+
+  /** Laser skill: an instant beam that hits every enemy along it. Damage and size grow with your ship's tier. */
+  laser: {
+    /** Seconds between beams. */
+    cooldown: 3,
+    /** Damage to each ship it hits (tier 1). */
+    damage: 6,
+    /** Beam length (tier 1; grows like shot reach). */
+    length: 420,
+    /** Beam width (tier 1; grows with ship size). */
+    width: 6,
+  },
+
+  /** Missiles skill: a cluster of slow homing missiles. */
+  missiles: {
+    /** Seconds between clusters. */
+    cooldown: 3.5,
+    /** Missiles per cluster. */
+    count: 4,
+    /** Damage per missile (tier 1). */
+    damage: 2,
+    /** Missile speed. */
+    speed: 260,
+    /** How fast missiles turn toward their target (radians per second). */
+    turnRate: 4,
+    /** Seconds a missile lasts. */
+    life: 3,
+  },
+
+  /** Mines skill: drops a mine behind you that blows up when an enemy comes near. */
+  mines: {
+    /** Seconds between mines. */
+    cooldown: 2.5,
+    /** Seconds before a new mine can go off. */
+    armTime: 0.4,
+    /** An enemy this close sets it off (tier 1). */
+    triggerRadius: 40,
+    /** Everything this close takes damage when it blows (tier 1). */
+    blastRadius: 55,
+    /** Blast damage (tier 1). */
+    damage: 8,
+    /** Seconds before an untouched mine fizzles out. */
+    life: 6,
+  },
+
+  /** Shield skill: a bubble on you and nearby ships of your fleet that soaks up damage. */
+  shield: {
+    /** Seconds between shields. */
+    cooldown: 4,
+    /** Damage each shield absorbs (tier 1, times your health bonus for being the player). */
+    amount: 4,
+    /** Seconds a shield lasts. */
+    duration: 2.5,
+    /** Ships of your fleet this close (tier 1) get a shield too. */
+    radius: 80,
+  },
+
+  /** Repulse skill: a shockwave that pushes enemies away, hurts them a little and wipes out their shots. */
+  repulse: {
+    /** Seconds between shockwaves. */
+    cooldown: 3,
+    /** Reach (tier 1; grows with ship size). */
+    radius: 150,
+    /** How hard enemies are pushed (speed added, pixels per second). */
+    push: 420,
+    /** Damage to each enemy caught (tier 1). */
+    damage: 2,
   },
 
   /** Space dash: the whole fleet gets a burst of speed that fades out. */
@@ -231,12 +344,16 @@ export const CONFIG = {
   maxEnemies: 120,
   /** How far outside the visible area enemies appear. */
   spawnMargin: 150,
-  /** Enemy fleets start appearing once your fleet value is at least this. */
-  enemyFleetMinPlayerSize: 6,
-  /** Once they've started, an enemy fleet comes every this-many waves. */
+  /** First wave that brings an enemy fleet. */
+  enemyFleetsFromWave: 6,
+  /** After that, an enemy fleet comes every this-many waves. */
   enemyFleetEveryNthWave: 3,
-  /** Enemy fleet value compared to yours (1.1 = 10% bigger, plus 2). */
-  enemyFleetSizeRatio: 1.1,
+  /** Enemy fleet value = start + perWave × wave^curve. This is the value at wave 0. */
+  enemyFleetValueStart: 3,
+  /** How much enemy fleet value is added per wave (see enemyFleetValueCurve). */
+  enemyFleetValuePerWave: 0.6,
+  /** 1 = enemy fleets grow steadily; higher = they grow faster and faster in later waves. */
+  enemyFleetValueCurve: 1.3,
 
   /** Sound settings. Each sound's own volume is in public/assets/manifest.json. */
   audio: {
