@@ -373,7 +373,7 @@ function dashSheet(W, H) {
 // ---------- UI ----------
 // Wreck marker: four corner brackets that pulse in and out (loops), so wrecks
 // stand out from the stars when zoomed out.
-function wreckMarker(S = 48, color = '#ffcf5a', dark = '#2a1d05') {
+function wreckMarker(S = 48) {
   const F = 6;
   const sheet = new Img(S * F, S);
   const arm = Math.round(S * 0.22);
@@ -381,234 +381,31 @@ function wreckMarker(S = 48, color = '#ffcf5a', dark = '#2a1d05') {
   for (let f = 0; f < F; f++) {
     const frame = new Img(S, S);
     const inset = 2 + Math.round((1 - Math.cos((f / F) * Math.PI * 2)) * S * 0.04);
-    const c = hex(color);
+    const c = hex('#ffcf5a');
     for (const [sx, sy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
       const x = sx ? S - inset - arm : inset;
       const y = sy ? S - inset - th : inset;
       rect(frame, x, y, arm, th, c); // horizontal arm
       rect(frame, sx ? S - inset - th : inset, sy ? S - inset - arm : inset, th, arm, c); // vertical arm
     }
-    outline(frame, hex(dark));
+    outline(frame, hex('#2a1d05'));
     sheet.blit(frame, f * S, 0);
   }
   return sheet;
 }
 
-// Command ring around the ship you fly, doubling as the boost stamina meter.
-// 33 frames: frame N has N/32 of the ring lit, filling clockwise from the top.
 function commandRing(S = 44) {
-  const STEPS = 32;
-  const sheet = new Img(S * (STEPS + 1), S);
+  const img = new Img(S, S);
   const R = S / 2 - 2;
-  for (let f = 0; f <= STEPS; f++)
-    for (let y = 0; y < S; y++)
-      for (let x = 0; x < S; x++) {
-        const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
-        // A 2-pixel line, so the ship you fly stands out.
-        if (Math.abs(Math.hypot(dx, dy) - R) >= 1.1) continue;
-        // 0 at the top, growing clockwise, 0–1.
-        const turn = ((Math.atan2(dy, dx) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
-        const lit = turn < f / STEPS;
-        sheet.set(f * S + x, y, hex(lit ? '#c8ecff' : '#4a5a70', lit ? 255 : 110));
-      }
-  return sheet;
-}
-
-// ---------- Abilities ----------
-
-// Splinter (Splinter Volley combo): a small bright bolt, facing right. Sky blue edges get team colours.
-function splinter(tier = 1) {
-  const k = 1.5 ** (tier - 1);
-  const len = Math.round(18 * k), thick = Math.max(3, Math.round(3 * k) | 1);
-  const img = new Img(len + 2, thick + 2);
-  const mid = (thick + 1) / 2;
-  for (let i = 0; i < len; i++)
-    for (let j = 0; j < thick; j++) {
-      const edge = Math.abs(j + 1 - mid) >= thick / 2 - 0.5;
-      const tail = i < len * 0.3;
-      if (edge && tail && (i + j) % 2) continue; // tail frays out
-      img.set(1 + i, 1 + j, hex(edge ? '#41a6d9' : tail ? '#9fd3ff' : '#ffffff'));
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
+      const d = Math.hypot(dx, dy);
+      const a = Math.atan2(dy, dx);
+      if (Math.abs(d - R) < 0.7 && Math.floor(((a + Math.PI) / (2 * Math.PI)) * 16) % 2 === 0)
+        img.set(x, y, hex('#9fd3ff', 170));
     }
   return img;
-}
-
-// Missile (Ballista ability): grey body, sky blue fins (team colour), orange flame. Faces right.
-function missile(tier = 1) {
-  const k = 1.5 ** (tier - 1);
-  const W = Math.round(12 * k) + 2, H = Math.round(7 * k) + 2;
-  const img = new Img(W, H);
-  const cy = H / 2;
-  const sx = (v) => 1 + v * k, sy = (v) => cy + v * k;
-  fillPolygon(img, [[sx(3), sy(-3)], [sx(5), sy(-1)], [sx(5), sy(1)], [sx(3), sy(3)], [sx(1.5), sy(3)], [sx(2.5), sy(0)], [sx(1.5), sy(-3)]], () => hex('#41a6d9'));
-  fillPolygon(img, [[sx(3), sy(-1)], [sx(9), sy(-1)], [sx(11), sy(0)], [sx(9), sy(1)], [sx(3), sy(1)]], () => hex('#c9ced8'));
-  fillPolygon(img, [[sx(0), sy(-0.8)], [sx(3), sy(-0.8)], [sx(3), sy(0.8)], [sx(0), sy(0.8)]], () => hex('#ffb347'));
-  outline(img, hex('#1a1d26'));
-  return img;
-}
-
-// Lance (Lancer ability): a big white-hot bolt with a gold glow and a flickering,
-// fraying tail, facing right. Sky blue edges get team colours. 3 looping frames.
-function lanceBolt(tier = 1) {
-  const k = 1.5 ** (tier - 1);
-  const len = Math.round(40 * k), thick = Math.max(5, Math.round(5 * k) | 1);
-  const W = len + 2, H = thick + 2, F = 3;
-  const sheet = new Img(W * F, H);
-  const mid = (H - 1) / 2;
-  for (let f = 0; f < F; f++)
-    for (let i = 0; i < len; i++) {
-      const along = i / len; // 0 = tail end, 1 = tip
-      // The bolt narrows to a point at the tip and thins out along the tail.
-      const half = (thick / 2) * Math.min(1, (1 - along) * 6) * (0.45 + 0.55 * Math.min(1, along * 2.2));
-      for (let j = 0; j < H; j++) {
-        const d = Math.abs(j - mid);
-        if (d > half) continue;
-        // Tail pixels flicker: some drop out, differently each frame.
-        if (along < 0.45 && noise(i, j, f) > along * 2.1) continue;
-        const color = d < half * 0.35 ? '#ffffff' : d < half * 0.7 ? '#fff1a8' : '#41a6d9';
-        sheet.set(f * W + 1 + i, j, hex(color));
-      }
-    }
-  return sheet;
-}
-
-// Lance muzzle flash: a white core and a forward cone of light that shrink away
-// (solid colours, no see-through fading, which looks muddy on dark space). Faces right. 5 frames, plays once.
-function lanceFlash(S = 28) {
-  const F = 5;
-  const sheet = new Img(S * F, S);
-  const c = S / 2;
-  for (let f = 0; f < F; f++) {
-    const size = 1 - f / F;
-    for (let y = 0; y < S; y++)
-      for (let x = 0; x < S; x++) {
-        const dx = x + 0.5 - c, dy = y + 0.5 - c;
-        const d = Math.hypot(dx, dy);
-        const ahead = dx > 0 && Math.abs(dy) < (dx * 0.45 + 1.5) * size && d < c * (0.5 + 0.5 * size);
-        if (d < c * 0.35 * size) sheet.set(f * S + x, y, hex('#ffffff'));
-        else if (ahead) sheet.set(f * S + x, y, hex(f < 2 ? '#fff1a8' : '#ffd34a'));
-      }
-  }
-  return sheet;
-}
-
-// Lance trail: one short streak segment left behind each step, thinning away
-// (white, then gold, then a thin line). Faces right. 6 frames, plays once.
-function lanceTrail(tier = 1) {
-  const k = 1.5 ** (tier - 1);
-  const W = Math.round(18 * k), H = Math.max(3, Math.round(3 * k) | 1) + 2, F = 6;
-  const sheet = new Img(W * F, H);
-  const mid = (H - 1) / 2;
-  for (let f = 0; f < F; f++) {
-    const half = ((H - 2) / 2) * (1 - f / F) + 0.3;
-    for (let x = 0; x < W; x++)
-      for (let y = 0; y < H; y++) {
-        if (Math.abs(y - mid) > half) continue;
-        if (f >= 4 && (x + f) % 2) continue; // last frames break up
-        sheet.set(f * W + x, y, hex(f < 2 ? '#ffffff' : f < 4 ? '#fff1a8' : '#ffd34a'));
-      }
-  }
-  return sheet;
-}
-
-// Aegis shield bubble (Knight ability): a shimmering mint ring around a ship. 4 looping frames.
-function shieldSheet(S = 40) {
-  const F = 4;
-  const sheet = new Img(S * F, S);
-  const R = S / 2 - 1.5;
-  for (let f = 0; f < F; f++)
-    for (let y = 0; y < S; y++)
-      for (let x = 0; x < S; x++) {
-        const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
-        const d = Math.hypot(dx, dy);
-        if (d > R + 0.5) continue;
-        const a = Math.atan2(dy, dx);
-        // A brighter band slides around the ring.
-        const shine = 0.5 + 0.5 * Math.cos(a * 2 - (f / F) * Math.PI * 2);
-        if (d > R - 1.2) sheet.set(f * S + x, y, hex('#7fe0b0', Math.round(110 + 120 * shine)));
-        else if (d > R - 3) sheet.set(f * S + x, y, hex('#7fe0b0', 45));
-        else sheet.set(f * S + x, y, hex('#7fe0b0', 18));
-      }
-  return sheet;
-}
-
-// Class rank icons, shown above ships: Lancer = gold spearhead, Knight = mint
-// shield, Ballista = violet double chevron. S = 13 (main) or 7 (".small", second class).
-const ICONS = {
-  lancer: ['#ffd34a', (S) => [[S / 2, 0.5], [S - 1, S * 0.55], [S / 2 + 1, S * 0.45], [S / 2 + 1, S - 0.5], [S / 2 - 1, S - 0.5], [S / 2 - 1, S * 0.45], [1, S * 0.55]]],
-  knight: ['#7fe0b0', (S) => [[1, 1], [S - 1, 1], [S - 1, S * 0.5], [S / 2, S - 0.5], [1, S * 0.5]]],
-  ballista: ['#c890ff', (S) => [[S / 2, 0.5], [S - 0.5, S * 0.45], [S - 0.5, S * 0.75], [S / 2, S * 0.35], [0.5, S * 0.75], [0.5, S * 0.45]]],
-};
-function classIcon(cls, S, edge = '#10131a') {
-  const [color, shape] = ICONS[cls];
-  const img = new Img(S + 2, S + 2);
-  const inner = new Img(S, S);
-  fillPolygon(inner, shape(S), () => hex(color));
-  if (cls === 'ballista') fillPolygon(inner, shape(S).map(([x, y]) => [x, y + S * 0.4]), () => hex(color));
-  img.blit(inner, 1, 1);
-  outline(img, hex(edge));
-  return img;
-}
-
-// Body shop station: a grey ring with a hub and four lime lights that blink in turn. 4 looping frames.
-function shopStation(S = 64) {
-  const F = 4;
-  const sheet = new Img(S * F, S);
-  const c = S / 2;
-  for (let f = 0; f < F; f++) {
-    const frame = new Img(S, S);
-    for (let y = 0; y < S; y++)
-      for (let x = 0; x < S; x++) {
-        const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
-        if (d > c - 6 && d < c - 2) frame.set(x, y, hex('#8a93a6'));
-        else if (d < 10) frame.set(x, y, hex(d < 5 ? '#b8ff5a' : '#5d6578'));
-        else if (Math.abs(x + 0.5 - c) < 2 || Math.abs(y + 0.5 - c) < 2) {
-          if (d < c - 5) frame.set(x, y, hex('#4a5163'));
-        }
-      }
-    // Four lights on the ring, one brighter each frame.
-    for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-      const lx = c + Math.cos(a) * (c - 4), ly = c + Math.sin(a) * (c - 4);
-      rect(frame, Math.round(lx - 2), Math.round(ly - 2), 4, 4, hex(i === f ? '#eaffc8' : '#6f9a2c'));
-    }
-    outline(frame, hex('#14171f'));
-    sheet.blit(frame, f * S, 0);
-  }
-  return sheet;
-}
-
-// Flagship marker: a white arrow pointing down at the ship you fly, bobbing. 4 looping frames.
-function flagshipMarker() {
-  const W = 17, H = 16, F = 4;
-  const sheet = new Img(W * F, H);
-  for (let f = 0; f < F; f++) {
-    const frame = new Img(W, H);
-    const bob = [0, 1, 2, 1][f];
-    fillPolygon(frame, [[1, 1 + bob], [16, 1 + bob], [8.5, 12 + bob]], () => hex('#f4f8ff'));
-    outline(frame, hex('#0e1a33'));
-    sheet.blit(frame, f * W, 0);
-  }
-  return sheet;
-}
-
-// Rare things are pink: rare wreck markers, rare icon outlines, the elite glow.
-const RARE = '#ff6ad5';
-
-// Elite glow: a soft pink ring pulsing under an elite ship. 6 looping frames.
-function eliteAura(S = 44) {
-  const F = 6;
-  const sheet = new Img(S * F, S);
-  for (let f = 0; f < F; f++) {
-    const pulse = 0.5 + 0.5 * Math.sin((f / F) * Math.PI * 2);
-    const R = S / 2 - 2 - (1 - pulse) * 2;
-    for (let y = 0; y < S; y++)
-      for (let x = 0; x < S; x++) {
-        const d = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2);
-        if (Math.abs(d - R) < 1) sheet.set(f * S + x, y, hex(RARE, Math.round(150 + 80 * pulse)));
-        else if (d < R && d > R - 4) sheet.set(f * S + x, y, hex(RARE, Math.round(30 + 40 * pulse)));
-      }
-  }
-  return sheet;
 }
 
 // Edge-of-screen arrow, pointing right.
@@ -660,33 +457,10 @@ const FILES = {
   'vfx/hit.png': () => hitSheet(16),
   'vfx/recruit.png': () => recruitSheet(48),
   'ui/command-ring.png': () => commandRing(44),
-  'ui/flagship-marker.png': flagshipMarker,
-  'projectiles/lance.png': () => lanceBolt(1),
-  'projectiles/splinter.png': () => splinter(1),
-  'vfx/lance-flash.png': () => lanceFlash(28),
-  'vfx/lance-trail.png': () => lanceTrail(1),
-  'projectiles/missile.png': () => missile(1),
-  'vfx/shield.png': () => shieldSheet(40),
-  'ui/class-lancer.png': () => classIcon('lancer', 13),
-  'ui/class-lancer-small.png': () => classIcon('lancer', 7),
-  'ui/class-knight.png': () => classIcon('knight', 13),
-  'ui/class-knight-small.png': () => classIcon('knight', 7),
-  'ui/class-ballista.png': () => classIcon('ballista', 13),
-  'ui/class-ballista-small.png': () => classIcon('ballista', 7),
-  'ui/class-lancer-rare.png': () => classIcon('lancer', 13, RARE),
-  'ui/class-lancer-small-rare.png': () => classIcon('lancer', 7, RARE),
-  'ui/class-knight-rare.png': () => classIcon('knight', 13, RARE),
-  'ui/class-knight-small-rare.png': () => classIcon('knight', 7, RARE),
-  'ui/class-ballista-rare.png': () => classIcon('ballista', 13, RARE),
-  'ui/class-ballista-small-rare.png': () => classIcon('ballista', 7, RARE),
-  'ui/wreck-marker-rare.png': () => wreckMarker(48, RARE, '#2a0520'),
-  'vfx/elite.png': () => eliteAura(44),
   'ui/wreck-marker.png': () => wreckMarker(48),
   'vfx/dash.png': () => dashSheet(56, 28),
   'ui/arrow-enemy.png': () => edgeArrow('#ff6b5a', '#2a0b0b'),
   'ui/arrow-wreck.png': () => edgeArrow('#b8bcc6', '#16171b'),
-  'ui/arrow-shop.png': () => edgeArrow('#b8ff5a', '#1b2a08'),
-  'stations/shop.png': () => shopStation(64),
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,
 };
@@ -708,14 +482,6 @@ for (const tier of [2, 3, 4]) {
   FILES[`ui/command-ring-t${tier}.png`] = () => commandRing(even(44 * k));
   FILES[`ui/wreck-marker-t${tier}.png`] = () => wreckMarker(even(48 * k));
   FILES[`vfx/dash-t${tier}.png`] = () => dashSheet(even(56 * k), even(28 * k));
-  FILES[`projectiles/lance-t${tier}.png`] = () => lanceBolt(tier);
-  FILES[`projectiles/splinter-t${tier}.png`] = () => splinter(tier);
-  FILES[`vfx/lance-flash-t${tier}.png`] = () => lanceFlash(even(28 * k));
-  FILES[`vfx/lance-trail-t${tier}.png`] = () => lanceTrail(tier);
-  FILES[`projectiles/missile-t${tier}.png`] = () => missile(tier);
-  FILES[`vfx/shield-t${tier}.png`] = () => shieldSheet(even(40 * k));
-  FILES[`ui/wreck-marker-rare-t${tier}.png`] = () => wreckMarker(even(48 * k), RARE, '#2a0520');
-  FILES[`vfx/elite-t${tier}.png`] = () => eliteAura(even(44 * k));
 }
 
 for (const [name, draw] of Object.entries(FILES)) {

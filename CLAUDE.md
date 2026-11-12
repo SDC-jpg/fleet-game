@@ -35,19 +35,17 @@
 ## Seeing the game (for Claude)
 - The container has Chromium (installed by the Dockerfile at build time, no firewall change needed). `tools/screenshot.mjs` drives it with `playwright-core` and saves screenshots that Claude can view with the Read tool. It also prints browser errors.
 - Example (dev server must be running): `node tools/screenshot.mjs --out <scratchpad>/shots 'wait:1500' 'press:Equal*10' 'hold:KeyD:800' 'shot:fleet'`. Quote the steps, because the shell (zsh) treats `*` as a filename wildcard. Run it with no steps for a single screenshot.
-- Steps also include `rclick` (right-click) and `wheel:down` / `wheel:up`.
-- Dev-only test keys help set up scenes: `=`/`-` add/remove ship (random class), `1`/`2`/`3` add a Lancer/Knight/Ballista, `]` add 16 ships, `E` spawn an elite, `B` body shop next to you, `C` +100 scrap, `G` invincible, `K` destroy on-screen enemies, `X` end the run (to see the report).
+- Dev-only test keys help set up scenes: `=`/`-` add/remove ship, `]` add 16 ships, `G` invincible, `K` destroy on-screen enemies, `X` end the run (to see the report).
 - Use it to check visual changes before handing them to the user. The browser has no graphics card, so it can't judge smoothness or performance. The user does that.
 
 ## Code layout
 - `src/engine/`: the small homegrown engine (asset loading from the manifest, pixel renderer with whole-number zoom, sound playback (`sound.ts`), input, fixed 60 Hz game loop).
 - `src/game/config.ts`: every tuning number (speeds, health, waves, zoom steps, ship types and their hit sizes). Its comments also feed the public tuning page: give every new setting a one-line `/** */` description, and start a group of plain settings with a `// == Title: note ==` line.
 - `tools/make-tuning-page.mjs`: runs at the end of `npm run build` and writes `dist/tuning.html`, a table of every setting with its value and description, read from `config.ts`. It's published at https://sdc-jpg.github.io/fleet-game/tuning.html (the user's teammate uses it) and linked in the Discord build post. It warns about settings with no description.
-- `src/game/world.ts`: game rules (no drawing; it queues sound events in `state.sounds`, which `Game.ts` plays). `src/game/abilities.ts`: classes, modules, builds, abilities and combos. `src/game/render.ts`: drawing. `src/game/Game.ts`: connects input, rules and drawing.
+- `src/game/world.ts`: game rules (no drawing; it queues sound events in `state.sounds`, which `Game.ts` plays). `src/game/render.ts`: drawing. `src/game/Game.ts`: connects input, rules and drawing.
 - `src/App.tsx`: React canvas and HUD.
 - `public/assets/`: all art and sound effects (`sfx/`), plus `manifest.json` (sprite and sound names → files) and `README.md` (art and sound guide for the user).
 - `tools/make-placeholder-art.mjs` (`npm run make-art`): generates placeholder PNGs and never overwrites existing files unless run with `--force`.
-- `docs/DESIGN.md`: short design doc for the classes/modules system and what comes next.
 - `tools/make-placeholder-sfx.mjs` (`npm run make-sfx`): generates placeholder WAV sound effects (simple retro synth), same no-overwrite rule.
 - Claude can't hear sounds in the container: check them by recording which sounds start (patch `AudioBufferSourceNode.prototype.start` in a Playwright script). The user judges how they sound.
 
@@ -65,41 +63,28 @@
 
 ### Game concept: pixel-art spaceship fleet combat
 - The player starts as a single spaceship and grows a fleet. As the fleet grows, the camera zooms out and the fights get bigger, eventually fleet against fleet.
-- **Movement:** the flagship is 20% faster moving toward where it faces (the cursor) and 18% slower backing away, blended smoothly (`directionalSpeed`). **Shift boost** (2.2× speed) runs on stamina (`CONFIG.boost`): 3 s from full, refills in 6 s after a 0.75 s rest; running dry locks it until 30% refilled. Boost time grows 1.5× per tier of the ship you fly (`durationPerTier`). The flagship's command ring is the stamina meter (a flipbook whose frames go empty → full, dimmed while locked). **Space dash:** the whole fleet is kicked to 8× speed at once, fading back over 0.5 s, with an 18 s cooldown. The extra speed scales with zoom (3/zoom) so the dash covers the same share of the screen at every zoom and a flipbook trail (`vfx.dash`) behind each ship (`CONFIG.dash`).
+- **Movement:** the flagship is 20% faster moving toward where it faces (the cursor) and 18% slower backing away, blended smoothly (`directionalSpeed`). Shift boosts. **Right-click dash:** the whole fleet is kicked to 3× speed at once, fading back over 0.5 s, with an 18 s cooldown. The extra speed scales with zoom (3/zoom: 4× the extra at 0.75×) so the dash covers the same share of the screen at every zoom and a flipbook trail (`vfx.dash`) behind each ship (`CONFIG.dash`).
 - **Pause:** Esc toggles it. The game also pauses by itself when the window loses focus, and the screen isn't redrawn while paused.
-- **HUD:** bottom-left "Run" panel (fleet, best, wave, time, destroyed/lost) and a flagship panel (portrait from the ship's sprite, class bars, health, ability and dash cooldowns). Top-left keeps only FPS, sound and help. Pixel font Silkscreen (`@fontsource/silkscreen`, bundled; not loaded from Google).
-- **The first kill of a run always leaves a wreck** (`firstKillWreck`).
 - **End-of-run report:** ships destroyed and lost (count and value; merged ships aren't losses), and a graph of fleet value with one point per wave start.
 - **Waves:** each gap is 0.5% shorter than the last (starting at 12 s), then randomly ±20%, never below 4 s, to vary pressure and calm.
-- **Fleet control:** the player flies one ship directly (WASD/arrows to move, mouse to aim, left-click to fire, right-click for its ability, mouse wheel to switch between your biggest ships). The other ships follow in formation and shoot nearby enemies on their own. They only aim and fire within ±15° of their leader's current facing (`allyFireArc`; enemy fleets too, `enemyFireArc`), so the fleet fires where the player aims. Simple fleet orders (formation spacing, attack target, hold back) come later.
+- **Fleet control:** the player flies one ship directly (WASD/arrows to move, mouse to aim and fire). The other ships follow in formation and shoot nearby enemies on their own. They only aim and fire within ±15° of their leader's current facing (`allyFireArc`; enemy fleets too, `enemyFireArc`), so the fleet fires where the player aims. Simple fleet orders (formation spacing, attack target, hold back) come later.
 - **Zoom:** in steps at whole-number pixel scales (e.g. 4× → 3× → 2× → 1×) so pixel art stays crisp, with a quick smooth transition between steps. Steps trigger at fleet-size thresholds.
 - **Getting new ships:** start with flying into wrecks to recruit them. Other ways (buying, capturing enemies) may come later.
-- **Flagship death:** command passes to another ship in the fleet, and it's game over only when the whole fleet is gone. The mouse wheel switches between the ships of your highest tier, which picks your right-click ability.
+- **Flagship death:** command passes to another ship in the fleet, and it's game over only when the whole fleet is gone. Later, the player should be able to switch to any owned ship at will, because ships will eventually have different modules and weapons.
 - **Mode:** endless survival for now. Track a "max fleet size reached" stat to measure how well a run went.
 - **Ship size:** the starter ship is about 32×32 pixels. Larger ships must be possible, so don't assume a fixed sprite size.
-- **Classes and modules** (`CLASSES`, `COMBOS`, `CONFIG.modules`; rules in `abilities.ts`; see `docs/DESIGN.md`):
-  - T1 ships are a random class, equally common: **Lancer** (Lance: piercing heavy shot), **Knight** (Aegis: damage-absorbing shield on itself and nearby allies), **Ballista** (homing missile volley). No medic (rejected: drags fights; you'd just retreat and heal). Classes don't change stats; every ship keeps the basic gun.
-  - Each T1 ship is one module; a merged ship carries all its parts' modules. Strength = `powerPerTier`^(tier−1) × share^1.2 (pure beats mixed). A class below 25% share gives no ability; those small shares strengthen the basic gun instead.
-  - Combos when both classes are ≥25%: Lancer+Knight **Mirror Guard** (shield reflects blocked shots), Lancer+Ballista **Splinter Volley** (missiles burst into small lances), Knight+Ballista **Retaliation** (shield hits fire a missile back). Ties (ability order, combo) are picked at random. Later, the body shop may let the player choose.
-  - The flagship's biggest class is its right-click ability; other abilities fire automatically, like wingmen's. You start as a Lancer.
-  - Merges group like with like (most common class first; leftovers mix). Enemy fleets mix classes the same way.
-  - Art: each T1 class has its own look (`ship.lancer`...; copies of the user's fighter for now); T2+ keep one shared design per tier. Rank icons above ships and wrecks show the main class (13 px) and a much smaller second class (7 px, at its lower right), fixed size. A bobbing white arrow (`ui.flagship-marker`) and a thick bright ring mark the ship you fly.
-  - Class icons darken while their ability recharges and refill from the bottom (manifest `<icon>.cooldown` art overrides the automatic darkening).
-  - Mouse wheel: at T1 it cycles one ship per class (the least damaged of each); at T2+ every ship of the top tier.
-  - **Loot (Phase B, done):** ships track `modules` and `rare` counts per class. Rare modules give noticeably stronger versions of the same ability (`CONFIG.rare`: Lance reach, Aegis duration, missile count), scaled by the class's rare share. Elites (`CONFIG.elites`) glow pink, are tougher, carry only rare modules and always leave a wreck. Big enemies drop some modules as T1 wrecks (`CONFIG.moduleDrops`) and keep a lower chance of a whole big wreck (the user's choice). Scrap (`CONFIG.scrap`) comes from kills. Rare = pink everywhere.
-  - **Body shop (Phase C, done; `CONFIG.shop`, rules in `src/game/shop.ts`, screen in `src/ShopScreen.tsx`):** a station visits from wave 3 every 4 waves (45 s, lime edge arrow, Run panel countdown; an unvisited one stays if the next is due). Flying the flagship in pauses the game and opens the shop; leaving (button or Esc) sends the station away. Actions in the user's priority order: swap modules between same-tier T2+ ships, convert a module's class (keeps rarity), make a module rare, choose combo (sticks via `comboChoice`), repair. Scrap is the currency.
-  - **Roadmap** in `docs/DESIGN.md`: Phase D (perks at merges, merge choice, more classes).
+- **Ship types:** all ships are the same type for now. Different types are a nice-to-have for later.
 - **Tiers and merging** (numbers in `CONFIG.tiers`):
-  - Fleet value = what every ship is worth in tier-1 ships (T2 = 8, T3 = 64...). It's the score.
-  - Once fleet value reaches 16, any 8 ships of one tier merge into one of the next tier, so there are never more than 7 per tier (since 2026-11-11: 8 per merge balances finer module blends with fast play; earlier 16/32, then 4/8 for testing). Merging is automatic for now; merging by choice may come later.
-  - Each tier: 7× health and 7× damage per volley (`powerPerTier`, slightly under the 8 ships merged), always 2 shots per volley for T2+, 1.5× size, shots 1.2× faster and travelling 1.5× further.
-  - Each tier turns 25% slower (`turnRatePerTier` 0.75), so big ships feel heavy and reward aiming ahead.
-  - Each tier fires 1.25× slower with harder shots, so damage per second still grows exactly 7× (`fireIntervalPerTier`). Prepares for different shot types later.
+  - Fleet value = what every ship is worth in tier-1 ships (T2 = 16, T3 = 256...). It's the score.
+  - Once fleet value reaches 32, any 16 ships of one tier merge into one of the next tier, so there are never more than 15 per tier. Merging is automatic for now; merging by choice may come later.
+  - **Temporary test values (since 2026-11-11, the user's request):** `shipsPerMerge` 4, `mergeStartsAt` 8, `wreckChancePerTier` 0.6, so tiers come 4× faster. Fleet values shrink accordingly (T2 = 4, T3 = 16). The design values above (16 / 32 / 0.4) return when the user says so.
+  - Each tier: 12× health and 12× damage per volley, always 2 shots per volley for T2+ (6× per shot at T2, 72× at T3...), 1.5× size, shots 1.2× faster and travelling 1.5× further.
+  - Each tier fires 1.25× slower with harder shots, so damage per second still grows exactly 12× (`fireIntervalPerTier`). Prepares for different shot types later.
   - Merge moment: the ships fly into the core, flash, big ship appears. They can't shoot or be hit meanwhile. The finished merge fires a ring of 16 shots, each as strong as the new ship's normal shot (`mergeBurstShots`).
   - You always fly one of your biggest ships (promoted after a merge or recruiting a bigger wreck). A dead ship takes its whole worth; merged ships never split.
-  - Enemy fleets use the same tier rule. Bigger enemies leave wrecks of their tier, less often (×0.6 per tier, `wreckChancePerTier`).
+  - Enemy fleets use the same tier rule. Bigger enemies leave wrecks of their tier, less often (×0.4 per tier).
   - Formation by size: biggest ships in the inner rings.
-  - Zoom follows the highest tier: 2× at T2, 1× from T3 on (the user's choice, 2026-11-11). Tried earlier: 1× at T2 and 0.75× at T3; rejected as too zoomed out: 0.5× at T3, 0.25× at T4.
+  - Zoom follows the highest tier: 1× at T2, 0.75× from T3 on (art shrunk smoothly). Tried and rejected as too zoomed out: 0.5× at T3, 0.25× at T4.
   - Each tier has its own art (`ship.fighter.t2`...), canvases growing 1.5× per tier from the 64 px fighter.
 
 ### First prototype scope
@@ -109,4 +94,4 @@
 4. The camera zooms out a step when the fleet reaches a size threshold.
 5. A small enemy fleet appears once the player's fleet is big enough.
 
-Not in the first prototype: upgrades, menus, story.
+Not in the first prototype: upgrades, ship types, menus, sound, story.

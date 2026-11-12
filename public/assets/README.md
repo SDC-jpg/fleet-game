@@ -66,70 +66,19 @@ The game recolours the "team colour" parts for each side when it starts.
   `src/game/config.ts`. For example, `enemy: 170` turns sky blue (200°) into
   red (10°), and `enemy: 100` would turn it into purple-pink.
 
-## Dash trail, wreck marker and stamina ring
-
-- **`ui.command-ring`** circles the ship you fly and doubles as the **boost
-  stamina meter**. It's a flipbook whose frames are fill levels: the **first
-  frame is empty, the last is full**, and the game shows the frame matching the
-  stamina left (it doesn't play as an animation). Use as many frames as you
-  like (the placeholder has 33). It's drawn faded while boost is locked after
-  running dry. Not team-recoloured.
+## Dash trail and wreck marker
 
 - **`vfx.dash`** plays once behind every ship in your fleet when you dash
-  (Space), pointing back along its movement. Draw it **facing right with
+  (right-click), pointing back along its movement. Draw it **facing right with
   the ship at the right edge**: the trail streams off to the left. `anchorX` in
   the manifest is the frame width, which puts the ship at that edge. It lasts
   0.5 s, so 6 frames at 12 fps fits. Sky blue parts get team colours.
 - **`ui.wreck-marker`** is drawn under every wreck and loops. It's never shrunk
   when the camera zooms out, so wrecks stay easy to spot against the stars.
 
-## Classes, abilities and icons
-
-Tier-1 ships come in three classes, each with its own art (for now, copies of
-the fighter). Bigger tiers all use the one `ship.fighter.t2`… design.
-
-| Class | Ship art (+ `.move`, `.boost`, `.wreck`) | Icon (+ `.small`) | Ability art | Sound |
-| --- | --- | --- | --- | --- |
-| Lancer | `ship.lancer` | `ui.class.lancer` | `projectile.lance` (+ tiers) | `sfx.lance` |
-| Knight | `ship.knight` | `ui.class.knight` | `vfx.shield` (+ tiers, loops around a shielded ship) | `sfx.shield` |
-| Ballista | `ship.ballista` | `ui.class.ballista` | `projectile.missile` (+ tiers) | `sfx.missile` |
-
-- **Icons** hover above ships and wrecks like rank insignia: the main class,
-  plus the `.small` icon of a second class. They're never shrunk and not
-  team-recoloured. Make the main icon clearly bigger than the `.small` one, so
-  the main class reads first (placeholders: 13 px and 7 px; the small one sits
-  at the main icon's lower right).
-- While a ship's ability recharges, its icon is drawn **darker** and refills
-  from the bottom. The game darkens it by itself; to draw your own "empty"
-  look instead, add an entry named after the icon plus `.cooldown` (e.g.
-  `ui.class.lancer.cooldown`, `ui.class.lancer.small.cooldown`).
-- **Rare** things are pink in the placeholders: `ui.class.<class>.rare` and
-  `ui.class.<class>.small.rare` are the icons for a class with rare modules,
-  and `ui.wreck-marker.rare` (+ tiers) marks a wreck holding rare modules.
-  `sfx.rare` plays when you pick one up.
-- **Elites** have `vfx.elite` (+ tiers) looping under them, a glow sized for
-  the ship. Not team-recoloured.
-- **`ui.flagship-marker`** bobs above the ship you fly (pointing down at it),
-  so it stands out in a crowd. Never shrunk, not team-recoloured.
-- **Body shop:** `station.shop` is the station (a 4-frame looping sheet,
-  64 px; any size works), `ui.arrow.shop` its edge arrow. Sounds: `sfx.shop`
-  (it arrives / you dock) and `sfx.buy` (a purchase).
-- The HUD at the bottom shows the ship you fly, using its own art (rotated
-  nose-up, empty space around it trimmed).
-- The lance and missile face right and are recoloured per team like shots
-  (paint team parts in sky blue). The shield bubble isn't recoloured.
-- **The Lance is meant to stand out:** `projectile.lance` is a big 3-frame
-  flickering bolt (40 px long at tier 1), with its anchor near the tip (the tip
-  is where it hits). `vfx.lance-flash` plays at the gun when it fires, and
-  `vfx.lance-trail` (a short streak that thins away) is left behind every
-  step, drawing a line that lingers for a moment. Tip: fade effects by
-  shrinking or breaking them up rather than with see-through pixels, which
-  look muddy against dark space.
-- `projectile.splinter` is the small bolt for the Splinter Volley combo.
-
 ## Tiers (bigger ships)
 
-8 ships of one tier merge into one ship of the next tier. Each tier has its
+16 ships of one tier merge into one ship of the next tier. Each tier has its
 own art, named by adding `.t2`, `.t3`, `.t4` to the tier-1 name:
 
 | Art | Tier 1 | Tier 2 | Tier 3 | Tier 4 |
@@ -165,12 +114,9 @@ file name in the manifest).
 | `sfx.hit` | `hit.wav` | a shot hits a ship |
 | `sfx.explosion` (+ `.t2`–`.t4`) | `explosion.wav`, `explosion-t2.wav`… | a ship is destroyed |
 | `sfx.recruit` | `recruit.wav` | you pick up a wreck |
-| `sfx.merge` | `merge.wav` | 8 ships start merging (charge-up, then flash ~0.5 s in) |
+| `sfx.merge` | `merge.wav` | 16 ships start merging (charge-up, then flash ~0.5 s in) |
 | `sfx.boost` | `boost.wav` | you start boosting |
-| `sfx.dash` | `dash.wav` | you dash (Space) |
-| `sfx.lance` | `lance.wav` | a Lancer fires a Lance |
-| `sfx.shield` | `shield.wav` | a Knight raises Aegis shields |
-| `sfx.missile` | `missile.wav` | a Ballista launches missiles |
+| `sfx.dash` | `dash.wav` | you dash (right-click) |
 | `sfx.alert` | `alert.wav` | an enemy fleet arrives |
 | `sfx.command` | `command.wav` | your flagship dies and command passes on |
 | `sfx.gameover` | `gameover.wav` | your whole fleet is destroyed |

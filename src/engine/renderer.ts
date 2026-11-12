@@ -119,22 +119,6 @@ export class PixelRenderer {
   }
 
   /**
-   * Draw only the bottom part of a sprite (unrotated), e.g. a meter refilling
-   * from the bottom. `fraction` 1 = the whole sprite, 0 = nothing.
-   */
-  drawSpriteBottom(sprite: Sprite, x: number, y: number, fraction: number, time = 0, fixedSize = false) {
-    const f = frameAt(sprite, time);
-    const h = Math.round(f.h * Math.min(1, Math.max(0, fraction)));
-    if (h <= 0) return;
-    const ctx = this.ctx;
-    const ws = this.worldScale;
-    const k = fixedSize ? 1 : ws;
-    ctx.setTransform(k, 0, 0, k, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
-    ctx.drawImage(f.image, f.sx, f.sy + f.h - h, f.w, h, -sprite.anchorX, -sprite.anchorY + f.h - h, f.w, h);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-  }
-
-  /**
    * Fill the whole view with a repeating tile. `parallax` < 1 makes it move
    * slower than the camera, so it feels far away.
    */

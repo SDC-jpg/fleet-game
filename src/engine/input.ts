@@ -9,8 +9,6 @@ export class Input {
   mouseY = 0;
   mouseDown = false;
   private target: HTMLElement;
-  /** When the last mouse-wheel step was counted (one scroll gesture = one step). */
-  private lastWheel = 0;
   private cleanup: (() => void)[] = [];
 
   constructor(target: HTMLElement) {
@@ -42,27 +40,11 @@ export class Input {
       if ((e as MouseEvent).button === 0) this.mouseDown = false;
     });
     this.listen(target, 'contextmenu', (e) => e.preventDefault());
-    // Mouse wheel counts as presses of "WheelUp" / "WheelDown". Touchpads send
-    // many small events per swipe, so steps closer than 150 ms count once.
-    this.listen(
-      target,
-      'wheel',
-      (e) => {
-        const ev = e as WheelEvent;
-        ev.preventDefault();
-        const now = performance.now();
-        if (ev.deltaY === 0 || now - this.lastWheel < 150) return;
-        this.lastWheel = now;
-        const code = ev.deltaY < 0 ? 'WheelUp' : 'WheelDown';
-        this.presses.set(code, Math.min((this.presses.get(code) ?? 0) + 1, 20));
-      },
-      { passive: false },
-    );
   }
 
-  private listen(el: EventTarget, type: string, fn: (e: Event) => void, options?: AddEventListenerOptions) {
-    el.addEventListener(type, fn, options);
-    this.cleanup.push(() => el.removeEventListener(type, fn, options));
+  private listen(el: EventTarget, type: string, fn: (e: Event) => void) {
+    el.addEventListener(type, fn);
+    this.cleanup.push(() => el.removeEventListener(type, fn));
   }
 
   /** True if any of the given keys is held (uses KeyboardEvent.code, e.g. "KeyW"). */

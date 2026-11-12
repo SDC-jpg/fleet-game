@@ -3,9 +3,8 @@
 import type { Assets, Sprite } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { clamp } from '../engine/math';
-import { CLASS_IDS, CLASSES, SHIP_TYPES, CONFIG, type ClassId, type ShipTypeId } from './config';
-import type { Build } from './abilities';
-import { controlledShip, isMergePart, type GameState, type Ship, type Team, type Thrust } from './world';
+import { SHIP_TYPES, CONFIG } from './config';
+import { controlledShip, isMergePart, typeOf, type GameState, type Ship, type Team, type Thrust } from './world';
 
 /**
  * The art name for a tier: "<base>.t3<suffix>" for tier 3, falling back to
@@ -32,19 +31,9 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     const blinking = w.life < CONFIG.wreckBlinkTime && Math.floor(w.life * 6) % 2 === 0;
     const alpha = blinking ? 0.35 : 1;
     // A marker ring under the wreck, kept full size when zoomed out so wrecks stay easy to spot.
-    // Wrecks holding rare modules get their own marker.
-    const rare = CLASS_IDS.some((c) => w.rare[c] > 0);
-    const marker = tierSprite(assets, rare ? 'ui.wreck-marker.rare' : 'ui.wreck-marker', w.tier);
-    r.drawSprite(assets.get(marker), w.x, w.y, 0, state.time, alpha, true);
-    const sprite = assets.get(tierSprite(assets, shipArt(w.type, w.tier, w.build), w.tier, '.wreck'));
+    r.drawSprite(assets.get(tierSprite(assets, 'ui.wreck-marker', w.tier)), w.x, w.y, 0, state.time, alpha, true);
+    const sprite = assets.get(tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck'));
     r.drawSprite(sprite, w.x, w.y, w.angle, state.time, alpha);
-  }
-
-  // The body shop station (blinks before it leaves).
-  const shop = state.shop;
-  if (shop) {
-    const leaving = shop.life < 10 && Math.floor(shop.life * 4) % 2 === 0;
-    r.drawSprite(assets.get('station.shop'), shop.x, shop.y, 0, state.time, leaving ? 0.4 : 1);
   }
 
   // Draw every other ship first (small ones under big ones), then the
@@ -53,29 +42,9 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   const ordered = state.ships.filter((s) => s !== flagship).sort((a, b) => a.tier - b.tier);
   for (const s of ordered) drawShip(r, assets, s, state.time);
   if (flagship) {
-    // The command ring is also the boost meter: its frames go from empty (first) to full (last).
-    const ring = assets.get(tierSprite(assets, 'ui.command-ring', flagship.tier));
-    r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1);
+    r.drawSprite(assets.get(tierSprite(assets, 'ui.command-ring', flagship.tier)), flagship.x, flagship.y, 0, state.time);
     drawShip(r, assets, flagship, state.time);
   }
-
-  // Shield bubbles and class icons go over every ship.
-  for (const s of state.ships) {
-    if (s.absorbed) continue;
-    if (s.shield > 0) {
-      const bubble = assets.get(tierSprite(assets, 'vfx.shield', s.tier));
-      r.drawSprite(bubble, s.x, s.y, 0, state.time, Math.min(1, s.shieldTime) * 0.9);
-    }
-    drawClassIcons(r, assets, s.build, s.x, s.y - s.stats.radius, state.time, (c) =>
-      s.abilityCooldowns[c] > 0 ? 1 - s.abilityTimers[c] / s.abilityCooldowns[c] : 1,
-    );
-  }
-  // A bobbing arrow above the ship you fly, so it stands out in a crowd.
-  if (flagship && !flagship.absorbed) {
-    const marker = assets.get('ui.flagship-marker');
-    r.drawSprite(marker, flagship.x, flagship.y - flagship.stats.radius - 28 / r.worldScale, 0, state.time, 1, true);
-  }
-  for (const w of state.wrecks) drawClassIcons(r, assets, w.build, w.x, w.y - 14 * 1.5 ** (w.tier - 1), state.time, () => 1);
 
   for (const b of state.bullets) {
     const sprite = teamSprite(assets, tierSprite(assets, b.sprite, b.tier), b.team);
@@ -87,7 +56,6 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   // Arrows at the screen edge pointing to things you can't see.
   const wreckArrow = assets.get('ui.arrow.wreck');
   for (const w of state.wrecks) drawEdgeArrow(r, wreckArrow, w.x, w.y, state.time);
-  if (shop) drawEdgeArrow(r, assets.get('ui.arrow.shop'), shop.x, shop.y, state.time);
   const enemyArrow = assets.get('ui.arrow.enemy');
   for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, enemyArrow, s.x, s.y, state.time);
 }
@@ -100,9 +68,7 @@ function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
     const trail = teamSprite(assets, tierSprite(assets, 'vfx.dash', s.tier), s.team);
     r.drawSprite(trail, s.x, s.y, Math.atan2(s.vy, s.vx), CONFIG.dash.duration - s.fleet.dashTime);
   }
-  // Elites glow.
-  if (s.elite) r.drawSprite(assets.get(tierSprite(assets, 'vfx.elite', s.tier)), s.x, s.y, 0, time);
-  const base = tierSprite(assets, shipArt(s.type, s.tier, s.build), s.tier);
+  const base = tierSprite(assets, typeOf(s).sprites.ship, s.tier);
   // Ships flying into a merge fade out as they reach the core.
   let alpha = 1;
   if (s.merge && isMergePart(s)) {
@@ -118,52 +84,6 @@ function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
     r.fillRect(x, y, w, 1, '#000000');
     r.fillRect(x, y, Math.max(1, Math.round((w * s.hp) / maxHp)), 1, s.team === 'player' ? '#7fe07f' : '#ff6b5a');
   }
-}
-
-/** Base art name for a ship: tier-1 ships look like their class, bigger ones share one design per tier. */
-function shipArt(type: ShipTypeId, tier: number, build: Build) {
-  return tier === 1 ? CLASSES[build.main].sprite : SHIP_TYPES[type].sprites.ship;
-}
-
-/** How bright a class icon is while its ability recharges (it refills from the bottom). */
-const ICON_COOLDOWN_BRIGHTNESS = 0.35;
-
-/**
- * Rank icons above a ship (or wreck) whose top edge is at (x, top): its first
- * ability's class, plus a smaller icon for its second one. Never shrunk when zoomed out.
- * While an ability recharges, its icon is dark and refills from the bottom
- * (`ready` gives 0–1 per class; 1 = ready).
- */
-function drawClassIcons(
-  r: PixelRenderer,
-  assets: Assets,
-  build: Build,
-  x: number,
-  top: number,
-  time: number,
-  ready: (c: ClassId) => number,
-) {
-  const [first, second] = build.abilities.length ? build.abilities : [build.main];
-  // The main class's icon is big; a second class's small icon sits at its lower right.
-  const px = 1 / r.worldScale;
-  const y = top - 10 * px;
-  const gap = second ? 3 * px : 0;
-  // A class with rare modules shows its ".rare" icon.
-  const name = (c: ClassId, small: string) => {
-    const base = CLASSES[c].icon + small;
-    return build.rareShare[c] > 0 && assets.has(`${base}.rare`) ? `${base}.rare` : base;
-  };
-  drawIcon(r, assets, name(first, ''), x - gap, y, time, ready(first));
-  if (second) drawIcon(r, assets, name(second, '.small'), x - gap + 9 * px, y + 4 * px, time, ready(second));
-}
-
-function drawIcon(r: PixelRenderer, assets: Assets, name: string, x: number, y: number, time: number, ready: number) {
-  if (ready >= 1) {
-    r.drawSprite(assets.get(name), x, y, 0, time, 1, true);
-    return;
-  }
-  r.drawSprite(assets.getDarkened(name, ICON_COOLDOWN_BRIGHTNESS), x, y, 0, time, 1, true);
-  r.drawSpriteBottom(assets.get(name), x, y, ready, time, true);
 }
 
 /**
@@ -189,19 +109,4 @@ function drawEdgeArrow(r: PixelRenderer, sprite: Sprite, x: number, y: number, t
   // Shrink the direction until it touches the (slightly inset) screen edge.
   const k = Math.min((v.w / 2 - inset) / Math.abs(dx || 1e-6), (v.h / 2 - inset) / Math.abs(dy || 1e-6));
   r.drawSprite(sprite, cx + dx * k, cy + dy * k, Math.atan2(dy, dx), time, 1, true);
-}
-
-/** The animation time that shows a meter sprite's frame for `fraction` (0 = first frame, 1 = last). */
-function meterTime(sprite: Sprite, fraction: number) {
-  if (sprite.fps <= 0) return 0;
-  const last = sprite.frames.length - 1;
-  return (Math.round(fraction * last) + 0.5) / sprite.fps;
-}
-
-/**
- * The art of a ship as it looks right now (tier, class, team colours), for the
- * HUD portrait. Engine state is ignored, so the picture doesn't flicker.
- */
-export function shipPortrait(assets: Assets, s: Ship) {
-  return teamSprite(assets, tierSprite(assets, shipArt(s.type, s.tier, s.build), s.tier), s.team);
 }

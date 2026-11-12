@@ -15,7 +15,7 @@ export interface ShipType {
   maxSpeed: number;
   /** How quickly it speeds up and slows down. */
   accel: number;
-  /** Speed and acceleration multiplier while boosting (Shift, limited by CONFIG.boost). */
+  /** Speed and acceleration multiplier while boosting (Shift). */
   boostMultiplier: number;
   /** Turn speed in radians per second (6.28 = a full circle). */
   turnRate: number;
@@ -48,7 +48,7 @@ export const SHIP_TYPES = {
     maxHp: 4,
     maxSpeed: 150,
     accel: 520,
-    boostMultiplier: 2.2,
+    boostMultiplier: 1.8,
     turnRate: 9,
     fireCooldown: 0.25,
     range: 240,
@@ -61,38 +61,6 @@ export const SHIP_TYPES = {
 } satisfies Record<string, ShipType>;
 
 export type ShipTypeId = keyof typeof SHIP_TYPES;
-
-/**
- * Ship classes. Every tier-1 ship is one class and carries one "module" of it.
- * A merged ship carries all the modules of the ships that went into it, and
- * those decide its abilities (see CONFIG.modules).
- */
-export const CLASSES = {
-  lancer: {
-    name: 'Lancer',
-    /** Colour for this class in the HUD. */
-    color: '#ffd34a',
-    ability: 'Lance',
-    /** Tier-1 art (bigger tiers all use SHIP_TYPES.fighter's art). */
-    sprite: 'ship.lancer',
-    /** Rank icon shown above ships. A ".small" version is used for a ship's second class. */
-    icon: 'ui.class.lancer',
-  },
-  knight: { name: 'Knight', color: '#7fe0b0', ability: 'Aegis', sprite: 'ship.knight', icon: 'ui.class.knight' },
-  ballista: { name: 'Ballista', color: '#c890ff', ability: 'Missile volley', sprite: 'ship.ballista', icon: 'ui.class.ballista' },
-};
-
-export type ClassId = keyof typeof CLASSES;
-export const CLASS_IDS = Object.keys(CLASSES) as ClassId[];
-
-/** Combos: a ship with both classes (each at least CONFIG.modules.minShare) gets a bonus. */
-export const COMBOS = {
-  mirror: { name: 'Mirror Guard', classes: ['lancer', 'knight'], text: 'Aegis shields reflect the shots they block' },
-  splinter: { name: 'Splinter Volley', classes: ['lancer', 'ballista'], text: 'Missiles burst into small lances on impact' },
-  retaliation: { name: 'Retaliation', classes: ['knight', 'ballista'], text: 'Hits on Aegis shields fire a missile back' },
-} satisfies Record<string, { name: string; classes: [ClassId, ClassId]; text: string }>;
-
-export type ComboId = keyof typeof COMBOS;
 
 export const CONFIG = {
   /**
@@ -116,14 +84,15 @@ export const CONFIG = {
   /**
    * shipsPerMerge ships of one tier merge into 1 ship of the next tier up. Fleet value
    * counts what every ship is worth in tier-1 ships (with 4 per merge: T2 = 4, T3 = 16...).
+   * TESTING: merges are set 4× faster than the design (16 per merge, starting at 32).
    */
   tiers: {
-    /** Ships of one tier that merge into one ship of the next tier. */
-    shipsPerMerge: 8,
-    /** Merging only starts once your fleet value reaches this. */
-    mergeStartsAt: 16,
-    /** Each tier up multiplies health, damage per second and ability strength by this. */
-    powerPerTier: 7,
+    /** Ships of one tier that merge into one ship of the next tier (design value 16; 4 for testing). */
+    shipsPerMerge: 4,
+    /** Merging only starts once your fleet value reaches this (design value 32; 8 for testing). */
+    mergeStartsAt: 8,
+    /** Each tier up multiplies health and damage per second by this. */
+    powerPerTier: 12,
     /** Shots per volley for tier 2 and up (tier 1 fires 1). Damage is split between them. */
     shotsPerVolley: 2,
     /** Each tier up multiplies hit size, gun position and shot size by this. */
@@ -134,9 +103,7 @@ export const CONFIG = {
     rangePerTier: 1.5,
     /** Each tier up fires this many times slower, with harder shots so damage per second is unchanged. */
     fireIntervalPerTier: 1.25,
-    /** Each tier up multiplies turn speed by this (0.75 = 25% slower), so big ships feel heavy. */
-    turnRatePerTier: 0.75,
-    /** Each tier up multiplies an enemy's chance of leaving a wreck by this. */
+    /** Each tier up multiplies an enemy's chance of leaving a wreck by this (was 0.4; 0.6 for testing). */
     wreckChancePerTier: 0.6,
     /** Longest time (seconds) the merging ships take to fly together. */
     mergeDuration: 1,
@@ -155,165 +122,10 @@ export const CONFIG = {
     backward: 0.82,
   },
 
-  /**
-   * Modules: what a ship's classes add up to. A class needs at least minShare of
-   * a ship's modules to give it that class's ability. Ability strength =
-   * powerPerTier^(tier − 1) × share^purityBonus, so pure ships beat mixed ones.
-   */
-  modules: {
-    /** A class below this share of a ship's modules gives no ability (0.25 = 2 of 8). */
-    minShare: 0.25,
-    /** Above 1, pure ships are stronger than mixed ones (a half share gives less than half strength). */
-    purityBonus: 1.2,
-    /** Classes too small for an ability strengthen the basic gun instead: +this × their share. */
-    smallShareGunBonus: 0.5,
-    /** Your wingmen use abilities this many times slower than the ship you fly. */
-    allyCooldownMultiplier: 1.2,
-    /** Enemies use abilities this many times slower, so you have a chance. */
-    enemyCooldownMultiplier: 3,
-  },
-
-  /**
-   * Rare modules: stronger versions of a class's ability. Each bonus is the
-   * value for a class whose modules are all rare; a half-rare class gets half the extra.
-   */
-  rare: {
-    /** Lance reach multiplier. */
-    lanceReach: 1.75,
-    /** Aegis shield duration multiplier. */
-    shieldDuration: 2,
-    /** Missiles per volley multiplier (each missile keeps its damage, so volleys hit harder). */
-    missileCount: 2,
-    /** Chance that an ordinary enemy's tier-1 wreck holds a rare module. */
-    wreckChance: 0.04,
-  },
-
-  /** Elite enemies: rare, tougher, glowing, and always drop rare modules. */
-  elites: {
-    /** First wave that can have elites. */
-    fromWave: 5,
-    /** Chance for each lone enemy, and each enemy fleet's leader, to be elite. */
-    chance: 0.08,
-    /** Elite health compared to a normal enemy of the same tier. */
-    hpMultiplier: 4,
-    /** Elite gun damage compared to a normal enemy of the same tier. */
-    damageMultiplier: 1.5,
-  },
-
-  /** Scrap: currency for the body shop (coming soon). */
-  scrap: {
-    /** Scrap per destroyed enemy, times its value (tier-1 ships it's worth). */
-    perKillValue: 1,
-    /** Extra scrap for destroying an elite. */
-    eliteBonus: 10,
-  },
-
-  /** The body shop: a station that visits every few waves. Fly into it to rework your ships (pauses the game). */
-  shop: {
-    /** First wave with a body shop. */
-    firstWave: 3,
-    /** After that, a body shop comes every this-many waves. */
-    everyNWaves: 4,
-    /** Seconds before an unvisited body shop leaves (it blinks in its last 10). */
-    lifetime: 45,
-    /** Where it appears, as a share of the distance enemies appear at (1 = same; lower = closer). */
-    distance: 0.75,
-    /** How close (game pixels, plus your ship's size) your ship must fly to enter. */
-    radius: 30,
-    /** Scrap to swap one module between two ships of the same tier (tier 2+). */
-    swapCost: 3,
-    /** Scrap to convert one module into another class (keeps its rarity). */
-    convertCost: 8,
-    /** Scrap to make one module rare. */
-    rareCost: 25,
-    /** Scrap to choose which combo a ship uses, when several qualify. */
-    comboCost: 0,
-    /** Scrap for a full repair, times the ship's value (half-damaged = half price). */
-    repairCostPerValue: 1,
-  },
-
-  /** Big enemies (tier 2+) drop some of their modules as tier-1 wrecks when destroyed. */
-  moduleDrops: {
-    /** Share of their modules they drop. */
-    share: 0.25,
-    /** Most tier-1 wrecks one enemy drops. */
-    max: 8,
-    /** Their chance of also leaving a whole big wreck, compared to before module drops. */
-    bigWreckChanceMultiplier: 0.5,
-  },
-
-  /** Lancer ability: a fast, heavy shot that passes through every ship in its path. */
-  lance: {
-    /** Seconds between lances. */
-    cooldown: 3,
-    /** Damage to each ship it passes through (at strength 1). */
-    damage: 4,
-    /** Speed (grows with tier like normal shots). */
-    speed: 900,
-    /** Seconds it lasts (reach = speed × life, grows with tier). */
-    life: 0.5,
-    /** Hit size (radius), grows with ship size. */
-    radius: 3,
-  },
-
-  /** Knight ability (Aegis): a shield on the ship and nearby allies that soaks up damage. */
-  shield: {
-    /** Seconds between shields. */
-    cooldown: 10,
-    /** Damage each shield absorbs (at strength 1). */
-    amount: 4,
-    /** Seconds a shield lasts. */
-    duration: 5,
-    /** Allies this close (grows with ship size and the Knight share) get a shield too. */
-    radius: 90,
-  },
-
-  /** Ballista ability: a volley of slow homing missiles. */
-  missiles: {
-    /** Seconds between volleys. */
-    cooldown: 6,
-    /** Total damage of a volley (at strength 1), split between its missiles. */
-    damage: 6,
-    /** Missiles per volley at strength 1 (grows with the cube root of strength). */
-    count: 3,
-    /** Most missiles in one volley. */
-    maxCount: 12,
-    /** Missile speed. */
-    speed: 260,
-    /** How fast missiles turn toward their target (radians per second). */
-    turnRate: 4,
-    /** Seconds a missile lasts. */
-    life: 3,
-  },
-
-  /** Combo bonus numbers (see COMBOS at the top of this file). */
-  combos: {
-    /** Splinter Volley: small lances each missile bursts into. */
-    splinterCount: 3,
-    /** Splinter Volley: each small lance's damage, compared to the missile's. */
-    splinterDamage: 0.5,
-    /** Retaliation: shortest time between two missiles fired back by the same shield. */
-    retaliationGap: 0.4,
-  },
-
-  /** Shift boost runs on stamina, shown by the ring around the ship you fly. */
-  boost: {
-    /** Seconds of boost from a full bar, for a tier-1 ship you fly. */
-    duration: 3,
-    /** Each tier up multiplies boost time by this (an empty bar still refills in rechargeTime). */
-    durationPerTier: 1.5,
-    /** Seconds to refill an empty bar. */
-    rechargeTime: 6,
-    /** Seconds after you stop boosting before the bar starts refilling. */
-    rechargeDelay: 0.75,
-    /** After running dry, boost unlocks once the bar refills to this share (0–1). */
-    restartAt: 0.3,
-  },
-
-  /** Space dash: the whole fleet gets a burst of speed that fades out. */
+  /** Right-click dash: the whole fleet gets a burst of speed that fades out. */
   dash: {
     /** Speed at the start of a dash, compared to normal speed (at the starting zoom). */
-    speedMultiplier: 8,
+    speedMultiplier: 3,
     /** true = the dash gets stronger as the camera zooms out, so it covers the same share of the screen. */
     scaleWithZoom: true,
     /** Seconds for the dash to fade back to normal speed. */
@@ -371,8 +183,6 @@ export const CONFIG = {
   enemyPreferredDistance: 160,
 
   // == Wrecks ==
-  /** true = the first enemy you destroy in a run always leaves a wreck. */
-  firstKillWreck: true,
   /** Chance a destroyed tier-1 enemy leaves a wreck you can recruit. */
   wreckChance: 0.75,
   /** Seconds before a wreck disappears. */
@@ -432,7 +242,7 @@ export const CONFIG = {
   zoomSteps: [
     { minFleet: 1, zoom: 3 },
     { minFleet: 8, zoom: 2 },
-    { minTier: 2, zoom: 2 },
-    { minTier: 3, zoom: 1 },
+    { minTier: 2, zoom: 1 },
+    { minTier: 3, zoom: 0.75 },
   ] as { minFleet?: number; minTier?: number; zoom: number }[],
 };

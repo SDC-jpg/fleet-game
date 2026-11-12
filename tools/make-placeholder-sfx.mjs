@@ -181,67 +181,6 @@ function dash() {
   });
 }
 
-/** Lance: a sharp electric zap that drops in pitch. */
-function lance() {
-  const r = rng(31);
-  const osc = oscillator('saw');
-  return render(0.28, (t, k) => (osc(sweep(2400, 220, k)) * 0.8 + (r() * 2 - 1) * 0.3 * Math.exp(-t * 25)) * decay(t, 9));
-}
-
-/** Aegis shield: a soft rising shimmer (three notes with a wobble). */
-function shield() {
-  const a = oscillator('triangle'), b = oscillator('triangle'), c = oscillator('sine');
-  return render(0.6, (t, k) => {
-    const wob = 1 + 0.15 * Math.sin(t * 2 * Math.PI * 18);
-    const up = sweep(1, 1.5, Math.min(1, k * 2));
-    return (a(330 * up) + b(495 * up) * 0.7 + c(660 * up) * 0.5) * wob * decay(t, 4, 0.06);
-  });
-}
-
-/** Missile volley: a low thump and a hissing launch. */
-function missile() {
-  const r = rng(41);
-  const lp = lowpass();
-  const thump = oscillator('sine');
-  return render(0.4, (t, k) => {
-    const hiss = lp(r() * 2 - 1, sweep(3000, 600, k)) * decay(t, 6, 0.01);
-    return hiss + thump(sweep(140, 50, Math.min(1, k * 4))) * Math.exp(-t * 18) * 0.9;
-  });
-}
-
-/** Rare pickup: a quick bright sparkle (rising arpeggio). */
-function rare() {
-  const osc = oscillator('triangle');
-  const notes = [880, 1109, 1319, 1760];
-  return render(0.5, (t) => {
-    const n = Math.min(notes.length - 1, Math.floor(t / 0.07));
-    const local = t - n * 0.07;
-    return osc(notes[n]) * Math.exp(-local * 10) * (t < 0.28 ? 1 : Math.exp(-(t - 0.28) * 12));
-  });
-}
-
-/** Body shop arrives / you dock: a friendly two-note "ding-dong". */
-function shop() {
-  const a = oscillator('sine'), b = oscillator('triangle');
-  return render(0.7, (t) => {
-    const second = t > 0.22;
-    const f = second ? 784 : 1047;
-    const local = second ? t - 0.22 : t;
-    return (a(f) + b(f * 2) * 0.3) * Math.exp(-local * 6) * Math.min(1, local / 0.005);
-  });
-}
-
-/** Shop purchase: a quick metallic "ka-ching". */
-function buy() {
-  const r = rng(51);
-  const a = oscillator('square'), b = oscillator('square');
-  return render(0.35, (t) => {
-    const click = t < 0.03 ? (r() * 2 - 1) * (1 - t / 0.03) : 0;
-    const ring = t > 0.05 ? (a(1568) + b(2093) * 0.7) * Math.exp(-(t - 0.05) * 14) * 0.5 : 0;
-    return click + ring;
-  });
-}
-
 function alert() {
   const osc = oscillator('square');
   return render(0.72, (t) => {
@@ -284,12 +223,6 @@ const FILES = {
   'merge.wav': merge,
   'boost.wav': boost,
   'dash.wav': dash,
-  'lance.wav': lance,
-  'shield.wav': shield,
-  'missile.wav': missile,
-  'rare.wav': rare,
-  'shop.wav': shop,
-  'buy.wav': buy,
   'alert.wav': alert,
   'command.wav': command,
   'gameover.wav': gameOver,

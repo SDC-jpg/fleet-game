@@ -14,7 +14,6 @@ body {
 }
 
 .hud {
-  font-family: 'Silkscreen', ui-monospace, monospace;
   position: fixed;
   top: 12px;
   left: 12px;
@@ -24,7 +23,6 @@ body {
   text-shadow: 0 1px 2px #000;
 }
 .hud .hint {
-  font-family: ui-monospace, Consolas, monospace;
   margin-top: 6px;
   opacity: 0.6;
   font-size: 12px;
@@ -36,7 +34,6 @@ body {
 }
 
 .panel {
-  font-family: 'Silkscreen', ui-monospace, monospace;
   position: fixed;
   padding: 20px 28px;
   background: rgba(8, 10, 22, 0.85);
@@ -118,227 +115,4 @@ body {
   stroke: #7ecff2;
   stroke-width: 2;
   stroke-linejoin: round;
-}
-
-/* Bottom HUD: run stats (left) and the ship you fly (right of it). */
-.bottom-hud {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  pointer-events: none;
-  font-family: 'Silkscreen', ui-monospace, monospace;
-  font-size: 16px;
-  line-height: 1.25;
-}
-.hud-panel {
-  background: rgba(8, 10, 22, 0.78);
-  border: 2px solid #2c3a66;
-  padding: 8px 12px;
-}
-.hud-panel .title {
-  color: #9fd3ff;
-  margin-bottom: 4px;
-}
-.hud-panel .row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-.hud-panel .label {
-  min-width: 112px;
-  opacity: 0.85;
-}
-.hud-panel .value {
-  min-width: 40px;
-  text-align: right;
-}
-.hud-panel .note {
-  opacity: 0.5;
-}
-.run-panel .label {
-  min-width: 104px;
-}
-.run-panel .value {
-  min-width: 32px;
-}
-.flagship-panel {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.flagship-panel .portrait {
-  width: 112px;
-  height: 112px;
-  image-rendering: pixelated;
-  background: rgba(40, 50, 90, 0.35);
-  border: 2px solid #2c3a66;
-}
-.flagship-panel .rare {
-  color: #ff6ad5;
-}
-.flagship-panel .combo {
-  color: #ffd34a;
-}
-.flagship-panel .foot {
-  margin-top: 4px;
-  opacity: 0.5;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px;
-}
-.bar {
-  width: 120px;
-  height: 8px;
-  background: #1a2038;
-  border: 1px solid #2c3a66;
-}
-.bar > div {
-  height: 100%;
-}
-
-/* Run panel: a body shop is waiting */
-.run-panel .shop-row .label,
-.run-panel .shop-row .value {
-  color: #b8ff5a;
-}
-
-/* Body shop screen */
-.shop {
-  background: rgba(8, 10, 22, 0.96);
-  /* A fixed size, so the window doesn't jump around while you shop. The ship
-     list and the details scroll on their own if they don't fit. */
-  width: min(960px, 94vw);
-  height: min(640px, 88vh);
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-  font-size: 14px;
-}
-.shop button {
-  font-family: inherit;
-  font-size: 12px;
-  margin: 2px;
-  padding: 4px 8px;
-}
-.shop button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-.shop button.active {
-  background: #3d7a3d;
-  opacity: 1;
-}
-.shop button.rare-button {
-  background: #8a2f70;
-}
-.shop-head {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.shop-head h1 {
-  margin: 0;
-  color: #b8ff5a;
-}
-.shop-head .scrap {
-  flex: 1;
-}
-.shop-message {
-  color: #ff9ad5;
-  margin: 6px 0;
-  font-size: 12px;
-}
-.shop-body {
-  display: flex;
-  gap: 16px;
-  flex: 1;
-  min-height: 0;
-}
-.shop-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 260px;
-  flex-shrink: 0;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-.shop .ship-card {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  text-align: left;
-  background: rgba(30, 38, 70, 0.7);
-  border: 2px solid transparent;
-}
-.shop .ship-card.selected {
-  border-color: #b8ff5a;
-}
-.shop .portrait {
-  image-rendering: pixelated;
-  background: rgba(40, 50, 90, 0.35);
-  border: 2px solid #2c3a66;
-  flex-shrink: 0;
-}
-.shop .chips span {
-  margin-right: 6px;
-}
-.shop .chips .rare-chip {
-  text-decoration: underline;
-  text-decoration-color: #ff6ad5;
-  text-decoration-thickness: 2px;
-}
-.shop .rare-tag {
-  color: #ff6ad5;
-}
-.shop .damaged {
-  color: #ff6b5a;
-}
-.shop .note {
-  opacity: 0.6;
-}
-.shop .combo {
-  color: #ffd34a;
-}
-.shop-details {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-}
-.shop-details h2 {
-  font-size: 14px;
-  color: #9fd3ff;
-  margin: 14px 0 4px;
-}
-.shop .ship-head {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.shop .title {
-  font-size: 16px;
-  margin-bottom: 4px;
-}
-.shop .module-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 2px 0;
-}
-.shop .module-name {
-  min-width: 190px;
-}
-.shop .swap select {
-  font-family: ui-monospace, Consolas, monospace;
-  margin: 0 6px;
-  background: #141a30;
-  color: inherit;
-  border: 1px solid #2c3a66;
 }
