@@ -3,7 +3,7 @@
 import type { Assets, Sprite } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { clamp } from '../engine/math';
-import { CLASSES, SHIP_TYPES, CONFIG, type ClassId, type ShipTypeId } from './config';
+import { CLASS_IDS, CLASSES, SHIP_TYPES, CONFIG, type ClassId, type ShipTypeId } from './config';
 import type { Build } from './abilities';
 import { controlledShip, isMergePart, type GameState, type Ship, type Team, type Thrust } from './world';
 
@@ -32,7 +32,10 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     const blinking = w.life < CONFIG.wreckBlinkTime && Math.floor(w.life * 6) % 2 === 0;
     const alpha = blinking ? 0.35 : 1;
     // A marker ring under the wreck, kept full size when zoomed out so wrecks stay easy to spot.
-    r.drawSprite(assets.get(tierSprite(assets, 'ui.wreck-marker', w.tier)), w.x, w.y, 0, state.time, alpha, true);
+    // Wrecks holding rare modules get their own marker.
+    const rare = CLASS_IDS.some((c) => w.rare[c] > 0);
+    const marker = tierSprite(assets, rare ? 'ui.wreck-marker.rare' : 'ui.wreck-marker', w.tier);
+    r.drawSprite(assets.get(marker), w.x, w.y, 0, state.time, alpha, true);
     const sprite = assets.get(tierSprite(assets, shipArt(w.type, w.tier, w.build), w.tier, '.wreck'));
     r.drawSprite(sprite, w.x, w.y, w.angle, state.time, alpha);
   }
@@ -84,6 +87,8 @@ function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
     const trail = teamSprite(assets, tierSprite(assets, 'vfx.dash', s.tier), s.team);
     r.drawSprite(trail, s.x, s.y, Math.atan2(s.vy, s.vx), CONFIG.dash.duration - s.fleet.dashTime);
   }
+  // Elites glow.
+  if (s.elite) r.drawSprite(assets.get(tierSprite(assets, 'vfx.elite', s.tier)), s.x, s.y, 0, time);
   const base = tierSprite(assets, shipArt(s.type, s.tier, s.build), s.tier);
   // Ships flying into a merge fade out as they reach the core.
   let alpha = 1;
@@ -128,8 +133,13 @@ function drawClassIcons(
   const [first, second] = build.abilities.length ? build.abilities : [build.main];
   const y = top - 7 / r.worldScale;
   const gap = second ? 4 / r.worldScale : 0;
-  drawIcon(r, assets, CLASSES[first].icon, x - gap, y, time, ready(first));
-  if (second) drawIcon(r, assets, `${CLASSES[second].icon}.small`, x + 6 / r.worldScale, y + 1 / r.worldScale, time, ready(second));
+  // A class with rare modules shows its ".rare" icon.
+  const name = (c: ClassId, small: string) => {
+    const base = CLASSES[c].icon + small;
+    return build.rareShare[c] > 0 && assets.has(`${base}.rare`) ? `${base}.rare` : base;
+  };
+  drawIcon(r, assets, name(first, ''), x - gap, y, time, ready(first));
+  if (second) drawIcon(r, assets, name(second, '.small'), x + 6 / r.worldScale, y + 1 / r.worldScale, time, ready(second));
 }
 
 function drawIcon(r: PixelRenderer, assets: Assets, name: string, x: number, y: number, time: number, ready: number) {

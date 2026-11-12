@@ -209,6 +209,17 @@ function missile() {
   });
 }
 
+/** Rare pickup: a quick bright sparkle (rising arpeggio). */
+function rare() {
+  const osc = oscillator('triangle');
+  const notes = [880, 1109, 1319, 1760];
+  return render(0.5, (t) => {
+    const n = Math.min(notes.length - 1, Math.floor(t / 0.07));
+    const local = t - n * 0.07;
+    return osc(notes[n]) * Math.exp(-local * 10) * (t < 0.28 ? 1 : Math.exp(-(t - 0.28) * 12));
+  });
+}
+
 function alert() {
   const osc = oscillator('square');
   return render(0.72, (t) => {
@@ -254,6 +265,7 @@ const FILES = {
   'lance.wav': lance,
   'shield.wav': shield,
   'missile.wav': missile,
+  'rare.wav': rare,
   'alert.wav': alert,
   'command.wav': command,
   'gameover.wav': gameOver,

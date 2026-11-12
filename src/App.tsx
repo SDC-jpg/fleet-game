@@ -58,7 +58,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div className="hint">
               Test keys: = / - add/remove ship · 1 2 3 add Lancer/Knight/Ballista · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
-              enemies on screen · X end run
+              enemies on screen · X end run · E spawn elite
             </div>
           )}
           {hud.assetProblems.length > 0 && (
@@ -138,6 +138,7 @@ function RunPanel({ hud }: { hud: HudInfo }) {
       <Row label="Wave" value={`${hud.wave}`} note={formatTime(hud.time)} />
       <Row label="Destroyed" value={`${hud.stats.kills}`} note={`value ${hud.stats.killValue}`} />
       <Row label="Lost" value={`${hud.stats.losses}`} note={`value ${hud.stats.lossValue}`} />
+      <Row label="Scrap" value={`${hud.scrap}`} />
     </div>
   );
 }
@@ -186,6 +187,7 @@ function FlagshipPanel({ ship, hud, game }: { ship: FlagshipInfo; hud: HudInfo; 
             </span>
             <Bar fraction={c.share} color={c.color} />
             <span className="value">{c.count}</span>
+            {c.rare > 0 && <span className="rare">{c.rare} rare</span>}
           </div>
         ))}
         <div className="row">

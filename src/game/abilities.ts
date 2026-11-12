@@ -32,6 +32,8 @@ export interface Build {
   share: Modules;
   /** Ability strength per class (0 = no ability). Strength 1 = one tier-1 ship's ability. */
   strength: Modules;
+  /** Share of each class's modules that are rare, 0–1 (gives that ability a rare bonus). */
+  rareShare: Modules;
   /** Basic gun damage multiplier, from classes too small for an ability. */
   gunBonus: number;
   combo: ComboId | null;
@@ -57,8 +59,11 @@ export function addModules(a: Modules, b: Modules): Modules {
   return out;
 }
 
-/** Work out a ship's abilities, their strength and its combo from its modules. */
-export function computeBuild(modules: Modules, tier: number): Build {
+/**
+ * Work out a ship's abilities, their strength and its combo from its modules
+ * (`rare` says how many of each class's modules are rare).
+ */
+export function computeBuild(modules: Modules, rare: Modules, tier: number): Build {
   const M = CONFIG.modules;
   const total = CLASS_IDS.reduce((sum, c) => sum + modules[c], 0) || 1;
   // Biggest class first; equal ones in random order (sort keeps the shuffled order for ties).
@@ -84,7 +89,36 @@ export function computeBuild(modules: Modules, tier: number): Build {
       combo = id;
     }
   }
-  return { main: order[0], abilities, share, strength, gunBonus: 1 + M.smallShareGunBonus * smallShare, combo };
+  const rareShare = noModules();
+  for (const c of CLASS_IDS) rareShare[c] = modules[c] > 0 ? rare[c] / modules[c] : 0;
+  return { main: order[0], abilities, share, strength, rareShare, gunBonus: 1 + M.smallShareGunBonus * smallShare, combo };
+}
+
+/** A rare bonus: `full` when all of a class's modules are rare, less when only some are. */
+const rareBonus = (full: number, rareShare: number) => 1 + (full - 1) * rareShare;
+
+/** "Rare" modules for every module (elites carry only rare ones). */
+export const allRare = (modules: Modules): Modules => ({ ...modules });
+
+/**
+ * Pick `count` modules at random from a ship's modules (more of a class = more
+ * likely), keeping their rarity. Returns one [class, isRare] per module.
+ */
+export function sampleModules(modules: Modules, rare: Modules, count: number): [ClassId, boolean][] {
+  const left = { ...modules };
+  const leftRare = { ...rare };
+  const out: [ClassId, boolean][] = [];
+  for (let i = 0; i < count; i++) {
+    const total = CLASS_IDS.reduce((sum, c) => sum + left[c], 0);
+    if (total <= 0) break;
+    let roll = Math.random() * total;
+    const c = CLASS_IDS.find((k) => (roll -= left[k]) < 0) ?? CLASS_IDS[0];
+    const isRare = Math.random() < leftRare[c] / left[c];
+    left[c]--;
+    if (isRare) leftRare[c]--;
+    out.push([c, isRare]);
+  }
+  return out;
 }
 
 /**
@@ -182,7 +216,7 @@ function fireLance(state: GameState, s: Ship, angle: number) {
   const T = CONFIG.tiers;
   const k = s.tier - 1;
   const speed = L.speed * T.shotSpeedPerTier ** k;
-  const reach = L.speed * L.life * T.rangePerTier ** k;
+  const reach = L.speed * L.life * T.rangePerTier ** k * rareBonus(CONFIG.rare.lanceReach, s.build.rareShare.lancer);
   const off = s.stats.gunOffset;
   spawnBullet(state, {
     team: s.team,
@@ -207,6 +241,7 @@ function castShield(state: GameState, s: Ship) {
   // A bigger Knight share reaches further.
   const radius = S.radius * s.stats.size * (0.5 + 0.5 * s.build.share.knight) + s.stats.radius;
   const combo = s.build.combo === 'mirror' || s.build.combo === 'retaliation' ? s.build.combo : null;
+  const duration = S.duration * rareBonus(CONFIG.rare.shieldDuration, s.build.rareShare.knight);
   for (const a of state.ships) {
     if (a.team !== s.team || a.dead || (a.merge && a !== s)) continue;
     if (distSq(a.x, a.y, s.x, s.y) > radius * radius) continue;
@@ -215,7 +250,7 @@ function castShield(state: GameState, s: Ship) {
       a.shield = amount;
       a.shieldCombo = combo;
     }
-    a.shieldTime = S.duration;
+    a.shieldTime = duration;
   }
   addSound(state, 'sfx.shield', s, s.tier);
 }
@@ -223,8 +258,11 @@ function castShield(state: GameState, s: Ship) {
 function launchMissiles(state: GameState, s: Ship, target: Ship | null) {
   const Mi = CONFIG.missiles;
   const strength = s.build.strength.ballista;
-  const count = clamp(Math.round(Mi.count * strength ** (1 / 3)), 1, Mi.maxCount);
-  const damage = (Mi.damage * strength) / count;
+  const normal = clamp(Math.round(Mi.count * strength ** (1 / 3)), 1, Mi.maxCount);
+  // Rare Ballista modules add missiles, each as strong as a normal one.
+  const more = rareBonus(CONFIG.rare.missileCount, s.build.rareShare.ballista);
+  const count = clamp(Math.round(normal * more), 1, Math.round(Mi.maxCount * more));
+  const damage = (Mi.damage * strength) / normal;
   for (let i = 0; i < count; i++) {
     // Fan out to the sides first, then curve in toward the target.
     const spread = count === 1 ? 0 : (i / (count - 1) - 0.5) * 2.2;

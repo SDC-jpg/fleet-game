@@ -173,6 +173,51 @@ export const CONFIG = {
     enemyCooldownMultiplier: 3,
   },
 
+  /**
+   * Rare modules: stronger versions of a class's ability. Each bonus is the
+   * value for a class whose modules are all rare; a half-rare class gets half the extra.
+   */
+  rare: {
+    /** Lance reach multiplier. */
+    lanceReach: 1.75,
+    /** Aegis shield duration multiplier. */
+    shieldDuration: 2,
+    /** Missiles per volley multiplier (each missile keeps its damage, so volleys hit harder). */
+    missileCount: 2,
+    /** Chance that an ordinary enemy's tier-1 wreck holds a rare module. */
+    wreckChance: 0.04,
+  },
+
+  /** Elite enemies: rare, tougher, glowing, and always drop rare modules. */
+  elites: {
+    /** First wave that can have elites. */
+    fromWave: 5,
+    /** Chance for each lone enemy, and each enemy fleet's leader, to be elite. */
+    chance: 0.08,
+    /** Elite health compared to a normal enemy of the same tier. */
+    hpMultiplier: 4,
+    /** Elite gun damage compared to a normal enemy of the same tier. */
+    damageMultiplier: 1.5,
+  },
+
+  /** Scrap: currency for the body shop (coming soon). */
+  scrap: {
+    /** Scrap per destroyed enemy, times its value (tier-1 ships it's worth). */
+    perKillValue: 1,
+    /** Extra scrap for destroying an elite. */
+    eliteBonus: 10,
+  },
+
+  /** Big enemies (tier 2+) drop some of their modules as tier-1 wrecks when destroyed. */
+  moduleDrops: {
+    /** Share of their modules they drop. */
+    share: 0.25,
+    /** Most tier-1 wrecks one enemy drops. */
+    max: 8,
+    /** Their chance of also leaving a whole big wreck, compared to before module drops. */
+    bigWreckChanceMultiplier: 0.5,
+  },
+
   /** Lancer ability: a fast, heavy shot that passes through every ship in its path. */
   lance: {
     /** Seconds between lances. */

@@ -16,6 +16,7 @@ import {
   testDestroyFleet,
   testKillEnemies,
   testRemoveShip,
+  testSpawnElite,
   switchOptions,
   updateGame,
   type Controls,
@@ -45,6 +46,8 @@ export interface HudInfo {
   paused: boolean;
   /** Seconds until the dash is ready (0 = ready). */
   dashCooldown: number;
+  /** Currency for the body shop. */
+  scrap: number;
   /** The ship you fly, for the flagship panel (null once the fleet is gone). */
   flagship: FlagshipInfo | null;
   /** How many ships the mouse wheel switches between. */
@@ -68,7 +71,7 @@ export interface FlagshipInfo {
   className: string;
   combo: string | null;
   /** Its modules per class, biggest first. */
-  classes: { name: string; count: number; share: number; color: string }[];
+  classes: { name: string; count: number; rare: number; share: number; color: string }[];
   hp: number;
   maxHp: number;
   /** Right-click ability: seconds until ready, and its full cooldown. */
@@ -254,6 +257,7 @@ export class Game {
     if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
+    if (i.wasPressed('KeyE')) testSpawnElite(s, Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2);
   }
 
   private render(frameDt: number) {
@@ -295,6 +299,7 @@ export class Game {
         gameOver: this.state.gameOver,
         paused: this.paused,
         dashCooldown: this.state.dashCooldown,
+        scrap: this.state.scrap,
         ...flagshipInfo(this.state),
         stats: { ...this.state.stats },
         history: this.state.history,
@@ -331,7 +336,13 @@ function flagshipInfo(state: GameState): { flagship: FlagshipInfo | null; switch
       combo: f.build.combo ? COMBOS[f.build.combo].name : null,
       classes: CLASS_IDS.filter((c) => f.modules[c] > 0)
         .sort((a, b) => f.modules[b] - f.modules[a])
-        .map((c) => ({ name: CLASSES[c].name, count: f.modules[c], share: f.modules[c] / total, color: CLASSES[c].color })),
+        .map((c) => ({
+          name: CLASSES[c].name,
+          count: f.modules[c],
+          rare: f.rare[c],
+          share: f.modules[c] / total,
+          color: CLASSES[c].color,
+        })),
       hp: f.hp,
       maxHp: f.stats.maxHp,
       ability: first

@@ -5,7 +5,10 @@ import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../en
 import { CLASS_IDS, CONFIG, SHIP_TYPES, type ClassId, type ComboId, type ShipType, type ShipTypeId } from './config';
 import {
   addModules,
+  allRare,
   computeBuild,
+  noModules,
+  sampleModules,
   hitShip,
   oneModule,
   randomClass,
@@ -51,6 +54,10 @@ export interface Ship {
   stats: ShipStats;
   /** How many tier-1 ships of each class went into this ship. */
   modules: Modules;
+  /** How many of those modules are rare (stronger abilities). */
+  rare: Modules;
+  /** Elite enemy: tougher, glowing, all modules rare, always leaves a wreck. */
+  elite: boolean;
   /** What the modules add up to: abilities, their strength, combo (see abilities.ts). */
   build: Build;
   /** Seconds until each ability can be used again. */
@@ -156,8 +163,9 @@ export interface Bullet {
 export interface Wreck {
   type: ShipTypeId;
   tier: number;
-  /** The destroyed ship's modules, passed on to the ship you recruit. */
+  /** The destroyed ship's modules (and how many are rare), passed on to the ship you recruit. */
   modules: Modules;
+  rare: Modules;
   /** Its build, to show its class icons. */
   build: Build;
   x: number;
@@ -230,6 +238,8 @@ export interface GameState {
   waveTimer: number;
   /** Seconds until you can dash again (0 = ready). */
   dashCooldown: number;
+  /** Currency for the body shop, earned from kills. */
+  scrap: number;
   /** Boost stamina, 0–1 (shown by the ring around the ship you fly). */
   boostStamina: number;
   /** True after the bar ran dry, until it refills to CONFIG.boost.restartAt. */
@@ -335,6 +345,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     wave: 0,
     waveTimer: CONFIG.firstWaveDelay,
     dashCooldown: 0,
+    scrap: 0,
     boostStamina: 1,
     boostLocked: false,
     boostRest: 0,
@@ -364,9 +375,11 @@ function addShip(
   y: number,
   angle: number,
   modules: Modules,
+  rare: Modules = noModules(),
+  elite = false,
 ) {
-  const build = computeBuild(modules, tier);
-  const stats = shipStats(type, team, tier, build);
+  const build = computeBuild(modules, rare, tier);
+  const stats = shipStats(type, team, tier, build, elite);
   const timers = startingTimers();
   const ship: Ship = {
     id: state.nextId++,
@@ -375,6 +388,8 @@ function addShip(
     tier,
     stats,
     modules,
+    rare,
+    elite,
     build,
     abilityTimers: timers,
     abilityCooldowns: { ...timers },
@@ -407,10 +422,14 @@ function addShip(
   return ship;
 }
 
-/** A ship's stats with its build applied (small class shares strengthen the basic gun). */
-function shipStats(type: ShipTypeId, team: Team, tier: number, build: Build) {
+/** A ship's stats with its build applied (small class shares strengthen the basic gun), and elite bonuses. */
+function shipStats(type: ShipTypeId, team: Team, tier: number, build: Build, elite = false) {
   const stats = statsFor(type, team, tier);
   stats.bulletDamage *= build.gunBonus;
+  if (elite) {
+    stats.maxHp = Math.round(stats.maxHp * CONFIG.elites.hpMultiplier);
+    stats.bulletDamage *= CONFIG.elites.damageMultiplier;
+  }
   return stats;
 }
 
@@ -868,27 +887,11 @@ function removeDeadShips(state: GameState) {
     if (s.team === 'enemy') {
       state.stats.kills++;
       state.stats.killValue += tierValue(s.tier);
+      state.scrap += tierValue(s.tier) * CONFIG.scrap.perKillValue + (s.elite ? CONFIG.scrap.eliteBonus : 0);
+      dropWrecks(state, s);
     } else {
       state.stats.losses++;
       state.stats.lossValue += tierValue(s.tier);
-    }
-    // Bigger enemies leave wrecks less often. Your first kill always leaves one.
-    const firstKill = s.team === 'enemy' && state.stats.kills === 1 && CONFIG.firstKillWreck;
-    const wreckChance = firstKill ? 1 : CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
-    if (s.team === 'enemy' && Math.random() < wreckChance) {
-      state.wrecks.push({
-        type: s.type,
-        tier: s.tier,
-        modules: { ...s.modules },
-        build: s.build,
-        x: s.x,
-        y: s.y,
-        vx: s.vx * 0.3,
-        vy: s.vy * 0.3,
-        angle: s.angle,
-        spin: randRange(-1, 1) / s.stats.size,
-        life: CONFIG.wreckLifetime,
-      });
     }
     const fleet = s.fleet;
     fleet.members = fleet.members.filter((m) => m !== s);
@@ -899,6 +902,52 @@ function removeDeadShips(state: GameState) {
   }
   state.ships = state.ships.filter((s) => !s.dead);
   state.enemyFleets = state.enemyFleets.filter((f) => f.members.length > 0);
+}
+
+/**
+ * What a destroyed enemy leaves behind:
+ * - Maybe a whole wreck of its tier (less likely for bigger ships; always for
+ *   your first kill and for elites).
+ * - Big ships (tier 2+) also drop some of their modules as tier-1 wrecks.
+ * Elites' modules are all rare. Ordinary tier-1 wrecks are sometimes rare.
+ */
+function dropWrecks(state: GameState, s: Ship) {
+  const T = CONFIG.tiers;
+  const first = state.stats.kills === 1 && CONFIG.firstKillWreck;
+  let chance = CONFIG.wreckChance * T.wreckChancePerTier ** (s.tier - 1);
+  if (s.tier > 1) chance *= CONFIG.moduleDrops.bigWreckChanceMultiplier;
+  if (first || s.elite || Math.random() < chance) {
+    const luckyRare = s.tier === 1 && Math.random() < CONFIG.rare.wreckChance;
+    addWreck(state, s, s.tier, { ...s.modules }, luckyRare ? allRare(s.modules) : { ...s.rare }, 0, 0);
+  }
+  if (s.tier === 1) return;
+  const D = CONFIG.moduleDrops;
+  const total = CLASS_IDS.reduce((sum, c) => sum + s.modules[c], 0);
+  const count = Math.min(D.max, Math.max(1, Math.round(total * D.share)));
+  for (const [c, isRare] of sampleModules(s.modules, s.rare, count)) {
+    const rare = isRare || Math.random() < CONFIG.rare.wreckChance;
+    // Scatter them around where the ship was.
+    const a = Math.random() * Math.PI * 2;
+    const speed = randRange(40, 110);
+    addWreck(state, s, 1, oneModule(c), rare ? oneModule(c) : noModules(), Math.cos(a) * speed, Math.sin(a) * speed);
+  }
+}
+
+function addWreck(state: GameState, s: Ship, tier: number, modules: Modules, rare: Modules, vx: number, vy: number) {
+  state.wrecks.push({
+    type: s.type,
+    tier,
+    modules,
+    rare,
+    build: computeBuild(modules, rare, tier),
+    x: s.x,
+    y: s.y,
+    vx: s.vx * 0.3 + vx,
+    vy: s.vy * 0.3 + vy,
+    angle: s.angle,
+    spin: randRange(-1, 1) / 1.5 ** (tier - 1),
+    life: CONFIG.wreckLifetime,
+  });
 }
 
 /** When a leader dies, the closest of the biggest surviving ships takes command. */
@@ -1053,8 +1102,11 @@ function finishMerge(state: GameState, m: Merge) {
   state.ships = state.ships.filter((s) => !gone.has(s));
   core.tier++;
   // The new ship carries every module of the ships that went into it.
-  for (const p of m.parts) core.modules = addModules(core.modules, p.modules);
-  core.build = computeBuild(core.modules, core.tier);
+  for (const p of m.parts) {
+    core.modules = addModules(core.modules, p.modules);
+    core.rare = addModules(core.rare, p.rare);
+  }
+  core.build = computeBuild(core.modules, core.rare, core.tier);
   core.stats = shipStats(core.type, core.team, core.tier, core.build);
   core.hp = core.stats.maxHp;
   core.merge = null;
@@ -1102,11 +1154,12 @@ function updateWrecks(state: GameState, dt: number) {
     for (const s of state.playerFleet.members) {
       const reach = r + s.stats.radius;
       if (distSq(s.x, s.y, w.x, w.y) < reach * reach) {
-        const ship = addShip(state, 'player', w.type, w.tier, state.playerFleet, w.x, w.y, w.angle, w.modules);
+        const ship = addShip(state, 'player', w.type, w.tier, state.playerFleet, w.x, w.y, w.angle, w.modules, w.rare);
         ship.vx = s.vx;
         ship.vy = s.vy;
         addEffect(state, 'vfx.recruit', w.x, w.y, 0, w.tier);
         addSound(state, 'sfx.recruit', w, w.tier);
+        if (CLASS_IDS.some((c) => w.rare[c] > 0)) addSound(state, 'sfx.rare', w, 1, 1, true);
         w.life = 0;
         break;
       }
@@ -1164,12 +1217,16 @@ function spawnEnemyFleet(state: GameState, near: Ship, distance: number, value: 
   const a = Math.random() * Math.PI * 2;
   const facing = a + Math.PI;
   const fleet = newFleet('enemy');
-  // Biggest ships first, so the biggest one leads.
+  // Biggest ships first, so the biggest one leads. From a certain wave, the
+  // leader (or a lone enemy) may be an elite.
+  const E = CONFIG.elites;
+  let elite = state.wave >= E.fromWave && Math.random() < E.chance;
   for (let t = counts.length - 1; t >= 0; t--)
     for (let i = 0; i < counts[t]; i++) {
       // Classes are equally common. Bigger enemies are mostly one class.
       const modules = t === 0 ? oneModule(randomClass()) : randomEnemyModules(t + 1);
-      addShip(state, 'enemy', 'fighter', t + 1, fleet, 0, 0, facing, modules);
+      addShip(state, 'enemy', 'fighter', t + 1, fleet, 0, 0, facing, modules, elite ? allRare(modules) : noModules(), elite);
+      elite = false;
     }
   const [leader, ...rest] = fleet.members;
   fleet.leader = leader;
@@ -1209,6 +1266,21 @@ export function testRemoveShip(state: GameState) {
   const candidates = state.playerFleet.members.filter((s) => s !== leader && !s.merge);
   const victim = formationOrder(candidates).pop();
   if (victim) victim.dead = true;
+}
+
+/** Spawns an elite enemy just off-screen (to test elites and rare drops). */
+export function testSpawnElite(state: GameState, distance: number) {
+  const center = controlledShip(state);
+  if (!center) return;
+  const before = state.ships.length;
+  spawnEnemyFleet(state, center, distance, 1, 1);
+  const e = state.ships[before];
+  if (!e) return;
+  e.elite = true;
+  e.rare = allRare(e.modules);
+  e.build = computeBuild(e.modules, e.rare, e.tier);
+  e.stats = shipStats(e.type, e.team, e.tier, e.build, true);
+  e.hp = e.stats.maxHp;
 }
 
 /** Destroys your whole fleet (to test the end-of-run screen). */

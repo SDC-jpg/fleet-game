@@ -70,10 +70,10 @@ qualify, the pair with the most modules wins, and ties are picked at random.
 - The bottom HUD.
 - At T1 the wheel switches between classes (the healthiest ship of each).
 
-### Phase B: loot groundwork
-1. **Modules become items.** A ship holds a list of modules (class + rarity)
-   instead of counts per class. Everything else (shares, abilities, combos)
-   is worked out from that list as now.
+### Phase B: loot (done)
+1. **Rarity on modules.** A ship counts its modules per class, and how many of
+   each are rare. That's the same as a list of (class, rarity) items, but
+   lighter for big ships (a T4 holds 512).
 2. **Rare modules:** stronger versions of the same ability, with noticeable effects.
 
    | Rare module | Effect |
@@ -82,13 +82,16 @@ qualify, the pair with the most modules wins, and ties are picked at random.
    | Knight | Longer Aegis duration |
    | Ballista | More missiles per volley |
 
-   - In a merged ship, the bonus grows with the share of rare modules in that class.
-   - The HUD and the wreck marker show rarity (e.g. a glowing marker, a rare count in the module bars).
-3. **Scrap:** a currency earned from kills (by the enemy's value), shown in the Run panel.
-4. **Elite enemies:** appear now and then from a later wave, with a glow and
-   more health, and always drop a rare-module wreck.
-5. **Big enemies drop part of their modules** as tier-1 wrecks.
-   - Open question: instead of today's chance of one big wreck, or in addition to it?
+   - In a merged ship, the bonus grows with the share of rare modules in that
+     class. With all rare: Lance reach ×1.75, Aegis ×2 duration, ×2 missiles.
+   - Rare things are pink: the wreck marker, icon outlines, and a "rare" count in the HUD bars.
+   - Ordinary enemies' tier-1 wrecks are rare 4% of the time.
+3. **Scrap:** a currency earned from kills (by the enemy's value, +10 for an elite), shown in the Run panel.
+4. **Elite enemies:** from wave 5, 8% of lone enemies and enemy fleet leaders.
+   They have a pink glow, 4× health and 1.5× gun damage, all their modules are
+   rare, and they always leave a wreck.
+5. **Big enemies drop part of their modules** (25%, at most 8) as tier-1 wrecks,
+   and still have a lower chance (half of before) of leaving a whole big wreck.
 
 ### Phase C: the body shop
 - **How it appears:** a station shows up every few waves, away from you, with an

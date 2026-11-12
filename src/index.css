@@ -178,6 +178,9 @@ body {
   background: rgba(40, 50, 90, 0.35);
   border: 2px solid #2c3a66;
 }
+.flagship-panel .rare {
+  color: #ff6ad5;
+}
 .flagship-panel .combo {
   color: #ffd34a;
 }

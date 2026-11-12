@@ -373,7 +373,7 @@ function dashSheet(W, H) {
 // ---------- UI ----------
 // Wreck marker: four corner brackets that pulse in and out (loops), so wrecks
 // stand out from the stars when zoomed out.
-function wreckMarker(S = 48) {
+function wreckMarker(S = 48, color = '#ffcf5a', dark = '#2a1d05') {
   const F = 6;
   const sheet = new Img(S * F, S);
   const arm = Math.round(S * 0.22);
@@ -381,14 +381,14 @@ function wreckMarker(S = 48) {
   for (let f = 0; f < F; f++) {
     const frame = new Img(S, S);
     const inset = 2 + Math.round((1 - Math.cos((f / F) * Math.PI * 2)) * S * 0.04);
-    const c = hex('#ffcf5a');
+    const c = hex(color);
     for (const [sx, sy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
       const x = sx ? S - inset - arm : inset;
       const y = sy ? S - inset - th : inset;
       rect(frame, x, y, arm, th, c); // horizontal arm
       rect(frame, sx ? S - inset - th : inset, sy ? S - inset - arm : inset, th, arm, c); // vertical arm
     }
-    outline(frame, hex('#2a1d05'));
+    outline(frame, hex(dark));
     sheet.blit(frame, f * S, 0);
   }
   return sheet;
@@ -473,15 +473,35 @@ const ICONS = {
   knight: ['#7fe0b0', (S) => [[1, 1], [S - 1, 1], [S - 1, S * 0.5], [S / 2, S - 0.5], [1, S * 0.5]]],
   ballista: ['#c890ff', (S) => [[S / 2, 0.5], [S - 0.5, S * 0.45], [S - 0.5, S * 0.75], [S / 2, S * 0.35], [0.5, S * 0.75], [0.5, S * 0.45]]],
 };
-function classIcon(cls, S) {
+function classIcon(cls, S, edge = '#10131a') {
   const [color, shape] = ICONS[cls];
   const img = new Img(S + 2, S + 2);
   const inner = new Img(S, S);
   fillPolygon(inner, shape(S), () => hex(color));
   if (cls === 'ballista') fillPolygon(inner, shape(S).map(([x, y]) => [x, y + S * 0.4]), () => hex(color));
   img.blit(inner, 1, 1);
-  outline(img, hex('#10131a'));
+  outline(img, hex(edge));
   return img;
+}
+
+// Rare things are pink: rare wreck markers, rare icon outlines, the elite glow.
+const RARE = '#ff6ad5';
+
+// Elite glow: a soft pink ring pulsing under an elite ship. 6 looping frames.
+function eliteAura(S = 44) {
+  const F = 6;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const pulse = 0.5 + 0.5 * Math.sin((f / F) * Math.PI * 2);
+    const R = S / 2 - 2 - (1 - pulse) * 2;
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2);
+        if (Math.abs(d - R) < 1) sheet.set(f * S + x, y, hex(RARE, Math.round(150 + 80 * pulse)));
+        else if (d < R && d > R - 4) sheet.set(f * S + x, y, hex(RARE, Math.round(30 + 40 * pulse)));
+      }
+  }
+  return sheet;
 }
 
 // Edge-of-screen arrow, pointing right.
@@ -542,6 +562,14 @@ const FILES = {
   'ui/class-knight-small.png': () => classIcon('knight', 7),
   'ui/class-ballista.png': () => classIcon('ballista', 9),
   'ui/class-ballista-small.png': () => classIcon('ballista', 7),
+  'ui/class-lancer-rare.png': () => classIcon('lancer', 9, RARE),
+  'ui/class-lancer-small-rare.png': () => classIcon('lancer', 7, RARE),
+  'ui/class-knight-rare.png': () => classIcon('knight', 9, RARE),
+  'ui/class-knight-small-rare.png': () => classIcon('knight', 7, RARE),
+  'ui/class-ballista-rare.png': () => classIcon('ballista', 9, RARE),
+  'ui/class-ballista-small-rare.png': () => classIcon('ballista', 7, RARE),
+  'ui/wreck-marker-rare.png': () => wreckMarker(48, RARE, '#2a0520'),
+  'vfx/elite.png': () => eliteAura(44),
   'ui/wreck-marker.png': () => wreckMarker(48),
   'vfx/dash.png': () => dashSheet(56, 28),
   'ui/arrow-enemy.png': () => edgeArrow('#ff6b5a', '#2a0b0b'),
@@ -570,6 +598,8 @@ for (const tier of [2, 3, 4]) {
   FILES[`projectiles/lance-t${tier}.png`] = () => lance(tier);
   FILES[`projectiles/missile-t${tier}.png`] = () => missile(tier);
   FILES[`vfx/shield-t${tier}.png`] = () => shieldSheet(even(40 * k));
+  FILES[`ui/wreck-marker-rare-t${tier}.png`] = () => wreckMarker(even(48 * k), RARE, '#2a0520');
+  FILES[`vfx/elite-t${tier}.png`] = () => eliteAura(even(44 * k));
 }
 
 for (const [name, draw] of Object.entries(FILES)) {

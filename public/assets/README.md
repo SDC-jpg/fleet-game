@@ -101,6 +101,12 @@ the fighter). Bigger tiers all use the one `ship.fighter.t2`… design.
   from the bottom. The game darkens it by itself; to draw your own "empty"
   look instead, add an entry named after the icon plus `.cooldown` (e.g.
   `ui.class.lancer.cooldown`, `ui.class.lancer.small.cooldown`).
+- **Rare** things are pink in the placeholders: `ui.class.<class>.rare` and
+  `ui.class.<class>.small.rare` are the icons for a class with rare modules,
+  and `ui.wreck-marker.rare` (+ tiers) marks a wreck holding rare modules.
+  `sfx.rare` plays when you pick one up.
+- **Elites** have `vfx.elite` (+ tiers) looping under them, a glow sized for
+  the ship. Not team-recoloured.
 - The HUD at the bottom shows the ship you fly, using its own art (rotated
   nose-up, empty space around it trimmed).
 - The lance and missile face right and are recoloured per team like shots
