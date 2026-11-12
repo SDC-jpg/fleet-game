@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-11
 
+- New art for the bigger (tier 2+) ships.
 - New HUD at the bottom of the screen: your run stats, plus a panel showing the ship you fly, its classes, health and ability cooldowns. In a pixel font!
 - Class icons above ships now go dark while their ability recharges, and fill back up from the bottom.
 - Bigger ships have more boost: +50% boost time per tier.
