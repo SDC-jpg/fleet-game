@@ -790,7 +790,9 @@ function removeDeadShips(state: GameState) {
       state.stats.lossValue += tierValue(s.tier);
     }
     // Bigger enemies leave wrecks less often.
-    const wreckChance = CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
+    // Your first kill of a run always leaves one.
+    const firstKill = s.team === 'enemy' && state.stats.kills === 1 && CONFIG.firstKillWreck;
+    const wreckChance = firstKill ? 1 : CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
     if (s.team === 'enemy' && Math.random() < wreckChance) {
       state.wrecks.push({
         type: s.type,

@@ -199,6 +199,8 @@ export const CONFIG = {
   enemyPreferredDistance: 160,
 
   // == Wrecks ==
+  /** true = the first enemy you destroy in a run always leaves a wreck. */
+  firstKillWreck: true,
   /** Chance a destroyed tier-1 enemy leaves a wreck you can recruit. */
   wreckChance: 0.75,
   /** Seconds before a wreck disappears. */
