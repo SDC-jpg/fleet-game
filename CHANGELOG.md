@@ -6,6 +6,9 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-12
 
+- **Skill upgrades:** level-up cards can now rank up a skill you have (up to rank 5), improving its damage, fire rate or size. Upgrade cards come in four rarities: Common, Uncommon, Rare (gold) and Epic (purple). Rarer cards give bigger bonuses.
+- New defence skill: **Freeze**. Enemies in a cone in front of you stop moving and shooting for a moment.
+- A **skill bar** at the bottom of the screen shows your skills, their cooldowns and their ranks.
 - **Levels and skills!** Destroying enemies earns XP. Each level-up pauses the game and lets you pick one of three cards: a new skill or a fleet bonus.
 - Five skills to start: **Laser**, **Missiles** and **Mines** fire with your gun while you hold left click; **Shield** and **Repulse** go off when you right-click. You can stack up to 3 weapons and 2 defences.
 - Enemy fleets now grow steadily with each wave instead of matching your fleet size.

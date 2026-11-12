@@ -61,14 +61,21 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     r.drawSprite(bubble, s.x, s.y, 0, state.time, Math.min(1, s.shieldTime));
   }
 
+  // Frozen ships get an icy overlay.
+  for (const s of state.ships) {
+    if (s.frozen <= 0 || s.absorbed) continue;
+    r.drawSprite(assets.get(tierSprite(assets, 'vfx.frozen', s.tier)), s.x, s.y, 0, state.time, Math.min(1, s.frozen * 2));
+  }
+
   // Laser beams: one short segment image repeated along the beam's length.
   for (const b of state.beams) {
     const seg = teamSprite(assets, tierSprite(assets, 'vfx.laser', b.tier), b.team);
     const w = seg.frames[0].w;
-    const n = Math.ceil(b.length / w);
+    const n = Math.ceil(b.length / (w * b.width));
     const dx = Math.cos(b.angle);
     const dy = Math.sin(b.angle);
-    for (let i = 0; i < n; i++) r.drawSprite(seg, b.x + dx * (i + 0.5) * w, b.y + dy * (i + 0.5) * w, b.angle, b.age);
+    for (let i = 0; i < n; i++)
+      r.drawSprite(seg, b.x + dx * (i + 0.5) * w * b.width, b.y + dy * (i + 0.5) * w * b.width, b.angle, b.age, 1, false, b.width);
   }
 
   for (const b of state.bullets) {
@@ -76,7 +83,8 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     r.drawSprite(sprite, b.x, b.y, Math.atan2(b.vy, b.vx), state.time);
   }
 
-  for (const e of state.effects) r.drawSprite(assets.get(tierSprite(assets, e.sprite, e.tier)), e.x, e.y, e.angle, e.age);
+  for (const e of state.effects)
+    r.drawSprite(assets.get(tierSprite(assets, e.sprite, e.tier)), e.x, e.y, e.angle, e.age, 1, false, e.scale);
 
   // Arrows at the screen edge pointing to things you can't see.
   const wreckArrow = assets.get('ui.arrow.wreck');

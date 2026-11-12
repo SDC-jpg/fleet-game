@@ -2,7 +2,7 @@
 // No drawing happens here, only updating numbers.
 
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
-import { CONFIG, SHIP_TYPES, type ShipType, type ShipTypeId, type SkillId } from './config';
+import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyFleetValue } from './curves';
 import { gainXp } from './progress';
 import { updateSkills } from './skills';
@@ -54,6 +54,8 @@ export interface Ship {
   absorbed: boolean;
   /** What the engine is doing. Picks the image: normal, ".move" or ".boost". */
   thrust: Thrust;
+  /** Seconds left frozen (Freeze skill): it can't move, turn or shoot meanwhile. */
+  frozen: number;
   /** Damage a Shield (skill) will still absorb, and seconds until it fades. */
   shield: number;
   shieldTime: number;
@@ -162,6 +164,8 @@ export interface Effect {
   y: number;
   angle: number;
   age: number;
+  /** Drawn this many times its normal size (e.g. a Repulse ring with a reach upgrade). */
+  scale: number;
 }
 
 /** Ships destroyed on each side this run (merged ships don't count as losses). */
@@ -185,11 +189,15 @@ export interface OwnedSkill {
   id: SkillId;
   rank: number;
   timer: number;
+  /** Upgrades from rank-up cards, as multipliers (1 = none, 1.15 = +15%). */
+  mods: Record<SkillStat, number>;
 }
 
 /** A level-up card. */
 export type Card =
   | { kind: 'skill'; skill: SkillId }
+  /** Rank-up for a skill you have: `stat` gets +`amount` (0.15 = +15%). */
+  | { kind: 'rank'; skill: SkillId; stat: SkillStat; rarity: Rarity; amount: number }
   | { kind: 'damage' }
   | { kind: 'fireRate' }
   | { kind: 'repair' };
@@ -202,6 +210,8 @@ export interface Beam {
   y: number;
   angle: number;
   length: number;
+  /** Width compared to normal (beam size upgrades). */
+  width: number;
   age: number;
 }
 
@@ -216,6 +226,8 @@ export interface Mine {
   damage: number;
   triggerRadius: number;
   blastRadius: number;
+  /** Size compared to normal (blast size upgrades), for drawing the blast. */
+  scale: number;
 }
 
 export interface GameState {
@@ -407,6 +419,7 @@ function addShip(
     merge: null,
     absorbed: false,
     thrust: 'idle',
+    frozen: 0,
     shield: 0,
     shieldTime: 0,
     quirk: {
@@ -502,6 +515,12 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   separateShips(state, dt);
 
   for (const s of state.ships) {
+    // Frozen ships hang still (Freeze skill).
+    if (s.frozen > 0) {
+      s.frozen = Math.max(0, s.frozen - dt);
+      s.vx = s.vy = 0;
+      continue;
+    }
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     s.fireTimer -= dt;
@@ -708,6 +727,7 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
  * With an `arc`, only targets inside it count and the ship never turns outside it.
  */
 function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number, arc?: FireArc) {
+  if (ship.frozen > 0) return;
   // Merging ships hold fire.
   const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range, arc);
   if (!target) {
@@ -1203,8 +1223,8 @@ export function addSound(state: GameState, name: string, at: { x: number; y: num
   state.sounds.push({ name, tier, x: at.x, y: at.y, volume, global });
 }
 
-export function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0, tier = 1) {
-  state.effects.push({ sprite, tier, x, y, angle, age: 0 });
+export function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0, tier = 1, scale = 1) {
+  state.effects.push({ sprite, tier, x, y, angle, age: 0, scale });
 }
 
 function updateEffects(state: GameState, dt: number) {

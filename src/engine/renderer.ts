@@ -104,12 +104,13 @@ export class PixelRenderer {
   /**
    * Draw a sprite at a world position. `time` picks the animation frame.
    * `fixedSize` keeps it at full size even when zoomed out below 1× (for UI like arrows).
+   * `scale` draws it bigger or smaller than its art (e.g. an effect with a size upgrade).
    */
-  drawSprite(sprite: Sprite, x: number, y: number, angle = 0, time = 0, alpha = 1, fixedSize = false) {
+  drawSprite(sprite: Sprite, x: number, y: number, angle = 0, time = 0, alpha = 1, fixedSize = false, scale = 1) {
     const f = frameAt(sprite, time);
     const ctx = this.ctx;
     const ws = this.worldScale;
-    const k = fixedSize ? 1 : ws;
+    const k = (fixedSize ? 1 : ws) * scale;
     ctx.globalAlpha = alpha;
     ctx.setTransform(k, 0, 0, k, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
     if (angle !== 0) ctx.rotate(angle);

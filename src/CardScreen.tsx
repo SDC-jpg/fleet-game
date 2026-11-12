@@ -23,6 +23,7 @@ export function CardScreen({ hud, game }: { hud: HudInfo; game: Game | null }) {
           <button
             key={i}
             className="card"
+            style={c.rarity ? { borderColor: c.rarity.color, boxShadow: `0 0 14px ${c.rarity.color}55` } : undefined}
             onClick={(e) => {
               game?.pickCard(i);
               e.currentTarget.blur(); // so Space doesn't press it again
@@ -32,6 +33,11 @@ export function CardScreen({ hud, game }: { hud: HudInfo; game: Game | null }) {
             <SpriteIcon game={game} name={c.icon} size={64} />
             <span className="label">{c.label}</span>
             <span className="title">{c.title}</span>
+            {c.rarity && (
+              <span className="rarity" style={{ color: c.rarity.color }}>
+                {c.rarity.name}
+              </span>
+            )}
             <span className="text">{c.text}</span>
           </button>
         ))}

@@ -5,6 +5,7 @@ import { CONFIG } from './game/config';
 import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
 import type { HistoryPoint } from './game/world';
 import { CardScreen } from './CardScreen';
+import { SkillBar } from './SkillBar';
 
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
@@ -57,21 +58,6 @@ export default function App() {
               {Math.floor(hud.xp)} / {hud.xpNext} XP
             </span>
           </div>
-          {(['left', 'right'] as const).map((side) => {
-            const list = hud.skills.filter((sk) => sk.side === side);
-            if (!list.length) return null;
-            return (
-              <div key={side}>
-                {side === 'left' ? 'Left click: ' : 'Right click: '}
-                {list.map((sk, i) => (
-                  <span key={sk.id} className={sk.cooldown > 0 ? 'skill cooling' : 'skill'}>
-                    {i > 0 && ' · '}
-                    {sk.name} {sk.cooldown > 0 ? `${sk.cooldown.toFixed(1)} s` : 'ready'}
-                  </span>
-                ))}
-              </div>
-            );
-          })}
           <div>FPS: {hud.fps}</div>
           <button
             className="sound-toggle"
@@ -88,7 +74,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div className="hint">
               Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
-              enemies on screen · X end run · L level up
+              enemies on screen · X end run · L level up · J all skills
             </div>
           )}
           {hud.assetProblems.length > 0 && (
@@ -102,6 +88,7 @@ export default function App() {
         </div>
       )}
 
+      {hud && !hud.gameOver && <SkillBar hud={hud} game={gameRef.current} />}
       {hud?.cards && !hud.gameOver && <CardScreen hud={hud} game={gameRef.current} />}
 
       {hud?.paused && (

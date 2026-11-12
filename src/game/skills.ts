@@ -11,6 +11,7 @@ import {
   damageShip,
   type Controls,
   type GameState,
+  type OwnedSkill,
   type Ship,
 } from './world';
 
@@ -23,10 +24,11 @@ const COOLDOWNS: Record<SkillId, () => number> = {
   mines: () => CONFIG.mines.cooldown,
   shield: () => CONFIG.shield.cooldown,
   repulse: () => CONFIG.repulse.cooldown,
+  freeze: () => CONFIG.freeze.cooldown,
 };
 
-/** Seconds between uses of a skill. */
-export const cooldownOf = (id: SkillId) => COOLDOWNS[id]();
+/** Seconds between uses of a skill (shorter with "rate" upgrades). */
+export const cooldownOf = (sk: OwnedSkill) => COOLDOWNS[sk.id]() / sk.mods.rate;
 
 export function updateSkills(state: GameState, c: Controls, dt: number) {
   // Shields fade; beams and mines age.
@@ -47,33 +49,36 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
     // Weapons fire while you hold left click; defences go off when you right-click.
     const wants = SKILLS[sk.id].side === 'left' ? c.fire : c.defend;
     if (!wants) continue;
-    sk.timer = cooldownOf(sk.id);
-    USE[sk.id](state, ship, c);
+    sk.timer = cooldownOf(sk);
+    USE[sk.id](state, ship, c, sk);
   }
 }
 
 /** Skill damage for the ship you fly: grows with its tier, plus the fleet's damage bonus. */
 const powerOf = (state: GameState, ship: Ship) => CONFIG.tiers.powerPerTier ** (ship.tier - 1) * state.bonus.damage;
 
-const USE: Record<SkillId, (state: GameState, ship: Ship, c: Controls) => void> = {
-  laser: fireLaser,
-  missiles: launchMissiles,
-  mines: dropMine,
-  shield: raiseShield,
-  repulse: repulse,
+type Use = (state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) => void;
+
+const USE: Record<SkillId, Use> = {
+  laser: (state, ship, _c, sk) => fireLaser(state, ship, sk),
+  missiles: (state, ship, c, sk) => launchMissiles(state, ship, c, sk),
+  mines: (state, ship, _c, sk) => dropMine(state, ship, sk),
+  shield: (state, ship, _c, sk) => raiseShield(state, ship, sk),
+  repulse: (state, ship, _c, sk) => repulse(state, ship, sk),
+  freeze: (state, ship, _c, sk) => freeze(state, ship, sk),
 };
 
 /** Laser: everything along the beam in front of you takes damage at once. */
-function fireLaser(state: GameState, ship: Ship) {
+function fireLaser(state: GameState, ship: Ship, sk: OwnedSkill) {
   const L = CONFIG.laser;
   const a = ship.angle;
   const dx = Math.cos(a);
   const dy = Math.sin(a);
   const x0 = ship.x + dx * ship.stats.gunOffset;
   const y0 = ship.y + dy * ship.stats.gunOffset;
-  const length = L.length * CONFIG.tiers.rangePerTier ** (ship.tier - 1);
-  const halfWidth = (L.width * ship.stats.size) / 2;
-  const damage = L.damage * powerOf(state, ship);
+  const length = L.length * CONFIG.tiers.rangePerTier ** (ship.tier - 1) * sk.mods.size;
+  const halfWidth = (L.width * ship.stats.size * sk.mods.size) / 2;
+  const damage = L.damage * powerOf(state, ship) * sk.mods.power;
   for (const s of state.ships) {
     if (s.team === ship.team || s.dead || s.merge) continue;
     // How far along the beam the ship is, and how far to the side of it.
@@ -83,18 +88,20 @@ function fireLaser(state: GameState, ship: Ship) {
     damageShip(state, s, damage);
     addEffect(state, 'vfx.hit', s.x, s.y, 0, ship.tier + 1);
   }
-  state.beams.push({ team: ship.team, tier: ship.tier, x: x0, y: y0, angle: a, length, age: 0 });
+  state.beams.push({ team: ship.team, tier: ship.tier, x: x0, y: y0, angle: a, length, width: sk.mods.size, age: 0 });
   addSound(state, 'sfx.laser', ship, ship.tier);
 }
 
 /** Missiles: a fan of homing missiles, aimed at the enemy nearest your cursor. */
-function launchMissiles(state: GameState, ship: Ship, c: Controls) {
+function launchMissiles(state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) {
   const M = CONFIG.missiles;
+  // "Size" upgrades add missiles.
+  const count = Math.max(1, Math.round(M.count * sk.mods.size));
   const target = nearestEnemyTo(state, ship.team, c.aimX, c.aimY, 300) ?? nearestEnemyTo(state, ship.team, ship.x, ship.y, Infinity);
-  const damage = M.damage * powerOf(state, ship);
-  for (let i = 0; i < M.count; i++) {
+  const damage = M.damage * powerOf(state, ship) * sk.mods.power;
+  for (let i = 0; i < count; i++) {
     // Fan out to the sides first, then curve in toward the target.
-    const a = ship.angle + (M.count === 1 ? 0 : (i / (M.count - 1) - 0.5) * 2.2);
+    const a = ship.angle + (count === 1 ? 0 : (i / (count - 1) - 0.5) * 2.2);
     state.bullets.push({
       team: ship.team,
       sprite: 'projectile.missile',
@@ -128,18 +135,19 @@ function nearestEnemyTo(state: GameState, team: string, x: number, y: number, ma
 }
 
 /** Mines: one is left behind your ship. */
-function dropMine(state: GameState, ship: Ship) {
+function dropMine(state: GameState, ship: Ship, sk: OwnedSkill) {
   const M = CONFIG.mines;
-  const size = ship.stats.size;
+  const size = ship.stats.size * sk.mods.size;
   state.mines.push({
     team: ship.team,
     tier: ship.tier,
     x: ship.x - Math.cos(ship.angle) * ship.stats.radius,
     y: ship.y - Math.sin(ship.angle) * ship.stats.radius,
     age: 0,
-    damage: M.damage * powerOf(state, ship),
+    damage: M.damage * powerOf(state, ship) * sk.mods.power,
     triggerRadius: M.triggerRadius * size,
     blastRadius: M.blastRadius * size,
+    scale: sk.mods.size,
   });
   addSound(state, 'sfx.mine', ship, ship.tier);
 }
@@ -158,7 +166,7 @@ function updateMines(state: GameState, dt: number) {
       if (s.team === m.team || s.dead || s.merge) continue;
       if (distSq(s.x, s.y, m.x, m.y) < (m.blastRadius + s.stats.radius) ** 2) damageShip(state, s, m.damage);
     }
-    addEffect(state, 'vfx.mine-blast', m.x, m.y, 0, m.tier);
+    addEffect(state, 'vfx.mine-blast', m.x, m.y, 0, m.tier, m.scale);
     addSound(state, 'sfx.mine-blast', m, m.tier);
     m.age = Infinity; // gone
   }
@@ -166,10 +174,10 @@ function updateMines(state: GameState, dt: number) {
 }
 
 /** Shield: you and ships of your fleet near you get a bubble that soaks up damage. */
-function raiseShield(state: GameState, ship: Ship) {
+function raiseShield(state: GameState, ship: Ship, sk: OwnedSkill) {
   const S = CONFIG.shield;
-  const amount = S.amount * powerOf(state, ship) * CONFIG.playerHpMultiplier;
-  const radius = S.radius * ship.stats.size;
+  const amount = S.amount * powerOf(state, ship) * CONFIG.playerHpMultiplier * sk.mods.power;
+  const radius = S.radius * ship.stats.size * sk.mods.size;
   for (const s of ship.fleet.members) {
     if (s.dead || s.merge) continue;
     if (s !== ship && distSq(s.x, s.y, ship.x, ship.y) > radius * radius) continue;
@@ -180,20 +188,39 @@ function raiseShield(state: GameState, ship: Ship) {
 }
 
 /** Repulse: a shockwave that shoves enemies away, hurts them a little and wipes out their shots. */
-function repulse(state: GameState, ship: Ship) {
+function repulse(state: GameState, ship: Ship, sk: OwnedSkill) {
   const R = CONFIG.repulse;
-  const radius = R.radius * ship.stats.size;
-  const damage = R.damage * powerOf(state, ship);
+  const radius = R.radius * ship.stats.size * sk.mods.size;
+  const damage = R.damage * powerOf(state, ship) * sk.mods.power;
   for (const s of state.ships) {
     if (s.team === ship.team || s.dead || s.merge) continue;
     const d = Math.sqrt(distSq(s.x, s.y, ship.x, ship.y));
     if (d > radius + s.stats.radius) continue;
     const a = d > 0 ? Math.atan2(s.y - ship.y, s.x - ship.x) : wrapAngle(ship.angle);
-    s.vx += Math.cos(a) * R.push;
-    s.vy += Math.sin(a) * R.push;
+    s.vx += Math.cos(a) * R.push * sk.mods.power;
+    s.vy += Math.sin(a) * R.push * sk.mods.power;
     damageShip(state, s, damage);
   }
   state.bullets = state.bullets.filter((b) => b.team === ship.team || distSq(b.x, b.y, ship.x, ship.y) > radius * radius);
-  addEffect(state, 'vfx.repulse', ship.x, ship.y, 0, ship.tier);
+  addEffect(state, 'vfx.repulse', ship.x, ship.y, 0, ship.tier, sk.mods.size);
   addSound(state, 'sfx.repulse', ship, ship.tier);
+}
+
+/** Freeze: enemies in a cone in front of you stop moving, turning and shooting for a while. */
+function freeze(state: GameState, ship: Ship, sk: OwnedSkill) {
+  const F = CONFIG.freeze;
+  const length = F.length * ship.stats.size * sk.mods.size;
+  const half = ((F.angle * Math.PI) / 180) * Math.min(2, sk.mods.size);
+  const duration = F.duration * sk.mods.power;
+  for (const s of state.ships) {
+    if (s.team === ship.team || s.dead || s.merge) continue;
+    const d = Math.sqrt(distSq(s.x, s.y, ship.x, ship.y));
+    if (d > length + s.stats.radius) continue;
+    const off = Math.abs(wrapAngle(Math.atan2(s.y - ship.y, s.x - ship.x) - ship.angle));
+    // Ships right next to you count even if their centre is just outside the cone.
+    if (off > half + Math.atan2(s.stats.radius, Math.max(d, 1))) continue;
+    s.frozen = Math.max(s.frozen, duration);
+  }
+  addEffect(state, 'vfx.freeze', ship.x, ship.y, ship.angle, ship.tier, sk.mods.size);
+  addSound(state, 'sfx.freeze', ship, ship.tier);
 }

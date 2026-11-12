@@ -564,6 +564,56 @@ function repulseRing(S = 304) {
   return sheet;
 }
 
+// Freeze cone: pale ice light sweeping out in front of the ship (faces right;
+// the ship sits at the left middle). 6 frames, plays once: it reaches out, then breaks up.
+function freezeCone(L = 220, halfDeg = 30) {
+  const F = 6;
+  const W = L + 4, H = Math.ceil(2 * L * Math.tan((halfDeg * Math.PI) / 180)) + 4;
+  const sheet = new Img(W * F, H);
+  const cy = H / 2, half = (halfDeg * Math.PI) / 180;
+  for (let f = 0; f < F; f++) {
+    const reach = L * Math.min(1, (f + 1) / 3);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const dx = x + 0.5 - 2, dy = y + 0.5 - cy;
+        const d = Math.hypot(dx, dy);
+        if (dx <= 0 || d > reach || Math.abs(Math.atan2(dy, dx)) > half) continue;
+        const edge = d > reach - 3 || Math.abs(Math.abs(Math.atan2(dy, dx)) - half) < 0.02;
+        if (f >= 3 && noise(x, y, f) < (f - 2) / 4) continue;
+        // Solid sparkles only: see-through pixels look muddy against dark space.
+        if (edge) sheet.set(f * W + x, y, hex('#dff6ff'));
+        else if (noise(x, y, 99) > 0.985) sheet.set(f * W + x, y, hex('#ffffff'));
+        else if (noise(x, y, 98) > 0.975) sheet.set(f * W + x, y, hex('#9fe8ff'));
+      }
+  }
+  return sheet;
+}
+
+// Frozen: an icy shell with little spikes over a frozen ship. 2 looping frames (a glint moves).
+function frozenShell(S = 40) {
+  const F = 2;
+  const sheet = new Img(S * F, S);
+  const c = S / 2, R = S / 2 - 3;
+  for (let f = 0; f < F; f++) {
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+        if (Math.abs(d - R) < 1) sheet.set(f * S + x, y, hex('#dff6ff', 220));
+        else if (d < R) sheet.set(f * S + x, y, hex('#9fe8ff', 50));
+      }
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.3;
+      for (let t = 0; t < 3; t++) {
+        const x = Math.round(c + Math.cos(a) * (R + t)), y = Math.round(c + Math.sin(a) * (R + t));
+        if (x >= 0 && y >= 0 && x < S && y < S) sheet.set(f * S + x, y, hex('#ffffff'));
+      }
+    }
+    const g = f === 0 ? [c - R * 0.5, c - R * 0.5] : [c + R * 0.3, c - R * 0.6];
+    rect(sheet, Math.round(f * S + g[0]), Math.round(g[1]), 2, 2, hex('#ffffff'));
+  }
+  return sheet;
+}
+
 // Skill and card icons (16×16, flat shapes with a dark outline).
 function icon16(draw) {
   const img = new Img(16, 16);
@@ -605,6 +655,13 @@ const SKILL_ICONS = {
         if (Math.abs(d - 4.5) < 0.6 || Math.abs(d - 7) < 0.6) img.set(x, y, hex('#bfe6ff'));
       }
   },
+  freeze: (img) => {
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI;
+      for (let t = -6; t <= 6; t++) img.set(Math.round(8 + Math.cos(a) * t - 0.5), Math.round(8 + Math.sin(a) * t - 0.5), hex('#dff6ff'));
+    }
+    disc(img, 8, 8, 1.5, hex('#9fe8ff'));
+  },
   'card-damage': (img) => {
     fillPolygon(img, [[8, 0.5], [10, 6], [15.5, 6], [11, 9.5], [13, 15.5], [8, 11.5], [3, 15.5], [5, 9.5], [0.5, 6], [6, 6]], () => hex('#ff7a3c'));
     disc(img, 8, 8.5, 2, hex('#ffd34a'));
@@ -637,6 +694,8 @@ const FILES = {
   'vfx/mine-blast.png': () => mineBlast(112),
   'vfx/shield.png': () => shieldSheet(40),
   'vfx/repulse.png': () => repulseRing(304),
+  'vfx/freeze.png': () => freezeCone(220),
+  'vfx/frozen.png': () => frozenShell(40),
   ...Object.fromEntries(Object.entries(SKILL_ICONS).map(([name, draw]) => [`ui/${name.startsWith('card') ? name : 'skill-' + name}.png`, () => icon16(draw)])),
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,
@@ -665,6 +724,8 @@ for (const tier of [2, 3, 4]) {
   FILES[`vfx/mine-blast-t${tier}.png`] = () => mineBlast(even(112 * k));
   FILES[`vfx/shield-t${tier}.png`] = () => shieldSheet(even(40 * k));
   FILES[`vfx/repulse-t${tier}.png`] = () => repulseRing(even(304 * k));
+  FILES[`vfx/freeze-t${tier}.png`] = () => freezeCone(Math.round(220 * k));
+  FILES[`vfx/frozen-t${tier}.png`] = () => frozenShell(even(40 * k));
 }
 
 for (const [name, draw] of Object.entries(FILES)) {

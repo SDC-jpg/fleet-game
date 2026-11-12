@@ -95,9 +95,18 @@ The game recolours the "team colour" parts for each side when it starts.
 | `vfx.mine-blast` (+ tiers) | Mine explosion, plays once, sized for the blast reach (112 px at tier 1) |
 | `vfx.shield` (+ tiers) | Bubble over a shielded ship, loops |
 | `vfx.repulse` (+ tiers) | Shockwave ring, plays once, sized for its reach (304 px at tier 1) |
+| `ui.skill.freeze` | Freeze skill icon |
+| `vfx.freeze` (+ tiers) | Freeze cone, plays once. Faces right with the ship at the **left middle** (`anchorX` 2): 220 px long, ±30° at tier 1 |
+| `vfx.frozen` (+ tiers) | Icy shell over a frozen ship, loops |
+
+Effects grown by "size" upgrades (Repulse, mine blasts, Freeze, the laser's
+width) are drawn enlarged, so they look a little blockier; that's expected.
 
 Sounds: `sfx.laser`, `sfx.missile`, `sfx.mine` (dropped), `sfx.mine-blast`,
-`sfx.shield`, `sfx.repulse`, `sfx.levelup`, `sfx.card` (card picked).
+`sfx.shield`, `sfx.repulse`, `sfx.freeze`, `sfx.levelup`, `sfx.card` (card picked).
+
+Rank-up cards are coloured by rarity: Common white, Uncommon green, Rare gold,
+Epic purple (`RARITIES` in `src/game/config.ts`).
 
 ## Tiers (bigger ships)
 

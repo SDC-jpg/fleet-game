@@ -230,6 +230,17 @@ function repulse() {
   return render(0.5, (t, k) => low(sweep(90, 45, k)) * decay(t, 6, 0.02) + lp(r() * 2 - 1, sweep(300, 1800, k)) * decay(t, 7, 0.05) * 0.6);
 }
 
+/** Freeze: a glassy, falling shimmer with a crackle. */
+function freeze() {
+  const r = rng(81);
+  const a = oscillator('sine'), b = oscillator('sine');
+  return render(0.7, (t, k) => {
+    const shimmer = (a(sweep(2400, 900, k)) + b(sweep(3200, 1200, k)) * 0.6) * (0.6 + 0.4 * Math.sin(t * 2 * Math.PI * 30));
+    const crackle = r() > 0.97 ? (r() * 2 - 1) * Math.exp(-t * 6) : 0;
+    return shimmer * decay(t, 4, 0.01) * 0.6 + crackle;
+  });
+}
+
 /** Level up: a bright rising fanfare. */
 function levelUp() {
   const a = oscillator('square'), b = oscillator('triangle');
@@ -296,6 +307,7 @@ const FILES = {
   'mine-blast.wav': mineBlast,
   'shield.wav': shield,
   'repulse.wav': repulse,
+  'freeze.wav': freeze,
   'levelup.wav': levelUp,
   'card.wav': card,
   'alert.wav': alert,

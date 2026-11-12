@@ -69,14 +69,68 @@ export type ShipTypeId = keyof typeof SHIP_TYPES;
  * in CONFIG (laser, missiles, mines, shield, repulse).
  */
 export const SKILLS = {
-  laser: { name: 'Laser', side: 'left', icon: 'ui.skill.laser', text: 'A beam that pierces every ship in a line.' },
-  missiles: { name: 'Missiles', side: 'left', icon: 'ui.skill.missiles', text: 'A cluster of homing missiles.' },
-  mines: { name: 'Mines', side: 'left', icon: 'ui.skill.mines', text: 'Drops a mine that blows up when an enemy comes near.' },
-  shield: { name: 'Shield', side: 'right', icon: 'ui.skill.shield', text: 'A bubble that soaks up damage, on you and nearby ships.' },
-  repulse: { name: 'Repulse', side: 'right', icon: 'ui.skill.repulse', text: 'A shockwave that pushes enemies and their shots away.' },
-} satisfies Record<string, { name: string; side: 'left' | 'right'; icon: string; text: string }>;
+  laser: {
+    name: 'Laser',
+    side: 'left',
+    icon: 'ui.skill.laser',
+    text: 'A beam that pierces every ship in a line.',
+    /** What each upgradeable stat is called on rank-up cards. */
+    stats: { power: 'damage', rate: 'fire rate', size: 'beam size' },
+  },
+  missiles: {
+    name: 'Missiles',
+    side: 'left',
+    icon: 'ui.skill.missiles',
+    text: 'A cluster of homing missiles.',
+    stats: { power: 'damage', rate: 'fire rate', size: 'missiles' },
+  },
+  mines: {
+    name: 'Mines',
+    side: 'left',
+    icon: 'ui.skill.mines',
+    text: 'Drops a mine that blows up when an enemy comes near.',
+    stats: { power: 'damage', rate: 'drop rate', size: 'blast size' },
+  },
+  shield: {
+    name: 'Shield',
+    side: 'right',
+    icon: 'ui.skill.shield',
+    text: 'A bubble that soaks up damage, on you and nearby ships.',
+    stats: { power: 'strength', rate: 'recharge', size: 'reach' },
+  },
+  repulse: {
+    name: 'Repulse',
+    side: 'right',
+    icon: 'ui.skill.repulse',
+    text: 'A shockwave that pushes enemies and their shots away.',
+    stats: { power: 'force', rate: 'recharge', size: 'reach' },
+  },
+  freeze: {
+    name: 'Freeze',
+    side: 'right',
+    icon: 'ui.skill.freeze',
+    text: 'Enemies in a cone in front of you stop moving and shooting for a moment.',
+    stats: { power: 'duration', rate: 'recharge', size: 'cone size' },
+  },
+} satisfies Record<
+  string,
+  { name: string; side: 'left' | 'right'; icon: string; text: string; stats: Record<SkillStat, string> }
+>;
 
 export type SkillId = keyof typeof SKILLS;
+
+/** What a rank-up card improves: power (damage, strength...), rate (shorter cooldown) or size. */
+export type SkillStat = 'power' | 'rate' | 'size';
+
+/** Rarity of rank-up cards (and later, equipment): name and colour. Odds and bonuses are in CONFIG.rarity. */
+export const RARITIES = {
+  common: { name: 'Common', color: '#e8ecf4' },
+  uncommon: { name: 'Uncommon', color: '#6fe07a' },
+  rare: { name: 'Rare', color: '#ffd34a' },
+  epic: { name: 'Epic', color: '#c890ff' },
+};
+
+export type Rarity = keyof typeof RARITIES;
 
 export const CONFIG = {
   /**
@@ -177,10 +231,39 @@ export const CONFIG = {
     maxDefences: 2,
     /** How much more likely a new-skill card is than a bonus card. */
     newSkillWeight: 3,
+    /** How much more likely a rank-up card (for a skill you have) is than a bonus card. */
+    rankUpWeight: 3,
+    /** Highest rank a skill can reach (rank 1 = just picked). */
+    maxRank: 5,
     /** Bonus card: extra damage for the whole fleet (0.1 = +10%). */
     damageBonus: 0.1,
     /** Bonus card: faster firing for the whole fleet (0.1 = +10%). */
     fireRateBonus: 0.1,
+  },
+
+  /**
+   * Rarity of rank-up cards: how often each comes up (weights) and how big its
+   * bonus is (0.1 = +10%). Each card's bonus is rolled within ± spread of that.
+   */
+  rarity: {
+    /** How often Common cards come up, compared to the others. */
+    commonWeight: 60,
+    /** How often Uncommon cards come up. */
+    uncommonWeight: 25,
+    /** How often Rare cards come up. */
+    rareWeight: 11,
+    /** How often Epic cards come up. */
+    epicWeight: 4,
+    /** Common bonus. */
+    commonBonus: 0.1,
+    /** Uncommon bonus. */
+    uncommonBonus: 0.15,
+    /** Rare bonus. */
+    rareBonus: 0.22,
+    /** Epic bonus. */
+    epicBonus: 0.32,
+    /** Random spread around each bonus (0.2 = up to 20% lower or higher). */
+    spread: 0.2,
   },
 
   /** Laser skill: an instant beam that hits every enemy along it. Damage and size grow with your ship's tier. */
@@ -249,6 +332,18 @@ export const CONFIG = {
     push: 420,
     /** Damage to each enemy caught (tier 1). */
     damage: 2,
+  },
+
+  /** Freeze skill: enemies in a cone in front of you stop moving and shooting for a while. */
+  freeze: {
+    /** Seconds between freezes. */
+    cooldown: 4,
+    /** Seconds enemies stay frozen. */
+    duration: 2,
+    /** Cone length (tier 1; grows with ship size). */
+    length: 220,
+    /** Cone half-width in degrees (each side of where you face). */
+    angle: 30,
   },
 
   /** Space dash: the whole fleet gets a burst of speed that fades out. */

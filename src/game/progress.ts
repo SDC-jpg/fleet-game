@@ -2,7 +2,7 @@
 // the game and offers a few cards (new skills or fleet bonuses).
 // Like world.ts, nothing is drawn here.
 
-import { CONFIG, SKILLS, type SkillId } from './config';
+import { CONFIG, RARITIES, SKILLS, type Rarity, type SkillId, type SkillStat } from './config';
 import { xpToNextLevel } from './curves';
 import { addSound, type Card, type GameState } from './world';
 
@@ -27,11 +27,36 @@ function newSkillOptions(state: GameState): SkillId[] {
   return (Object.keys(SKILLS) as SkillId[]).filter((id) => !owned.includes(id) && room[SKILLS[id].side]);
 }
 
-/** Pick the cards to offer: different from each other, new skills more likely than bonuses. */
+const STATS: SkillStat[] = ['power', 'rate', 'size'];
+const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic'];
+
+/** Roll a rarity (rarer ones come up less often) and its bonus. */
+function rollRarity(): { rarity: Rarity; amount: number } {
+  const R = CONFIG.rarity;
+  const weights = { common: R.commonWeight, uncommon: R.uncommonWeight, rare: R.rareWeight, epic: R.epicWeight };
+  const bonus = { common: R.commonBonus, uncommon: R.uncommonBonus, rare: R.rareBonus, epic: R.epicBonus };
+  let roll = Math.random() * RARITY_ORDER.reduce((sum, k) => sum + weights[k], 0);
+  const rarity = RARITY_ORDER.find((k) => (roll -= weights[k]) < 0) ?? 'common';
+  const amount = bonus[rarity] * (1 + (Math.random() * 2 - 1) * R.spread);
+  return { rarity, amount: Math.round(amount * 100) / 100 };
+}
+
+/** A rank-up card for one of your skills: a random stat, with a rarity-based bonus. */
+function rankCard(skill: SkillId): Card {
+  const stat = STATS[Math.floor(Math.random() * STATS.length)];
+  return { kind: 'rank', skill, stat, ...rollRarity() };
+}
+
+/**
+ * Pick the cards to offer: different from each other. New skills and rank-ups
+ * for skills you have are more likely than fleet bonuses.
+ */
 export function drawCards(state: GameState): Card[] {
   const C = CONFIG.cards;
+  const canRankUp = state.skills.filter((sk) => sk.rank < C.maxRank);
   const pool: { card: Card; weight: number }[] = [
     ...newSkillOptions(state).map((skill) => ({ card: { kind: 'skill', skill } as Card, weight: C.newSkillWeight })),
+    ...canRankUp.map((sk) => ({ card: rankCard(sk.id), weight: C.rankUpWeight })),
     { card: { kind: 'damage' }, weight: 1 },
     { card: { kind: 'fireRate' }, weight: 1 },
     { card: { kind: 'repair' }, weight: 1 },
@@ -51,8 +76,14 @@ export function pickCard(state: GameState, index: number) {
   const card = state.cards?.[index];
   if (!card) return;
   const C = CONFIG.cards;
-  if (card.kind === 'skill') state.skills.push({ id: card.skill, rank: 1, timer: 0 });
-  else if (card.kind === 'damage') state.bonus.damage += C.damageBonus;
+  if (card.kind === 'skill') state.skills.push({ id: card.skill, rank: 1, timer: 0, mods: { power: 1, rate: 1, size: 1 } });
+  else if (card.kind === 'rank') {
+    const sk = state.skills.find((k) => k.id === card.skill);
+    if (sk) {
+      sk.rank++;
+      sk.mods[card.stat] += card.amount;
+    }
+  } else if (card.kind === 'damage') state.bonus.damage += C.damageBonus;
   else if (card.kind === 'fireRate') state.bonus.fireRate += C.fireRateBonus;
   else for (const s of state.playerFleet.members) s.hp = s.stats.maxHp;
   addSound(state, 'sfx.card', { x: 0, y: 0 }, 1, 1, true);
@@ -60,16 +91,43 @@ export function pickCard(state: GameState, index: number) {
   state.cards = state.pendingLevels > 0 ? drawCards(state) : null;
 }
 
-/** What a card shows: title, text, an icon from the manifest, and a small label. */
-export function describeCard(card: Card): { title: string; text: string; icon: string; label: string } {
+/** Test helper: get every skill you don't have yet (ignores the weapon/defence limits). */
+export function testGiveAllSkills(state: GameState) {
+  for (const id of Object.keys(SKILLS) as SkillId[])
+    if (!state.skills.some((sk) => sk.id === id)) state.skills.push({ id, rank: 1, timer: 0, mods: { power: 1, rate: 1, size: 1 } });
+}
+
+/** What a card shows. `rarity` is set for rank-up cards (its name and colour). */
+export interface CardInfo {
+  title: string;
+  text: string;
+  icon: string;
+  label: string;
+  rarity: { name: string; color: string } | null;
+}
+
+/** What a card shows: title, text, an icon from the manifest, a small label, and its rarity if it has one. */
+export function describeCard(card: Card, state: GameState): CardInfo {
   const C = CONFIG.cards;
   if (card.kind === 'skill') {
     const s = SKILLS[card.skill];
-    return { title: s.name, text: s.text, icon: s.icon, label: s.side === 'left' ? 'Weapon · left click' : 'Defence · right click' };
+    const label = s.side === 'left' ? 'New weapon · left click' : 'New defence · right click';
+    return { title: s.name, text: s.text, icon: s.icon, label, rarity: null };
+  }
+  if (card.kind === 'rank') {
+    const s = SKILLS[card.skill];
+    const rank = (state.skills.find((k) => k.id === card.skill)?.rank ?? 0) + 1;
+    return {
+      title: `${s.name} rank ${rank}`,
+      text: `+${Math.round(card.amount * 100)}% ${s.stats[card.stat]}`,
+      icon: s.icon,
+      label: `Upgrade · rank ${rank} of ${C.maxRank}`,
+      rarity: RARITIES[card.rarity],
+    };
   }
   if (card.kind === 'damage')
-    return { title: 'Firepower', text: `Your whole fleet does +${Math.round(C.damageBonus * 100)}% damage.`, icon: 'ui.card.damage', label: 'Fleet bonus' };
+    return { title: 'Firepower', text: `Your whole fleet does +${Math.round(C.damageBonus * 100)}% damage.`, icon: 'ui.card.damage', label: 'Fleet bonus', rarity: null };
   if (card.kind === 'fireRate')
-    return { title: 'Rapid fire', text: `Your whole fleet fires ${Math.round(C.fireRateBonus * 100)}% faster.`, icon: 'ui.card.fire-rate', label: 'Fleet bonus' };
-  return { title: 'Repairs', text: 'Every ship in your fleet is repaired to full health.', icon: 'ui.card.repair', label: 'Fleet bonus' };
+    return { title: 'Rapid fire', text: `Your whole fleet fires ${Math.round(C.fireRateBonus * 100)}% faster.`, icon: 'ui.card.fire-rate', label: 'Fleet bonus', rarity: null };
+  return { title: 'Repairs', text: 'Every ship in your fleet is repaired to full health.', icon: 'ui.card.repair', label: 'Fleet bonus', rarity: null };
 }

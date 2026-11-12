@@ -9,7 +9,7 @@ import { clamp } from '../engine/math';
 import { renderGame, tierSprite } from './render';
 import { CONFIG, SKILLS, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
-import { describeCard, gainXp, pickCard } from './progress';
+import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { cooldownOf } from './skills';
 import {
   controlledShip,
@@ -54,7 +54,7 @@ export interface HudInfo {
   /** Your skills and seconds until each is ready. */
   skills: { id: SkillId; name: string; side: 'left' | 'right'; icon: string; rank: number; cooldown: number; total: number }[];
   /** Level-up cards on offer (the game is paused meanwhile), or null. */
-  cards: { title: string; text: string; icon: string; label: string }[] | null;
+  cards: CardInfo[] | null;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -248,6 +248,7 @@ export class Game {
     if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
     if (i.wasPressed('KeyL')) gainXp(s, xpToNextLevel(s.level) - s.xp);
+    if (i.wasPressed('KeyJ')) testGiveAllSkills(s);
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
@@ -305,9 +306,9 @@ export class Game {
         icon: SKILLS[sk.id].icon,
         rank: sk.rank,
         cooldown: sk.timer,
-        total: cooldownOf(sk.id),
+        total: cooldownOf(sk),
       })),
-      cards: st.cards ? st.cards.map(describeCard) : null,
+      cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
       stats: { ...st.stats },
       history: st.history,
       invincible: st.invincible,

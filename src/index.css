@@ -132,9 +132,6 @@ body {
   height: 100%;
   background: #ffd34a;
 }
-.hud .skill.cooling {
-  opacity: 0.55;
-}
 
 /* Level-up cards */
 .card-screen {
@@ -204,4 +201,65 @@ body {
 }
 .sprite-icon {
   image-rendering: pixelated;
+}
+.card-screen .card .rarity {
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Skill bar (bottom centre) */
+.skill-bar {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 24px;
+  pointer-events: none;
+  text-shadow: 0 1px 2px #000;
+}
+.skill-group-label {
+  font-size: 11px;
+  opacity: 0.6;
+  text-align: center;
+  margin-bottom: 3px;
+}
+.skill-row {
+  display: flex;
+  gap: 6px;
+}
+.skill-slot {
+  position: relative;
+  width: 44px;
+  height: 52px;
+  background: rgba(14, 18, 36, 0.85);
+  border: 2px solid #2c3a66;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.skill-slot.ready {
+  border-color: #9fd3ff;
+}
+.skill-slot .cooldown {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: rgba(4, 6, 14, 0.7);
+}
+.skill-slot .pips {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+}
+.skill-slot .pips span {
+  width: 5px;
+  height: 4px;
+  background: #2c3a66;
+}
+.skill-slot .pips .on {
+  background: #ffd34a;
 }
