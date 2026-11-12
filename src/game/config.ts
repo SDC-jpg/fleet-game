@@ -126,8 +126,10 @@ export const CONFIG = {
 
   /** Shift boost runs on stamina, shown by the ring around the ship you fly. */
   boost: {
-    /** Seconds of boost from a full bar. */
+    /** Seconds of boost from a full bar, for a tier-1 ship you fly. */
     duration: 3,
+    /** Each tier up multiplies boost time by this (an empty bar still refills in rechargeTime). */
+    durationPerTier: 1.5,
     /** Seconds to refill an empty bar. */
     rechargeTime: 6,
     /** Seconds after you stop boosting before the bar starts refilling. */

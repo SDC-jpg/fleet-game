@@ -503,7 +503,7 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   }
   const steering = mx !== 0 || my !== 0;
   // Boost only counts while you're actually steering somewhere. A dash outdoes it.
-  const boosting = useBoostStamina(state, c.boost && len > 0, dt);
+  const boosting = useBoostStamina(state, ship, c.boost && len > 0, dt);
   const mul = Math.max(boosting ? t.boostMultiplier : 1, dashMultiplier(fleet));
   const speed = t.maxSpeed * mul * directionFactor(ship.angle, mx, my);
   steer(ship, mx * speed, my * speed, t.accel * mul, dt);
@@ -518,10 +518,12 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
  * dry locks boost until the bar is partly refilled, so it doesn't stutter on and off.
  * Returns whether the ship boosts this step.
  */
-function useBoostStamina(state: GameState, wants: boolean, dt: number) {
+function useBoostStamina(state: GameState, ship: Ship, wants: boolean, dt: number) {
   const b = CONFIG.boost;
   if (wants && !state.boostLocked && state.boostStamina > 0) {
-    state.boostStamina = Math.max(0, state.boostStamina - dt / b.duration);
+    // Bigger ships have more boost time.
+    const duration = b.duration * b.durationPerTier ** (ship.tier - 1);
+    state.boostStamina = Math.max(0, state.boostStamina - dt / duration);
     state.boostRest = 0;
     if (state.boostStamina === 0) state.boostLocked = true;
     return true;
