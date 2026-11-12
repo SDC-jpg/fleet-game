@@ -404,11 +404,12 @@ function commandRing(S = 44) {
     for (let y = 0; y < S; y++)
       for (let x = 0; x < S; x++) {
         const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
-        if (Math.abs(Math.hypot(dx, dy) - R) >= 0.7) continue;
+        // A 2-pixel line, so the ship you fly stands out.
+        if (Math.abs(Math.hypot(dx, dy) - R) >= 1.1) continue;
         // 0 at the top, growing clockwise, 0–1.
         const turn = ((Math.atan2(dy, dx) + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI);
         const lit = turn < f / STEPS;
-        sheet.set(f * S + x, y, hex(lit ? '#9fd3ff' : '#4a5a70', lit ? 200 : 90));
+        sheet.set(f * S + x, y, hex(lit ? '#c8ecff' : '#4a5a70', lit ? 255 : 110));
       }
   return sheet;
 }
@@ -467,7 +468,7 @@ function shieldSheet(S = 40) {
 }
 
 // Class rank icons, shown above ships: Lancer = gold spearhead, Knight = mint
-// shield, Ballista = violet double chevron. S = 9 (main) or 7 (".small", second class).
+// shield, Ballista = violet double chevron. S = 13 (main) or 7 (".small", second class).
 const ICONS = {
   lancer: ['#ffd34a', (S) => [[S / 2, 0.5], [S - 1, S * 0.55], [S / 2 + 1, S * 0.45], [S / 2 + 1, S - 0.5], [S / 2 - 1, S - 0.5], [S / 2 - 1, S * 0.45], [1, S * 0.55]]],
   knight: ['#7fe0b0', (S) => [[1, 1], [S - 1, 1], [S - 1, S * 0.5], [S / 2, S - 0.5], [1, S * 0.5]]],
@@ -508,6 +509,20 @@ function shopStation(S = 64) {
     }
     outline(frame, hex('#14171f'));
     sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
+// Flagship marker: a white arrow pointing down at the ship you fly, bobbing. 4 looping frames.
+function flagshipMarker() {
+  const W = 17, H = 16, F = 4;
+  const sheet = new Img(W * F, H);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(W, H);
+    const bob = [0, 1, 2, 1][f];
+    fillPolygon(frame, [[1, 1 + bob], [16, 1 + bob], [8.5, 12 + bob]], () => hex('#f4f8ff'));
+    outline(frame, hex('#0e1a33'));
+    sheet.blit(frame, f * W, 0);
   }
   return sheet;
 }
@@ -581,20 +596,21 @@ const FILES = {
   'vfx/hit.png': () => hitSheet(16),
   'vfx/recruit.png': () => recruitSheet(48),
   'ui/command-ring.png': () => commandRing(44),
+  'ui/flagship-marker.png': flagshipMarker,
   'projectiles/lance.png': () => lance(1),
   'projectiles/missile.png': () => missile(1),
   'vfx/shield.png': () => shieldSheet(40),
-  'ui/class-lancer.png': () => classIcon('lancer', 9),
+  'ui/class-lancer.png': () => classIcon('lancer', 13),
   'ui/class-lancer-small.png': () => classIcon('lancer', 7),
-  'ui/class-knight.png': () => classIcon('knight', 9),
+  'ui/class-knight.png': () => classIcon('knight', 13),
   'ui/class-knight-small.png': () => classIcon('knight', 7),
-  'ui/class-ballista.png': () => classIcon('ballista', 9),
+  'ui/class-ballista.png': () => classIcon('ballista', 13),
   'ui/class-ballista-small.png': () => classIcon('ballista', 7),
-  'ui/class-lancer-rare.png': () => classIcon('lancer', 9, RARE),
+  'ui/class-lancer-rare.png': () => classIcon('lancer', 13, RARE),
   'ui/class-lancer-small-rare.png': () => classIcon('lancer', 7, RARE),
-  'ui/class-knight-rare.png': () => classIcon('knight', 9, RARE),
+  'ui/class-knight-rare.png': () => classIcon('knight', 13, RARE),
   'ui/class-knight-small-rare.png': () => classIcon('knight', 7, RARE),
-  'ui/class-ballista-rare.png': () => classIcon('ballista', 9, RARE),
+  'ui/class-ballista-rare.png': () => classIcon('ballista', 13, RARE),
   'ui/class-ballista-small-rare.png': () => classIcon('ballista', 7, RARE),
   'ui/wreck-marker-rare.png': () => wreckMarker(48, RARE, '#2a0520'),
   'vfx/elite.png': () => eliteAura(44),

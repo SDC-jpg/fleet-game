@@ -89,6 +89,7 @@
     "vfx.elite.t4": { "file": "vfx/elite-t4.png", "frameWidth": 148, "frameHeight": 148, "frames": 6, "fps": 8 },
     "station.shop": { "file": "stations/shop.png", "frameWidth": 64, "frameHeight": 64, "frames": 4, "fps": 4 },
     "ui.arrow.shop": { "file": "ui/arrow-shop.png" },
+    "ui.flagship-marker": { "file": "ui/flagship-marker.png", "frameWidth": 17, "frameHeight": 16, "frames": 4, "fps": 6 },
     "ui.command-ring": { "file": "ui/command-ring.png", "frameWidth": 44, "frameHeight": 44, "frames": 33, "fps": 1, "loop": false },
     "ui.command-ring.t2": { "file": "ui/command-ring-t2.png", "frameWidth": 66, "frameHeight": 66, "frames": 33, "fps": 1, "loop": false },
     "ui.command-ring.t3": { "file": "ui/command-ring-t3.png", "frameWidth": 100, "frameHeight": 100, "frames": 33, "fps": 1, "loop": false },

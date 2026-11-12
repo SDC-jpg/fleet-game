@@ -70,6 +70,11 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
       s.abilityCooldowns[c] > 0 ? 1 - s.abilityTimers[c] / s.abilityCooldowns[c] : 1,
     );
   }
+  // A bobbing arrow above the ship you fly, so it stands out in a crowd.
+  if (flagship && !flagship.absorbed) {
+    const marker = assets.get('ui.flagship-marker');
+    r.drawSprite(marker, flagship.x, flagship.y - flagship.stats.radius - 28 / r.worldScale, 0, state.time, 1, true);
+  }
   for (const w of state.wrecks) drawClassIcons(r, assets, w.build, w.x, w.y - 14 * 1.5 ** (w.tier - 1), state.time, () => 1);
 
   for (const b of state.bullets) {
@@ -139,15 +144,17 @@ function drawClassIcons(
   ready: (c: ClassId) => number,
 ) {
   const [first, second] = build.abilities.length ? build.abilities : [build.main];
-  const y = top - 7 / r.worldScale;
-  const gap = second ? 4 / r.worldScale : 0;
+  // The main class's icon is big; a second class's small icon sits at its lower right.
+  const px = 1 / r.worldScale;
+  const y = top - 10 * px;
+  const gap = second ? 3 * px : 0;
   // A class with rare modules shows its ".rare" icon.
   const name = (c: ClassId, small: string) => {
     const base = CLASSES[c].icon + small;
     return build.rareShare[c] > 0 && assets.has(`${base}.rare`) ? `${base}.rare` : base;
   };
   drawIcon(r, assets, name(first, ''), x - gap, y, time, ready(first));
-  if (second) drawIcon(r, assets, name(second, '.small'), x + 6 / r.worldScale, y + 1 / r.worldScale, time, ready(second));
+  if (second) drawIcon(r, assets, name(second, '.small'), x - gap + 9 * px, y + 4 * px, time, ready(second));
 }
 
 function drawIcon(r: PixelRenderer, assets: Assets, name: string, x: number, y: number, time: number, ready: number) {

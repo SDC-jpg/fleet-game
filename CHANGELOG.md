@@ -6,6 +6,8 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-11
 
+- The ship you fly is easier to spot: a white arrow bobs above it, and its ring is thicker and brighter.
+- A ship's main class icon is now much bigger than its second class icon.
 - **The body shop is open!** Every few waves a station visits (follow the green arrow). Fly in to spend scrap: swap modules between ships, convert modules to another class, make modules rare, pick your combo, and repair. The game pauses while you shop.
 - **Loot!** Rare modules make abilities noticeably stronger: longer Lances, longer-lasting shields, twice the missiles. Rare wrecks have a pink marker, and the HUD shows how many rare modules your ship carries.
 - **Elite enemies** appear from wave 5: they glow pink, are much tougher, and always leave a rare wreck.

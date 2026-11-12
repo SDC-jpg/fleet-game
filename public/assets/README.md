@@ -96,7 +96,9 @@ the fighter). Bigger tiers all use the one `ship.fighter.t2`… design.
 
 - **Icons** hover above ships and wrecks like rank insignia: the main class,
   plus the `.small` icon of a second class. They're never shrunk and not
-  team-recoloured. Placeholders are 9 px and 7 px.
+  team-recoloured. Make the main icon clearly bigger than the `.small` one, so
+  the main class reads first (placeholders: 13 px and 7 px; the small one sits
+  at the main icon's lower right).
 - While a ship's ability recharges, its icon is drawn **darker** and refills
   from the bottom. The game darkens it by itself; to draw your own "empty"
   look instead, add an entry named after the icon plus `.cooldown` (e.g.
@@ -107,6 +109,8 @@ the fighter). Bigger tiers all use the one `ship.fighter.t2`… design.
   `sfx.rare` plays when you pick one up.
 - **Elites** have `vfx.elite` (+ tiers) looping under them, a glow sized for
   the ship. Not team-recoloured.
+- **`ui.flagship-marker`** bobs above the ship you fly (pointing down at it),
+  so it stands out in a crowd. Never shrunk, not team-recoloured.
 - **Body shop:** `station.shop` is the station (a 4-frame looping sheet,
   64 px; any size works), `ui.arrow.shop` its edge arrow. Sounds: `sfx.shop`
   (it arrives / you dock) and `sfx.buy` (a purchase).
