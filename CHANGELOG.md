@@ -10,7 +10,7 @@ Keep each change on one line starting with `- `.
 - **Elite enemies** appear from wave 5: they glow pink, are much tougher, and always leave a rare wreck.
 - Big enemies now break apart into small wrecks of their classes when destroyed (sometimes they still leave one big wreck).
 - You now earn **scrap** from kills (shown in the Run panel). It will buy things at the upcoming body shop.
-- New art for the bigger (tier 2+) ships.
+- New art for tier 2 ships.
 - New HUD at the bottom of the screen: your run stats, plus a panel showing the ship you fly, its classes, health and ability cooldowns. In a pixel font!
 - Class icons above ships now go dark while their ability recharges, and fill back up from the bottom.
 - Bigger ships have more boost: +50% boost time per tier.
