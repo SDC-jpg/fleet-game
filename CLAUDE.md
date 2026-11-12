@@ -89,6 +89,11 @@
   - Zoom follows the highest tier: 2× at T2, 1× from T3 on (the user's choice, 2026-11-11). Tried earlier: 1× at T2 and 0.75× at T3; rejected as too zoomed out: 0.5× at T3, 0.25× at T4.
   - Each tier has its own art (`ship.fighter.t2`...), canvases growing 1.5× per tier from the 64 px fighter.
 
+### Rollback to version 11 (2026-11-12)
+- Versions 12–13 explored ship classes (Lancer/Knight/Ballista modules, combos, right-click abilities, wheel switching), loot (rare modules, elites, module drops, scrap), a body shop, a bottom HUD with pixel font, class icons and a flagship marker. **The user and teammate found them not convincing** and rolled back to version 11 (`f45f444`). Don't bring those features back unless the user asks.
+- That work is kept on the `explore/classes-and-shop` branch (also on GitHub), including its design doc `docs/DESIGN.md`. Pieces can be copied from there when asked.
+- Kept from the exploration: boost stamina and its ring (continuous line), +50% boost time per tier, 8× dash, 25% slower turning per tier, the user's zoom steps, the user's T2 art, first kill always leaves a wreck, Space dash and left-click-only fire. The testing merge values (4 / 8 / 0.6) stay.
+
 ### First prototype scope
 1. Fly a ship around empty space and shoot.
 2. Enemy ships come in waves. Some leave wrecks you can fly into to recruit them.
