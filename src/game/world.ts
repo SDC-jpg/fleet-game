@@ -23,6 +23,8 @@ export interface ShipStats {
   gunOffset: number;
   /** Seconds between volleys (bigger tiers fire slower but hit harder). */
   fireCooldown: number;
+  /** Turn speed in radians per second (bigger tiers turn slower). */
+  turnRate: number;
   /** Size compared to tier 1 (1, 1.5, 2.25...). */
   size: number;
 }
@@ -187,6 +189,12 @@ export interface GameState {
   waveTimer: number;
   /** Seconds until you can dash again (0 = ready). */
   dashCooldown: number;
+  /** Boost stamina, 0–1 (shown by the ring around the ship you fly). */
+  boostStamina: number;
+  /** True after the bar ran dry, until it refills to CONFIG.boost.restartAt. */
+  boostLocked: boolean;
+  /** Seconds since you last boosted (the bar refills after CONFIG.boost.rechargeDelay). */
+  boostRest: number;
   stats: RunStats;
   history: HistoryPoint[];
   /** Highest fleet value reached this run (the score). */
@@ -247,6 +255,7 @@ export function statsFor(type: ShipTypeId, team: Team, tier: number): ShipStats 
     range: t.range * T.rangePerTier ** k,
     gunOffset: t.gunOffset * size,
     fireCooldown: t.fireCooldown * slower,
+    turnRate: t.turnRate * T.turnRatePerTier ** k,
     size,
   };
 }
@@ -281,6 +290,9 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     wave: 0,
     waveTimer: CONFIG.firstWaveDelay,
     dashCooldown: 0,
+    boostStamina: 1,
+    boostLocked: false,
+    boostRest: 0,
     stats: { kills: 0, killValue: 0, losses: 0, lossValue: 0 },
     history: [{ time: 0, wave: 0, value: 1 }],
     maxFleetSize: 1,
@@ -491,18 +503,37 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   }
   const steering = mx !== 0 || my !== 0;
   // Boost only counts while you're actually steering somewhere. A dash outdoes it.
-  const boosting = c.boost && len > 0;
+  const boosting = useBoostStamina(state, c.boost && len > 0, dt);
   const mul = Math.max(boosting ? t.boostMultiplier : 1, dashMultiplier(fleet));
   const speed = t.maxSpeed * mul * directionFactor(ship.angle, mx, my);
   steer(ship, mx * speed, my * speed, t.accel * mul, dt);
   if (boosting && ship.thrust !== 'boost') addSound(state, 'sfx.boost', ship, ship.tier);
   ship.thrust = boosting || fleet.dashTime > 0 ? 'boost' : steering ? 'move' : 'idle';
-  ship.angle = turnToward(ship.angle, Math.atan2(c.aimY - ship.y, c.aimX - ship.x), t.turnRate * dt);
+  ship.angle = turnToward(ship.angle, Math.atan2(c.aimY - ship.y, c.aimX - ship.x), ship.stats.turnRate * dt);
   if (c.fire && ship.fireTimer <= 0 && !ship.merge) fire(state, ship, ship.stats.fireCooldown, 0);
 }
 
 /**
- * Right-click: every ship in the fleet is kicked to 3× speed at once (more when
+ * Shift boost drains stamina while held and refills after a short rest. Running
+ * dry locks boost until the bar is partly refilled, so it doesn't stutter on and off.
+ * Returns whether the ship boosts this step.
+ */
+function useBoostStamina(state: GameState, wants: boolean, dt: number) {
+  const b = CONFIG.boost;
+  if (wants && !state.boostLocked && state.boostStamina > 0) {
+    state.boostStamina = Math.max(0, state.boostStamina - dt / b.duration);
+    state.boostRest = 0;
+    if (state.boostStamina === 0) state.boostLocked = true;
+    return true;
+  }
+  state.boostRest += dt;
+  if (state.boostRest >= b.rechargeDelay) state.boostStamina = Math.min(1, state.boostStamina + dt / b.rechargeTime);
+  if (state.boostStamina >= b.restartAt) state.boostLocked = false;
+  return false;
+}
+
+/**
+ * Right-click: every ship in the fleet is kicked to 8× speed at once (more when
  * zoomed out), in the direction you're steering or where you face, fading back
  * over half a second.
  */
@@ -602,11 +633,10 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
  * With an `arc`, only targets inside it count and the ship never turns outside it.
  */
 function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number, arc?: FireArc) {
-  const t = typeOf(ship);
   // Merging ships hold fire.
   const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range, arc);
   if (!target) {
-    ship.angle = turnToward(ship.angle, idleAngle, t.turnRate * dt);
+    ship.angle = turnToward(ship.angle, idleAngle, ship.stats.turnRate * dt);
     return;
   }
   const enemy = ship.team === 'enemy';
@@ -621,7 +651,7 @@ function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number
   let want = Math.atan2(aimY - ship.y, aimX - ship.x);
   // Aiming ahead of a moving target must not take the ship outside its arc.
   if (arc) want = arc.center + clamp(wrapAngle(want - arc.center), -arc.half, arc.half);
-  ship.angle = turnToward(ship.angle, want, t.turnRate * dt);
+  ship.angle = turnToward(ship.angle, want, ship.stats.turnRate * dt);
   if (ship.fireTimer <= 0 && Math.abs(wrapAngle(want - ship.angle)) < 0.25) {
     const mul = enemy ? CONFIG.enemyFireCooldownMultiplier : CONFIG.allyFireCooldownMultiplier;
     const spread = enemy ? CONFIG.enemyAimSpread : CONFIG.allyAimSpread;
@@ -870,7 +900,7 @@ function updateMerges(state: GameState, dt: number) {
       }
       steer(p, core.vx + dx * 4, core.vy + dy * 4, t.accel * 4, dt);
       p.thrust = 'boost';
-      p.angle = turnToward(p.angle, Math.atan2(dy, dx), t.turnRate * dt);
+      p.angle = turnToward(p.angle, Math.atan2(dy, dx), p.stats.turnRate * dt);
     }
   }
   const done = state.merges.filter((m) => m.time >= CONFIG.tiers.mergeDuration || m.parts.every((p) => p.absorbed));

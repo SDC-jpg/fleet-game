@@ -7,6 +7,10 @@ Keep each change on one line starting with `- `.
 ## 2026-11-12
 
 - **Rolled back to version 11.** Ship classes, loot, the body shop and the new HUD are gone for now (they're saved for later). Some favourites come back below.
+- Back: bigger ships turn more slowly (25% slower per tier), so they feel heavier and you have to aim ahead. Small ships stay nimble.
+- Back: boost (Shift) now runs on stamina: about 3 seconds from full, shown by the ring around your ship, which refills when you let go. Boost is faster to make up for it.
+- Back: the dash is much stronger: it now starts at 8× speed and carries your fleet much further.
+- Back: the camera zooms out less with bigger ships (2× at tier 2, 1× from tier 3).
 
 ## 2026-11-11
 
