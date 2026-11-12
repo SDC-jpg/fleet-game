@@ -76,7 +76,7 @@ The game recolours the "team colour" parts for each side when it starts.
   running dry. Not team-recoloured.
 
 - **`vfx.dash`** plays once behind every ship in your fleet when you dash
-  (right-click), pointing back along its movement. Draw it **facing right with
+  (Space), pointing back along its movement. Draw it **facing right with
   the ship at the right edge**: the trail streams off to the left. `anchorX` in
   the manifest is the frame width, which puts the ship at that edge. It lasts
   0.5 s, so 6 frames at 12 fps fits. Sky blue parts get team colours.
@@ -123,7 +123,7 @@ file name in the manifest).
 | `sfx.recruit` | `recruit.wav` | you pick up a wreck |
 | `sfx.merge` | `merge.wav` | 16 ships start merging (charge-up, then flash ~0.5 s in) |
 | `sfx.boost` | `boost.wav` | you start boosting |
-| `sfx.dash` | `dash.wav` | you dash (right-click) |
+| `sfx.dash` | `dash.wav` | you dash (Space) |
 | `sfx.alert` | `alert.wav` | an enemy fleet arrives |
 | `sfx.command` | `command.wav` | your flagship dies and command passes on |
 | `sfx.gameover` | `gameover.wav` | your whole fleet is destroyed |

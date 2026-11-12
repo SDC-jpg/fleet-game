@@ -71,7 +71,7 @@ export interface Fleet {
   trail: LeaderSample[];
   /** Which ship the trail belongs to (reset when the leader changes). */
   trailLeaderId: number;
-  /** Seconds left of a dash (right-click), counting down to 0. */
+  /** Seconds left of a dash (Space), counting down to 0. */
   dashTime: number;
   /** Speed multiplier at the start of the current dash (fades to 1). */
   dashPower: number;
@@ -218,7 +218,7 @@ export interface Controls {
   aimY: number;
   fire: boolean;
   boost: boolean;
-  /** Dash pressed this step (right-click). */
+  /** Dash pressed this step (Space). */
   dash: boolean;
 }
 
@@ -535,7 +535,7 @@ function useBoostStamina(state: GameState, ship: Ship, wants: boolean, dt: numbe
 }
 
 /**
- * Right-click: every ship in the fleet is kicked to 8× speed at once (more when
+ * Space: every ship in the fleet is kicked to 8× speed at once (more when
  * zoomed out), in the direction you're steering or where you face, fading back
  * over half a second.
  */

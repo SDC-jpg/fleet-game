@@ -137,9 +137,9 @@ export class Game {
       moveY: (i.isDown('KeyS', 'ArrowDown') ? 1 : 0) - (i.isDown('KeyW', 'ArrowUp') ? 1 : 0),
       aimX: aim.x,
       aimY: aim.y,
-      fire: i.mouseDown || i.isDown('Space'),
+      fire: i.mouseDown,
       boost: i.isDown('ShiftLeft', 'ShiftRight'),
-      dash: i.wasPressed('MouseRight'),
+      dash: i.wasPressed('Space'),
     };
   }
 
@@ -149,7 +149,7 @@ export class Game {
     if (i.wasPressed('KeyM')) this.toggleSound();
     if (i.wasPressed('Escape')) this.setPaused(!this.paused);
     if (this.paused) {
-      i.wasPressed('MouseRight'); // ignore right-clicks made while paused
+      i.wasPressed('Space'); // ignore dashes pressed while paused
       return;
     }
     if (TEST_KEYS_ENABLED) this.handleTestKeys();

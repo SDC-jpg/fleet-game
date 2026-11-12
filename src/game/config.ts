@@ -138,7 +138,7 @@ export const CONFIG = {
     restartAt: 0.3,
   },
 
-  /** Right-click dash: the whole fleet gets a burst of speed that fades out. */
+  /** Space dash: the whole fleet gets a burst of speed that fades out. */
   dash: {
     /** Speed at the start of a dash, compared to normal speed (at the starting zoom). */
     speedMultiplier: 8,

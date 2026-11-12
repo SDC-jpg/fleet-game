@@ -13,6 +13,7 @@ Keep each change on one line starting with `- `.
 - Back: bigger ships have more boost (+50% boost time per tier).
 - Back: your first kill always leaves a wreck, so you get a wingman early.
 - Back: new art for tier 2 ships.
+- Back: **Space** dashes, and only the left mouse button fires (right-click does nothing for now).
 - Back: the camera zooms out less with bigger ships (2× at tier 2, 1× from tier 3).
 
 ## 2026-11-11

@@ -46,7 +46,7 @@ export default function App() {
           <div>Best: {hud.maxFleetSize}</div>
           <div>Wave: {hud.wave}</div>
           <div>Time: {formatTime(hud.time)}</div>
-          <div>Dash (right-click): {hud.dashCooldown > 0 ? `${Math.ceil(hud.dashCooldown)} s` : 'ready'}</div>
+          <div>Dash (Space): {hud.dashCooldown > 0 ? `${Math.ceil(hud.dashCooldown)} s` : 'ready'}</div>
           <div>FPS: {hud.fps}</div>
           <button
             className="sound-toggle"
@@ -58,7 +58,7 @@ export default function App() {
           >
             {hud.soundOn ? '🔊 Sound on' : '🔇 Sound off'} (M)
           </button>
-          <div className="hint">WASD move · Shift boost · right-click dash · mouse aim · click/space fire · Esc pause · fly into wrecks to
+          <div className="hint">WASD move · Shift boost · Space dash · mouse aim · click fire · Esc pause · fly into wrecks to
             recruit</div>
           {TEST_KEYS_ENABLED && (
             <div className="hint">
