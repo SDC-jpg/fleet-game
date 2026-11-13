@@ -25,8 +25,12 @@ export class PixelRenderer {
   private originX = 0;
   private originY = 0;
 
-  constructor(screen: HTMLCanvasElement) {
+  /** true = fill the canvas's parent element instead of the whole window (used by the ShipArt tool). */
+  private fitParent: boolean;
+
+  constructor(screen: HTMLCanvasElement, fitParent = false) {
     this.screen = screen;
+    this.fitParent = fitParent;
     this.sctx = screen.getContext('2d')!;
     this.ctx = this.buffer.getContext('2d')!;
     this.resize();
@@ -36,11 +40,12 @@ export class PixelRenderer {
     return window.devicePixelRatio || 1;
   }
 
-  /** Match the screen canvas to the window size. Call when the window resizes. */
+  /** Match the screen canvas to the window (or parent) size. Call when it resizes. */
   resize() {
     const dpr = this.dpr;
-    this.screen.width = Math.floor(window.innerWidth * dpr);
-    this.screen.height = Math.floor(window.innerHeight * dpr);
+    const box = this.fitParent ? this.screen.parentElement : null;
+    this.screen.width = Math.max(1, Math.floor((box ? box.clientWidth : window.innerWidth) * dpr));
+    this.screen.height = Math.max(1, Math.floor((box ? box.clientHeight : window.innerHeight) * dpr));
     this.screen.style.width = `${this.screen.width / dpr}px`;
     this.screen.style.height = `${this.screen.height / dpr}px`;
   }
@@ -105,8 +110,20 @@ export class PixelRenderer {
    * Draw a sprite at a world position. `time` picks the animation frame.
    * `fixedSize` keeps it at full size even when zoomed out below 1× (for UI like arrows).
    * `scale` draws it bigger or smaller than its art (e.g. an effect with a size upgrade).
+   * `flipX` / `flipY` mirror it left–right / top–bottom (after rotating).
    */
-  drawSprite(sprite: Sprite, x: number, y: number, angle = 0, time = 0, alpha = 1, fixedSize = false, scale = 1) {
+  drawSprite(
+    sprite: Sprite,
+    x: number,
+    y: number,
+    angle = 0,
+    time = 0,
+    alpha = 1,
+    fixedSize = false,
+    scale = 1,
+    flipX = false,
+    flipY = false,
+  ) {
     const f = frameAt(sprite, time);
     const ctx = this.ctx;
     const ws = this.worldScale;
@@ -114,6 +131,40 @@ export class PixelRenderer {
     ctx.globalAlpha = alpha;
     ctx.setTransform(k, 0, 0, k, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
     if (angle !== 0) ctx.rotate(angle);
+    if (flipX || flipY) ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+    ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, -sprite.anchorX, -sprite.anchorY, f.w, f.h);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Draw a sprite attached to something at (x, y) facing `angle`: it sits at
+   * (ox, oy) in that thing's own pixels and turns with it, plus its own
+   * `localAngle`. Used for ship parts, so they never wobble against the ship.
+   */
+  drawAttached(
+    sprite: Sprite,
+    x: number,
+    y: number,
+    angle: number,
+    ox: number,
+    oy: number,
+    localAngle: number,
+    time: number,
+    alpha = 1,
+    scale = 1,
+    flipX = false,
+    flipY = false,
+  ) {
+    const f = frameAt(sprite, time);
+    const ctx = this.ctx;
+    const ws = this.worldScale;
+    ctx.globalAlpha = alpha;
+    ctx.setTransform(ws, 0, 0, ws, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
+    ctx.rotate(angle);
+    ctx.translate(ox, oy);
+    if (localAngle !== 0) ctx.rotate(localAngle);
+    ctx.scale((flipX ? -1 : 1) * scale, (flipY ? -1 : 1) * scale);
     ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, -sprite.anchorX, -sprite.anchorY, f.w, f.h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
@@ -153,6 +204,11 @@ export class PixelRenderer {
     this.sctx.fillStyle = '#000';
     this.sctx.fillRect(0, 0, this.screen.width, this.screen.height);
     this.sctx.drawImage(this.buffer, 0, 0, this.buffer.width * this.bufferScale, this.buffer.height * this.bufferScale);
+  }
+
+  /** Convert world coordinates to a position on the canvas in CSS pixels (as of the last `begin`). */
+  worldToScreen(x: number, y: number) {
+    return { x: ((x - this.originX) * this.scale) / this.dpr, y: ((y - this.originY) * this.scale) / this.dpr };
   }
 
   /** Convert a mouse position (CSS pixels) to world coordinates. */

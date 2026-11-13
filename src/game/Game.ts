@@ -13,6 +13,8 @@ import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from
 import { loadEquipment, saveEquipment } from './save';
 import { describeItem, equip, rollItem, slotOf, slotTier, slotUnlocked, unequip, type Item } from './equipment';
 import { cooldownOf } from './skills';
+import { Particles } from './particles';
+import type { ShipLayoutsFile } from './shipLayout';
 import {
   controlledShip,
   createGame,
@@ -21,6 +23,7 @@ import {
   testDestroyFleet,
   testKillEnemies,
   testSpawnElite,
+  typeOf,
   testRemoveShip,
   updateGame,
   type Controls,
@@ -147,6 +150,10 @@ export class Game {
   private paused = false;
   /** Auto-fire (Q): fires as if left click were held. */
   private autoFire = false;
+  /** Ship layouts from ships.json (thrusters and other parts, made with the ShipArt tool). */
+  private layouts: ShipLayoutsFile;
+  /** Thruster particles (visual only). */
+  private particles = new Particles();
   /** Where each ship and shot was one step ago, for drawing them smoothly between steps. */
   private previous = new Map<object, { x: number; y: number; angle: number }>();
   /** While paused the picture doesn't change, so it's only drawn again when needed. */
@@ -161,8 +168,9 @@ export class Game {
     if (document.hidden) this.setPaused(true);
   };
 
-  constructor(canvas: HTMLCanvasElement, assets: Assets, sounds: Sounds, onHud: (hud: HudInfo) => void) {
+  constructor(canvas: HTMLCanvasElement, assets: Assets, sounds: Sounds, layouts: ShipLayoutsFile, onHud: (hud: HudInfo) => void) {
     this.assets = assets;
+    this.layouts = layouts;
     this.sounds = sounds;
     this.onHud = onHud;
     this.renderer = new PixelRenderer(canvas);
@@ -201,6 +209,7 @@ export class Game {
   }
 
   restart() {
+    this.particles.clear();
     this.state = this.newState();
     this.paused = false;
   }
@@ -407,6 +416,19 @@ export class Game {
     }
   }
 
+  /** Move particles, and add new ones from the thrusters of ships on (or near) the screen. */
+  private updateParticles(dt: number) {
+    this.particles.update(dt);
+    const v = this.renderer.view;
+    const margin = 100;
+    for (const s of this.state.ships) {
+      if (s.dead || s.absorbed || s.thrust === 'idle') continue;
+      if (s.x < v.x - margin || s.x > v.x + v.w + margin || s.y < v.y - margin || s.y > v.y + v.h + margin) continue;
+      const base = tierSprite(this.assets, typeOf(s).sprites.ship, s.tier);
+      this.particles.emitThrusters(this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt);
+    }
+  }
+
   private render(frameDt: number, alpha: number) {
     const r = this.renderer;
     const frozen = this.isFrozen();
@@ -421,7 +443,8 @@ export class Game {
       r.setZoom(this.state.zoom);
       if (!frozen || this.needsDraw) {
         r.begin(frozen ? 0 : frameDt);
-        renderGame(this.state, r, this.assets);
+        if (!frozen) this.updateParticles(frameDt);
+        renderGame(this.state, r, this.assets, { layouts: this.layouts, particles: this.particles });
         r.end();
         this.needsDraw = false;
       }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Assets } from './engine/assets';
 import { Sounds } from './engine/sound';
 import { CONFIG } from './game/config';
+import { loadShipLayouts } from './game/shipLayout';
 import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
 import type { HistoryPoint } from './game/world';
 import { CardScreen } from './CardScreen';
@@ -19,10 +20,10 @@ export default function App() {
   // Load the art, then start the game. Stop it when the page closes.
   useEffect(() => {
     let cancelled = false;
-    Promise.all([Assets.load(), Sounds.load(CONFIG.audio.masterVolume)])
-      .then(([assets, sounds]) => {
+    Promise.all([Assets.load().then(async (assets) => ({ assets, layouts: await loadShipLayouts(assets) })), Sounds.load(CONFIG.audio.masterVolume)])
+      .then(([{ assets, layouts }, sounds]) => {
         if (cancelled || !canvasRef.current) return;
-        const game = new Game(canvasRef.current, assets, sounds, setHud);
+        const game = new Game(canvasRef.current, assets, sounds, layouts, setHud);
         gameRef.current = game;
         game.start();
       })

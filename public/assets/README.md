@@ -30,25 +30,44 @@ names, never the file paths, so you can swap art without touching code.
 
 **Sprite sheets** are read left to right, then top to bottom, row by row.
 
-**Any sprite can be animated.** For example, give a ship a 4-frame engine
+**Any sprite can be animated.** For example, give a ship a 4-frame light
 flicker by turning its single image into a sheet and adding `frameWidth`,
 `frameHeight` and `fps`.
 
-## Engine states for ships
+## Ship parts and thrusters (the ShipArt tool)
 
-A ship can have extra images for when its engine is running. Add manifest
-entries named after the ship's sprite plus `.move` or `.boost`:
+A ship's image stays the same whether it's idle, moving or boosting.
+Thrusters (and later other parts, like turrets) are **separate images placed on
+the ship** with the ShipArt tool, so changing a ship's image never means
+redrawing its flames.
 
-```json
-"ship.fighter":       { "file": "ships/fighter.png" },
-"ship.fighter.move":  { "file": "ships/fighter-move.png" },
-"ship.fighter.boost": { "file": "ships/fighter-boost.png" }
-```
+**Open ShipArt:** run the game locally (`npm run dev`) and go to
+http://localhost:5173/shipart.html. The published copy
+(https://sdc-jpg.github.io/fleet-game/shipart.html) is view-only.
 
-- `.move` shows while the ship is flying, and `.boost` while boosting (Shift).
-- Any of them can be missing. Boost falls back to move, and move falls back to
-  the normal image.
-- Each one can be a flipbook too (e.g. a flickering flame).
+- **Parts live in `parts/`**, named `<category>-<anything>.png`, e.g.
+  `thruster-move-1.png`, `thruster-boost-2.png`. The first word is the
+  category. New files appear in ShipArt by themselves (refresh the page); no
+  manifest entry needed. A new first word (e.g. `turret-…`) makes a new category.
+- **Mounts:** each part placed on a ship is a mount, with an image for each
+  state it shows in (Idle / Move / Boost; unticked = hidden in that state). So a
+  boost-only thruster is one with Move unticked. Mounts also have a position,
+  angle, size, mirroring, and "behind the ship" or on top.
+- **VFX point** (pink): where the mount's particles come from. It starts at the
+  image's centre; drag it anywhere, or "Reset VFX point to centre".
+- **Base image:** each state can also use a different ship image (by default
+  every state uses the normal one).
+- **Animated parts:** put the frames side by side in one file and set
+  Frames and FPS in ShipArt.
+- **Save** writes `ships.json` in this folder; the game reads it. Draw parts
+  facing **right** like the ships (a flame's nozzle end on the right).
+- Thruster particles use `vfx.particle.move` and `vfx.particle.boost` in the
+  manifest (small flipbooks: a dot shrinking away). Amounts and speeds are in
+  `CONFIG.particles`.
+- Dash doesn't change thrusters; it adds the dash trail (`vfx.dash`).
+- The old `fighter-*-move.png` and `fighter-*-boost.png` images are no longer
+  used by the game, but they're still in `ships/` and can be picked as a
+  base image in ShipArt.
 
 ## Team colours (one image set for both sides)
 

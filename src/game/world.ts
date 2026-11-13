@@ -670,7 +670,8 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   const speed = t.maxSpeed * state.bonus.speed * mul * directionFactor(ship.angle, mx, my);
   steer(ship, mx * speed, my * speed, t.accel * mul, dt);
   if (boosting && ship.thrust !== 'boost') addSound(state, 'sfx.boost', ship, ship.tier);
-  ship.thrust = boosting || fleet.dashTime > 0 ? 'boost' : steering ? 'move' : 'idle';
+  // A dash doesn't change the thrusters (only Shift boost does).
+  ship.thrust = boosting ? 'boost' : steering ? 'move' : 'idle';
   ship.angle = turnToward(ship.angle, Math.atan2(c.aimY - ship.y, c.aimX - ship.x), ship.stats.turnRate * dt);
   if (c.fire && ship.fireTimer <= 0 && !ship.merge && ship.frozen <= 0) fire(state, ship, ship.stats.fireCooldown, 0);
 }
@@ -773,8 +774,6 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     let wantVx = past.vx + tx * CONFIG.followStiffness;
     let wantVy = past.vy + ty * CONFIG.followStiffness;
     const wantLen = Math.hypot(wantVx, wantVy);
-    // When the leader boosts, the whole formation boosts to keep up.
-    const boosting = past.boosting || dashing;
     // Your fleet's speed and boost-speed bonuses (equipment) apply to every ship in it.
     const yours = ship.team === 'player';
     const boostMul = Math.max(past.boosting ? t.boostMultiplier * (yours ? state.bonus.boostSpeed : 1) : 1, dashMultiplier(fleet));
@@ -785,7 +784,8 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     }
     steer(ship, wantVx, wantVy, t.accel * boostMul, dt);
     const moving = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED;
-    ship.thrust = !moving ? 'idle' : boosting ? 'boost' : 'move';
+    // When the leader boosts, the whole formation boosts to keep up (a dash doesn't change the thrusters).
+    ship.thrust = !moving ? 'idle' : past.boosting ? 'boost' : 'move';
     // With nothing to shoot, face where the leader faced, swaying a little.
     const sway = Math.sin(state.time * q.speedX * Math.PI * 2 + q.phaseY) * CONFIG.idleSway;
     // Only shoot at things roughly in front of the leader (where it faces right now).

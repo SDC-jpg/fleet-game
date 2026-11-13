@@ -6,6 +6,9 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- Ships now have separate thruster flames, placed per ship with the new ShipArt tool, and they give off small orange sparks when moving and purple ones when boosting. Some bigger ships have extra thrusters that only light up while boosting.
+- Dashing no longer switches ships to their boosting look.
+- ShipArt (view only): see every ship tier with its thrusters in each state at https://sdc-jpg.github.io/fleet-game/shipart.html
 - Your equipment is now kept between games, even if you reload the page. Each new version of the game starts everyone with empty equipment again.
 - New equipment screen (Esc): slots in a ring, 3 per ship tier up to tier 10, with your fleet bonuses in the middle. Drag items into slots to equip, move or swap them; drag them to the inventory to take them off; right-click is a shortcut for both. Hover any item for its details. The inventory can be filtered by rarity and sorted.
 - Your level and XP bar moved to the bottom centre, under the skills, with counters for ships destroyed and their total value.

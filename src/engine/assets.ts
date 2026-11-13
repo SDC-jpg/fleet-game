@@ -32,7 +32,7 @@ export interface Sprite {
   anchorY: number;
 }
 
-const ASSET_ROOT = `${import.meta.env.BASE_URL}assets/`;
+export const ASSET_ROOT = `${import.meta.env.BASE_URL}assets/`;
 // While developing, add a timestamp to URLs so the browser always fetches fresh art.
 const CACHE_BUST = import.meta.env.DEV ? `?t=${Date.now()}` : '';
 
@@ -110,6 +110,30 @@ export class Assets {
       anchorX: entry.anchorX ?? frames[0].w / 2,
       anchorY: entry.anchorY ?? frames[0].h / 2,
     });
+  }
+
+  /**
+   * Load an image file that isn't in the manifest (e.g. a ship part chosen in
+   * the ShipArt tool), as sprite `name`. Its frames sit side by side. Loading
+   * the same name again replaces it (e.g. after changing its frame count).
+   */
+  async loadFile(name: string, file: string, settings: { frames?: number; fps?: number; loop?: boolean } = {}) {
+    this.problems = this.problems.filter((p) => !p.startsWith(name + ':'));
+    const img = await loadImage(file);
+    if (!img) {
+      this.problems.push(`${name}: could not load ${file}`);
+      this.sprites.delete(name);
+      return;
+    }
+    const frames = Math.max(1, Math.floor(settings.frames ?? 1));
+    await this.loadSprite(name, { file, frameWidth: Math.floor(img.width / frames), frames, fps: settings.fps, loop: settings.loop });
+    // Recoloured copies were made from the old version.
+    for (const key of this.recolorCache.keys()) if (key.startsWith(name + '|')) this.recolorCache.delete(key);
+  }
+
+  /** Names of every loaded sprite. */
+  names() {
+    return [...this.sprites.keys()];
   }
 
   /** True if the manifest has a sprite with this name (and it loaded). */

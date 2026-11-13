@@ -1,0 +1,232 @@
+{
+  "_readme": "Ship layouts: thrusters and other parts on each ship, and base images per state. Edit with the ShipArt tool (npm run dev, then open /shipart.html), not by hand.",
+  "ships": {
+    "ship.fighter": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -19,
+          "y": -10,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -19,
+          "y": 10,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        }
+      ]
+    },
+    "ship.fighter.t2": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -38,
+          "y": -6,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -38,
+          "y": 6,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -27,
+          "y": -17,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "boost": "parts/thruster-boost-2.png"
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -27,
+          "y": 17,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "boost": "parts/thruster-boost-2.png"
+          }
+        }
+      ]
+    },
+    "ship.fighter.t3": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": -7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": 7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        }
+      ]
+    },
+    "ship.fighter.t4": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -58,
+          "y": -15,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -58,
+          "y": -5,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -58,
+          "y": 5,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -58,
+          "y": 15,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          }
+        }
+      ]
+    }
+  },
+  "images": {}
+}

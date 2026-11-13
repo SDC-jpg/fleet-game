@@ -25,7 +25,7 @@
 - `.devcontainer/init-firewall.sh` uses `ipset add -exist` to fix a duplicate-IP startup error. This is the user's own fix. Don't revert it.
 
 ## Publishing (GitHub Pages)
-- Public repo: https://github.com/SDC-jpg/fleet-game. Live game: https://sdc-jpg.github.io/fleet-game/ (the user shares this with a teammate).
+- Public repo: https://github.com/SDC-jpg/fleet-game. Live game: https://sdc-jpg.github.io/fleet-game/ (the user shares this with a teammate). View-only ShipArt for the teammate: https://sdc-jpg.github.io/fleet-game/shipart.html.
 - Every push to `main` rebuilds and republishes through `.github/workflows/deploy.yml`, with test keys on (`VITE_TEST_KEYS`). Pushing publishes publicly. **Only push when the user says to.** Don't ask after each change, because the user will say when.
 - **Discord logs** (webhook URLs are GitHub secrets, never in files):
   - The `notify` job in `deploy.yml` runs `.github/scripts/discord-build-log.sh`, which posts "version N is live" plus the `- ` lines added to `CHANGELOG.md` since the last successful publish to the build-log channel (`DISCORD_WEBHOOK_BUILD`), or a failure notice.
@@ -43,6 +43,8 @@
 - `src/game/config.ts`: every tuning number (speeds, health, waves, zoom steps, ship types and their hit sizes). Its comments also feed the public tuning page: give every new setting a one-line `/** */` description, and start a group of plain settings with a `// == Title: note ==` line.
 - `tools/make-tuning-page.mjs`: runs at the end of `npm run build` and writes `dist/tuning.html`, a table of every setting with its value and description, read from `config.ts`. It's published at https://sdc-jpg.github.io/fleet-game/tuning.html (the user's teammate uses it) and linked in the Discord build post. It warns about settings with no description.
 - `src/game/save.ts`: saving and loading equipment (see Progression).
+- `src/game/shipLayout.ts`, `particles.ts`: ship layouts from `public/assets/ships.json` (base image per state, mounts such as thrusters with per-state images and VFX points) and thruster particles. `drawShipArt` in `render.ts` draws a ship with its layout (used by the game and ShipArt).
+- **ShipArt tool** (`shipart.html`, `src/shipart/`): browse ship tiers, preview Idle/Move/Boost/Dash (Fly, Spin, team colours, zoom), place and drag mounts and VFX points, choose part images per state, Save. `tools/shipart-plugin.ts` (in `vite.config.ts`) gives the dev server `/__shipart/files` (lists art) and `/__shipart/save` (writes `ships.json`), and writes `assets/art-files.json` into builds so the published copy (view-only) knows the art. Screenshot it with `--url http://localhost:5173/shipart.html`.
 - `src/game/skills.ts`, `progress.ts`, `curves.ts`: pilot skills; XP, levels and cards; progression formulas.
 - `src/game/world.ts`: game rules (no drawing; it queues sound events in `state.sounds`, which `Game.ts` plays). `src/game/render.ts`: drawing. `src/game/Game.ts`: connects input, rules and drawing.
 - `src/App.tsx`: React canvas and HUD.
@@ -61,6 +63,7 @@
   - **One image set per ship design, used by both teams.** Team-colour parts are painted in strong sky blue; the game recolours them per team at load time (`CONFIG.teamColors`). Never ask the user for separate player/enemy versions.
   - **Placeholders must stand out from the user's art.** Never imitate the user's art style when generating new assets. Keep the original placeholder style (simple flat-coloured shapes with a dark 1 px outline, like the first 32×32 fighters).
   - **Sounds follow the same rules:** sound effects only (no music for now), each in `public/assets/sfx/`, listed by name in the manifest's `"sounds"` section with volume and overlap limits, with `.t2`… tier versions falling back to a lower-pitched smaller tier. The recruit sound gets brighter with the wreck's tier (manifest `pitchPerTier`). Sound is on by default, M or the HUD button toggles it, and wingmen's shots play quieter (`CONFIG.audio.allyShotVolume`; may become silent if distracting).
+  - **Ship parts are separate from the ship image (2026-11-13):** the base ship image stays the same in every state; thrusters (and later turrets etc.) are mounts placed with ShipArt. Part images live in `public/assets/parts/` named `<category>-…png` and are found automatically (no manifest entry). A mount has an image per state or none (hidden), so boost-only thrusters are possible. Dash doesn't change thrusters. The old `.move`/`.boost` ship images are no longer in the manifest.
   - Placeholder art should follow the same conventions, so swapping in real art means replacing files (and maybe editing the manifest), not changing code.
 
 ### Game concept: pixel-art spaceship fleet combat

@@ -520,6 +520,13 @@ function laserWarning(tier = 1) {
   return sheet;
 }
 
+// Thruster particle: a small dot that shrinks away (2×2, then one pixel twice).
+function particleDot(color) {
+  const sheet = new Img(6, 2);
+  for (const [x, y] of [[0, 0], [1, 0], [0, 1], [1, 1], [2, 0], [4, 0]]) sheet.set(x, y, hex(color));
+  return sheet;
+}
+
 // Missile: grey body, sky blue fins (team colour), orange flame. Faces right.
 function missile(tier = 1) {
   const k = 1.5 ** (tier - 1);
@@ -809,6 +816,8 @@ const FILES = {
   'ui/loot-epic.png': () => lootCrate('#c890ff'),
   ...Object.fromEntries(Object.entries(ITEM_ICONS).map(([name, draw]) => [`ui/item-${name}.png`, () => icon16(draw)])),
   'vfx/laser.png': () => laserSegment(1),
+  'vfx/particle-move.png': () => particleDot('#ff9a3a'),
+  'vfx/particle-boost.png': () => particleDot('#c070ff'),
   'vfx/laser-warning.png': () => laserWarning(1),
   'ui/elite-marker.png': () => eliteMarker(56),
   'ui/arrow-elite.png': eliteArrow,

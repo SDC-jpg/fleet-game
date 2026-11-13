@@ -5,7 +5,9 @@ import type { PixelRenderer } from '../engine/renderer';
 import { clamp } from '../engine/math';
 import { SHIP_TYPES, CONFIG } from './config';
 import { laserLength } from './skills';
-import { controlledShip, isMergePart, typeOf, type GameState, type Ship, type Team, type Thrust } from './world';
+import type { Particles } from './particles';
+import { fileSprite, type ShipLayoutsFile, type ShipState } from './shipLayout';
+import { controlledShip, isMergePart, typeOf, type GameState, type Ship, type Team } from './world';
 
 /**
  * The art name for a tier: "<base>.t3<suffix>" for tier 3, falling back to
@@ -23,7 +25,13 @@ function teamSprite(assets: Assets, name: string, team: Team) {
   return assets.getRecolored(name, tc[team], tc);
 }
 
-export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
+/** Ship layouts (ships.json) and thruster particles, set up by Game.ts. */
+export interface ArtExtras {
+  layouts: ShipLayoutsFile;
+  particles: Particles;
+}
+
+export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, extras: ArtExtras) {
   r.drawTiled(assets.get('bg.stars-far'), 0.3);
   r.drawTiled(assets.get('bg.stars-near'), 0.6);
 
@@ -52,16 +60,19 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   // Elites get a marker ring under them.
   for (const s of state.ships) if (s.elite) r.drawSprite(assets.get(tierSprite(assets, 'ui.elite-marker', s.tier)), s.x, s.y, 0, state.time);
 
+  // Thruster particles, under the ships.
+  extras.particles.draw(r, assets);
+
   // Draw every other ship first (small ones under big ones), then the
   // command ring and the ship you fly on top.
   const flagship = controlledShip(state);
   const ordered = state.ships.filter((s) => s !== flagship).sort((a, b) => a.tier - b.tier);
-  for (const s of ordered) drawShip(r, assets, s, state.time);
+  for (const s of ordered) drawShip(r, assets, extras.layouts, s, state.time);
   if (flagship) {
     // The command ring is also the boost meter: its frames go from empty (first) to full (last).
     const ring = assets.get(tierSprite(assets, 'ui.command-ring', flagship.tier));
     r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1);
-    drawShip(r, assets, flagship, state.time);
+    drawShip(r, assets, extras.layouts, flagship, state.time);
   }
 
   // Shield bubbles over shielded ships (fading in their last second).
@@ -121,7 +132,7 @@ function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: nu
 }
 
 /** Draws one ship, plus a small health bar under it if it's damaged. */
-function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
+function drawShip(r: PixelRenderer, assets: Assets, layouts: ShipLayoutsFile, s: Ship, time: number) {
   if (s.absorbed) return; // already inside the ship it's merging into
   // Dash trail behind the ship, pointing back along its movement. Plays once per dash.
   if (s.fleet.dashTime > 0 && !isMergePart(s)) {
@@ -135,7 +146,7 @@ function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
     const core = s.merge.core;
     alpha = clamp(Math.hypot(core.x - s.x, core.y - s.y) / (core.stats.radius * 2), 0.3, 1);
   }
-  r.drawSprite(teamSprite(assets, shipSprite(assets, base, s.thrust), s.team), s.x, s.y, s.angle, time, alpha);
+  drawShipArt(r, assets, layouts, base, s.x, s.y, s.angle, s.thrust, s.team, time, alpha);
   const maxHp = s.stats.maxHp;
   if (s.hp < maxHp) {
     const w = Math.round(16 * s.stats.size);
@@ -147,13 +158,37 @@ function drawShip(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
 }
 
 /**
- * Picks the image for a ship's engine state: "<name>.boost", then "<name>.move",
- * then plain "<name>", using the first one that exists in the manifest.
+ * Draws a ship's art: its base image for this state (from its layout in
+ * ships.json, or the manifest sprite `base`), with its mounts (thrusters...)
+ * under or over it. Used by the game and the ShipArt tool.
  */
-function shipSprite(assets: Assets, base: string, thrust: Thrust) {
-  const options = thrust === 'boost' ? ['.boost', '.move'] : thrust === 'move' ? ['.move'] : [];
-  for (const suffix of options) if (assets.has(base + suffix)) return base + suffix;
-  return base;
+export function drawShipArt(
+  r: PixelRenderer,
+  assets: Assets,
+  layouts: ShipLayoutsFile,
+  base: string,
+  x: number,
+  y: number,
+  angle: number,
+  state: ShipState,
+  team: Team,
+  time: number,
+  alpha = 1,
+) {
+  const layout = layouts.ships[base];
+  const baseFile = layout?.base[state] ?? layout?.base.idle;
+  const mounts = layout?.mounts ?? [];
+  const drawMounts = (behind: boolean) => {
+    for (const m of mounts) {
+      const file = m.images[state];
+      if (!file || m.behind !== behind) continue;
+      const sprite = teamSprite(assets, fileSprite(file), team);
+      r.drawAttached(sprite, x, y, angle, m.x, m.y, (m.angle * Math.PI) / 180, time, alpha, m.scale, m.flipX, m.flipY);
+    }
+  };
+  drawMounts(true);
+  r.drawSprite(teamSprite(assets, baseFile ? fileSprite(baseFile) : base, team), x, y, angle, time, alpha);
+  drawMounts(false);
 }
 
 /** If (x, y) is off-screen, draw `sprite` at the screen edge, pointing toward it. */
