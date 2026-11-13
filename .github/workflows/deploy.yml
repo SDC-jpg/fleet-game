@@ -30,6 +30,8 @@ jobs:
         env:
           # Test keys on in the online version (set to "false" to turn them off).
           VITE_TEST_KEYS: 'true'
+          # The version number (same as in the Discord post). Saved equipment only loads in the version that saved it.
+          VITE_BUILD: ${{ github.run_number }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- Your equipment is now kept between games, even if you reload the page. Each new version of the game starts everyone with empty equipment again.
 - New equipment screen (Esc): slots in a ring, 3 per ship tier up to tier 10, with your fleet bonuses in the middle. Drag items into slots to equip, move or swap them; drag them to the inventory to take them off; right-click is a shortcut for both. Hover any item for its details. The inventory can be filtered by rarity and sorted.
 - Your level and XP bar moved to the bottom centre, under the skills, with counters for ships destroyed and their total value.
 - Smoother movement on fast screens (120 Hz and up): ships and shots no longer look blurry or doubled while boosting or dashing.

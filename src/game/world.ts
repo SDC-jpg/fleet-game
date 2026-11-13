@@ -280,6 +280,8 @@ export interface GameState {
    * up to CONFIG.items.maxSlotTier. Each holds an item id or null (empty).
    */
   slots: (number | null)[];
+  /** Set when items, slots or unlocks change, so Game.ts saves them (see save.ts). */
+  equipmentChanged: boolean;
   /** Highest tier whose slots are unlocked (reached with your biggest ship, up to maxSlotTier). */
   unlockedTier: number;
   /** Items floating in space, waiting to be picked up. */
@@ -410,6 +412,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     items: [],
     slots: Array(CONFIG.items.slotsPerTier * CONFIG.items.maxSlotTier).fill(null),
     unlockedTier: 1,
+    equipmentChanged: false,
     loot: [],
     found: null,
     beams: [],

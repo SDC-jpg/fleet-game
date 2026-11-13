@@ -10,6 +10,7 @@ import { renderGame, tierSprite } from './render';
 import { CONFIG, ITEM_STATS, SKILLS, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
+import { loadEquipment, saveEquipment } from './save';
 import { describeItem, equip, rollItem, slotOf, slotTier, slotUnlocked, unequip, type Item } from './equipment';
 import { cooldownOf } from './skills';
 import {
@@ -174,6 +175,7 @@ export class Game {
     // The elite test switch (key O) is remembered in this browser between runs and visits.
     const stored = TEST_KEYS_ENABLED ? loadSetting(ELITES_SETTING) : null;
     if (stored !== null) state.elitesEnabled = stored === 'on';
+    loadEquipment(state);
     this.renderer.setZoom(state.zoom, true);
     return state;
   }
@@ -224,15 +226,24 @@ export class Game {
     ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
   }
 
+  /** Save equipment if it changed (items found, moved, or slots unlocked). */
+  private saveIfChanged() {
+    if (!this.state.equipmentChanged) return;
+    this.state.equipmentChanged = false;
+    saveEquipment(this.state);
+  }
+
   /** Equipment screen: put an item into a slot (moving or swapping), or the first free slot if none is given. */
   equipItem(id: number, slot?: number) {
     equip(this.state, id, slot);
+    this.saveIfChanged();
     this.sendHud();
   }
 
   /** Equipment screen: take an item out of its slot. */
   unequipItem(id: number) {
     unequip(this.state, id);
+    this.saveIfChanged();
     this.sendHud();
   }
 
@@ -287,6 +298,7 @@ export class Game {
     // Spawn enemies a bit outside the visible area.
     updateGame(this.state, this.readControls(), dt, this.spawnDistance());
     this.playQueuedSounds();
+    this.saveIfChanged();
     // A level-up stops the game until a card is picked: send the cards to the screen now.
     if (this.state.cards) this.sendHud();
   }

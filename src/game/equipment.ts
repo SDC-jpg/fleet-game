@@ -43,7 +43,10 @@ export const slotUnlocked = (state: GameState, slot: number) => slotTier(slot) <
 /** Unlock the slots of the biggest tier you've reached (up to CONFIG.items.maxSlotTier). */
 export function unlockSlots(state: GameState) {
   const tier = Math.min(state.maxTier, CONFIG.items.maxSlotTier);
-  if (tier > state.unlockedTier) state.unlockedTier = tier;
+  if (tier > state.unlockedTier) {
+    state.unlockedTier = tier;
+    state.equipmentChanged = true;
+  }
 }
 
 /** The slot an item is in, or -1 if it's not equipped. */
@@ -109,6 +112,7 @@ export function updateLoot(state: GameState, dt: number) {
     l.life -= dt;
     if (nearest && nearestD < (nearest.stats.radius + 8) ** 2) {
       state.items.push(l.item);
+      state.equipmentChanged = true;
       state.found = { item: l.item, time: state.time };
       l.life = 0;
       addSound(state, 'sfx.loot', l, 1, 1, true);
@@ -132,6 +136,7 @@ export function equip(state: GameState, id: number, slot = freeSlot(state)) {
   const other = state.slots[slot];
   state.slots[slot] = id;
   if (from >= 0) state.slots[from] = other;
+  state.equipmentChanged = true;
   updateBonuses(state);
   return true;
 }
@@ -141,6 +146,7 @@ export function unequip(state: GameState, id: number) {
   const slot = slotOf(state, id);
   if (slot < 0) return;
   state.slots[slot] = null;
+  state.equipmentChanged = true;
   updateBonuses(state);
 }
 
