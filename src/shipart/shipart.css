@@ -236,3 +236,6 @@
 .sa-wrap {
   flex-wrap: wrap;
 }
+.sa-effect-note {
+  margin-top: 12px;
+}

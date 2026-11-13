@@ -2,6 +2,8 @@
 // While `npm run dev` runs it adds two addresses the tool talks to:
 //   GET  /__shipart/files  every .png in public/assets (so new art shows up in the tool by itself)
 //   POST /__shipart/save   writes the layouts the tool sends to public/assets/art.json
+//   POST /__shipart/manifest  changes sprite entries in public/assets/manifest.json (speed, loop,
+//                          image files), rewriting only those entries' lines
 //   GET  /__shipart/info   the project folder's Windows path, if it's shared from Windows into
 //                          the container (so ShipArt can offer "Copy folder path"). Worked out
 //                          while running, never written to a file: it contains the user's name.
@@ -52,6 +54,28 @@ function windowsPathOf(dir: string): string | null {
   return null;
 }
 
+/** A manifest entry on one line, in the file's own style: { "file": "vfx/x.png", "fps": 12 }. */
+function entryLine(entry: Record<string, unknown>) {
+  const parts = Object.entries(entry)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `"${k}": ${Array.isArray(v) ? `[${v.map((x) => JSON.stringify(x)).join(', ')}]` : JSON.stringify(v)}`);
+  return `{ ${parts.join(', ')} }`;
+}
+
+/** Replace the lines of these sprite entries in manifest.json, keeping everything else as it is. */
+function patchManifest(assetsDir: string, sprites: Record<string, Record<string, unknown>>) {
+  const path = join(assetsDir, 'manifest.json');
+  let text = readFileSync(path, 'utf8');
+  for (const [name, entry] of Object.entries(sprites)) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const line = new RegExp(`^(\\s*"${escaped}":\\s*)\\{.*\\}(,?)\\s*$`, 'm');
+    if (!line.test(text)) throw new Error(`no entry named ${name} in manifest.json`);
+    text = text.replace(line, (_m, start: string, comma: string) => `${start}${entryLine(entry)}${comma}`);
+  }
+  JSON.parse(text); // never write a broken file
+  writeFileSync(path, text);
+}
+
 export function shipArtPlugin(): Plugin {
   let assetsDir = '';
   let root = '';
@@ -69,6 +93,26 @@ export function shipArtPlugin(): Plugin {
       server.middlewares.use('/__shipart/files', (_req, res) => {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ files: listArt(assetsDir) }));
+      });
+      server.middlewares.use('/__shipart/manifest', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end('POST only');
+          return;
+        }
+        let body = '';
+        req.on('data', (chunk) => (body += chunk));
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            if (typeof data?.sprites !== 'object') throw new Error('no sprites');
+            patchManifest(assetsDir, data.sprites);
+            res.end('saved');
+          } catch (e) {
+            res.statusCode = 400;
+            res.end(`Not saved: ${(e as Error).message}`);
+          }
+        });
       });
       server.middlewares.use('/__shipart/save', (req, res) => {
         if (req.method !== 'POST') {

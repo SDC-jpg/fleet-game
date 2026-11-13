@@ -2,7 +2,7 @@
 // The rest of the game asks for art by name (e.g. "vfx.explosion"), never by file path.
 
 /** One entry in manifest.json. Only `file` or `files` is required. */
-interface ManifestEntry {
+export interface ManifestEntry {
   file?: string;
   files?: string[];
   frameWidth?: number;
@@ -62,6 +62,8 @@ export class Assets {
   private sprites = new Map<string, Sprite>();
   /** The (first) image file of each sprite, e.g. "vfx/particle-move.png". */
   private files = new Map<string, string>();
+  /** Each manifest sprite's entry as loaded (ShipArt edits and saves them). */
+  private entries = new Map<string, ManifestEntry>();
   private missing = makeMissingSprite();
   /** Human-readable list of anything that failed to load. Shown on screen. */
   problems: string[] = [];
@@ -77,6 +79,7 @@ export class Assets {
       throw new Error(`assets/manifest.json is not valid JSON: ${(e as Error).message}`);
     }
     const entries = Object.entries(manifest.sprites ?? {});
+    for (const [name, entry] of entries) assets.entries.set(name, entry);
     await Promise.all(entries.map(([name, entry]) => assets.loadSprite(name, entry)));
     return assets;
   }
@@ -131,6 +134,25 @@ export class Assets {
     const frames = Math.max(1, Math.floor(settings.frames ?? 1));
     await this.loadSprite(name, { file, frameWidth: Math.floor(img.width / frames), frames, fps: settings.fps, loop: settings.loop });
     // Recoloured copies were made from the old version.
+    for (const key of this.recolorCache.keys()) if (key.startsWith(name + '|')) this.recolorCache.delete(key);
+  }
+
+  /** A manifest sprite's entry (its files and frame settings), if it has one. */
+  entryOf(name: string): ManifestEntry | undefined {
+    return this.entries.get(name);
+  }
+
+  /** Every file a sprite's frames come from. */
+  filesOf(name: string): string[] {
+    const e = this.entries.get(name);
+    return e ? (e.files ?? (e.file ? [e.file] : [])) : [];
+  }
+
+  /** Replace a manifest sprite's entry and reload it (ShipArt: new speed, loop, or images). */
+  async setEntry(name: string, entry: ManifestEntry) {
+    this.entries.set(name, entry);
+    this.problems = this.problems.filter((p) => !p.startsWith(name + ':'));
+    await this.loadSprite(name, entry);
     for (const key of this.recolorCache.keys()) if (key.startsWith(name + '|')) this.recolorCache.delete(key);
   }
 

@@ -62,7 +62,11 @@ http://localhost:5173/shipart.html. The published copy
   point, where its burst (`vfx.missile-hit`) appears.
 - **Base image:** each state can also use a different main image.
 - **Animated parts:** put the frames side by side in one file and set
-  Frames and FPS in ShipArt.
+  Frames, Speed (FPS) and Loop in ShipArt's purple panel.
+- **Effects** (rollout section): every `vfx.*` image plays in the big preview
+  over the stars, with buttons for its tier versions. The purple panel sets its
+  Speed (FPS) and Loop, for all tiers or only the one shown; Save writes them
+  into `manifest.json`.
 - **Particles** (purple **VFX** panel): per state, on or off, and the particle
   image, spawn rate, life, speed, drag and angle (the width of the spawn cone,
   0 = a straight line, 360 = every direction). Edit them for one mount, or as the

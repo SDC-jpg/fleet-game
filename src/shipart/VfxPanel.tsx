@@ -8,7 +8,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ASSET_ROOT, frameAt, type Assets } from '../engine/assets';
 import { particleDefaults, particleSettings, type ArtLayoutsFile, type Mount, type ParticleSettings } from '../game/artLayout';
 import type { ArtKind } from '../game/artKinds';
-import { NumberField } from './fields';
+import { FlipbookFields, NumberField } from './fields';
+import type { ImageSettings } from '../game/artLayout';
 
 const BACKGROUNDS = { black: '#000000', gray: '#808080', white: '#ffffff' } as const;
 type Background = keyof typeof BACKGROUNDS;
@@ -34,6 +35,7 @@ export function VfxPanel({
   windowsRoot,
   onChange,
   onChangeData,
+  flipbook,
 }: {
   assets: Assets;
   data: ArtLayoutsFile;
@@ -48,6 +50,8 @@ export function VfxPanel({
   onChange: (fn: (m: Mount) => void) => void;
   /** Change anything in the layouts file (used for the particle defaults). */
   onChangeData: (fn: (d: ArtLayoutsFile) => void) => void;
+  /** The image the mount shows in this state, and its flipbook settings (none = no image now). */
+  flipbook?: { file: string; settings: ImageSettings; onChange: (p: ImageSettings) => void };
 }) {
   // Which state's particles are shown: follows the preview, but can be switched here.
   const [tab, setTab] = useState(mountState);
@@ -119,6 +123,18 @@ export function VfxPanel({
         >
           Reset VFX point to centre
         </button>
+
+        {flipbook && (
+          <>
+            <div className="sa-sub">Flipbook: {flipbook.file.replace(/^.*\//, '')}</div>
+            <FlipbookFields
+              frames={flipbook.settings.frames ?? 1}
+              fps={flipbook.settings.fps ?? 12}
+              loop={flipbook.settings.loop ?? true}
+              onChange={flipbook.onChange}
+            />
+          </>
+        )}
 
         <div className="sa-sub">Particles</div>
         <div className="sa-row sa-wrap">

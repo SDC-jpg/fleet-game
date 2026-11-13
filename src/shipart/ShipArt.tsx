@@ -10,15 +10,17 @@
 // Locally (npm run dev) it can edit and save. The published copy is view-only.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ASSET_ROOT, Assets } from '../engine/assets';
+import { ASSET_ROOT, Assets, type ManifestEntry } from '../engine/assets';
 import { ROTATION_LABELS, ROTATION_MODES, type RotationMode } from '../engine/renderer';
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import { emptyLayout, fileSprite, loadArtLayouts, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
 import { OBJECT_KINDS, SHIP_KIND, kindOf, type ArtKind } from '../game/artKinds';
+import { tierSprite } from '../game/render';
 import type { Team } from '../game/world';
 import { Preview } from './Preview';
 import { NumberField } from './fields';
 import { VfxPanel } from './VfxPanel';
+import { EffectPanel } from './EffectPanel';
 
 /** Editing and saving only work with the dev server (npm run dev). */
 const READ_ONLY = !import.meta.env.DEV;
@@ -27,6 +29,12 @@ const ZOOMS = [1, 2, 3, 4, 6, 8];
 const EMITTER = 'emitter';
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
+/** Manifest entries changed in ShipArt but not saved yet, by sprite name. */
+type Patch = Record<string, ManifestEntry>;
+/** One undo step: the layouts and the unsaved manifest changes as they were. */
+type Snapshot = { data: ArtLayoutsFile; patch: Patch };
+/** "vfx.explosion.t3" → "vfx.explosion". */
+const effectBaseOf = (name: string) => name.replace(/\.t\d+$/, '');
 /** "parts/thruster-boost-1.png" → "thruster-boost-1". */
 const baseName = (file: string) => file.replace(/^.*\//, '').replace(/\.png$/i, '');
 /** "parts/thruster-boost-1.png" → "thruster". */
@@ -70,7 +78,16 @@ export function ShipArt() {
   const [selected, setSelected] = useState<number | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
-  const [history, setHistory] = useState<ArtLayoutsFile[]>([]);
+  const [history, setHistory] = useState<Snapshot[]>([]);
+  /** Manifest entries changed here (effect speed, loop...), saved to manifest.json with Save. */
+  const [patch, setPatch] = useState<Patch>({});
+  const patchRef = useRef(patch);
+  patchRef.current = patch;
+  /** Each changed entry as it was when last saved (for undo). */
+  const baselineRef = useRef<Patch>({});
+  /** The effect being shown (Effects section), by its base name, and which tier version. */
+  const [effectBase, setEffectBase] = useState<string | null>(null);
+  const [effectTier, setEffectTier] = useState(1);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState('');
   /** What the arrow keys move: the selected mount, or its VFX point. */
@@ -128,23 +145,47 @@ export function ShipArt() {
       const next = clone(current);
       next[section][subject] ??= emptyLayout();
       fn(next);
-      if (!noUndo) setHistory((h) => [...h.slice(-99), current]);
+      if (!noUndo) setHistory((h) => [...h.slice(-99), { data: current, patch: patchRef.current }]);
       setData(next);
       setDirty(true);
     },
     [section, subject],
   );
+
+  /** Change manifest entries (effects): applied to the art right away, saved to manifest.json with Save. */
+  const changeEntries = (names: string[], fn: (e: ManifestEntry) => ManifestEntry) => {
+    const current = dataRef.current;
+    if (!assets || !current || READ_ONLY) return;
+    setHistory((h) => [...h.slice(-99), { data: current, patch: patchRef.current }]);
+    const next = { ...patchRef.current };
+    for (const name of names) {
+      const entry = next[name] ?? assets.entryOf(name);
+      if (!entry) continue;
+      baselineRef.current[name] ??= assets.entryOf(name)!;
+      next[name] = fn({ ...entry });
+      assets.setEntry(name, next[name]);
+    }
+    setPatch(next);
+    setDirty(true);
+  };
   const changeMount = (fn: (m: Mount) => void, noUndo = false) =>
     selected !== null && change((d) => fn(d[section][subject].mounts[selected]), noUndo);
 
   const undo = useCallback(() => {
     setHistory((h) => {
       if (!h.length) return h;
-      setData(h[h.length - 1]);
+      const back = h[h.length - 1];
+      // Put back any effect entries this undoes.
+      for (const name of new Set([...Object.keys(patchRef.current), ...Object.keys(back.patch)])) {
+        const entry = back.patch[name] ?? baselineRef.current[name];
+        if (entry && entry !== patchRef.current[name]) assets?.setEntry(name, entry);
+      }
+      setData(back.data);
+      setPatch(back.patch);
       setDirty(true);
       return h.slice(0, -1);
     });
-  }, []);
+  }, [assets]);
 
   const save = useCallback(async () => {
     const current = dataRef.current;
@@ -153,6 +194,14 @@ export function ShipArt() {
     try {
       const res = await fetch('/__shipart/save', { method: 'POST', body: JSON.stringify(current) });
       if (!res.ok) throw new Error(await res.text());
+      // Effect changes go into manifest.json.
+      const changed = patchRef.current;
+      if (Object.keys(changed).length) {
+        const m = await fetch('/__shipart/manifest', { method: 'POST', body: JSON.stringify({ sprites: changed }) });
+        if (!m.ok) throw new Error(await m.text());
+        Object.assign(baselineRef.current, changed);
+        setPatch({});
+      }
       setDirty(false);
       setStatus(`Saved ${new Date().toLocaleTimeString()}`);
     } catch (e) {
@@ -160,8 +209,14 @@ export function ShipArt() {
     }
   }, []);
 
+  /** Every effect (each "vfx.*" sprite, tier versions grouped under one name). */
+  const effects = useMemo(() => (assets ? [...new Set(assets.names().filter((n) => n.startsWith('vfx.')).map(effectBaseOf))].sort() : []), [assets]);
+  /** The tier versions of the effect shown, and the one being shown. */
+  const effectTiers = effectBase && assets ? [effectBase, ...[2, 3, 4, 5, 6].map((t) => `${effectBase}.t${t}`)].filter((n) => assets.has(n)) : [];
+  const effect = effectBase && assets ? tierSprite(assets, effectBase, effectTier) : null;
+
   const previewSettings = () =>
-    data && { data, subject, kind, state, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, readOnly: READ_ONLY };
+    data && { data, subject, kind, state, effect, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, readOnly: READ_ONLY };
 
   // Start the preview once everything has loaded.
   useEffect(() => {
@@ -189,7 +244,7 @@ export function ShipArt() {
       },
       dragStart: () => {
         const current = dataRef.current;
-        if (current) setHistory((h) => [...h.slice(-99), current]);
+        if (current) setHistory((h) => [...h.slice(-99), { data: current, patch: patchRef.current }]);
       },
       moveMount: (i, x, y) => {
         setNudge('mount');
@@ -219,10 +274,10 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint]);
+  }, [data, subject, state, effect, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, patch]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
-  useEffect(() => previewRef.current?.resetPosition(), [subject, spin, fly]);
+  useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
   useEffect(() => {
     setSelected(null);
     setSelectedPoint(null);
@@ -333,23 +388,25 @@ export function ShipArt() {
 
   if (error) return <div className="shipart-message">Couldn't start ShipArt: {error}</div>;
 
-  // The image shown for the selected mount in the current state (its animation settings can be edited).
+  // The image shown for the selected mount in the current state (its flipbook settings can be edited).
   const shownImage = mount?.images[mountState];
-  const shownSettings = shownImage ? (data?.images[shownImage] ?? {}) : null;
-  const setImageSettings = (patch: { frames?: number; fps?: number }) => {
+  const setImageSettings = (p: { frames?: number; fps?: number; loop?: boolean }) => {
     if (!shownImage || !assets) return;
-    const next = { ...(data?.images[shownImage] ?? {}), ...patch };
+    const next = { ...(data?.images[shownImage] ?? {}), ...p };
     change((d) => (d.images[shownImage] = next));
     assets.loadFile(fileSprite(shownImage), shownImage, next);
   };
   const point = selectedPoint ? (layout.points?.[selectedPoint] ?? { x: 0, y: 0 }) : null;
-  const pickSubject = (s: string) => setSubject(s);
+  const pickSubject = (s: string) => {
+    setSubject(s);
+    setEffectBase(null);
+  };
   const stateLabel = (s: string) => kind.states.find((k) => k.id === s)?.label ?? label(s);
 
   /** One list of sprites in the rollout menu. */
   const subjectList = (list: string[]) =>
     list.filter(matchesFilter).map((s) => (
-      <button key={s} className={'sa-ship' + (subject === s ? ' on' : '')} onClick={() => pickSubject(s)}>
+      <button key={s} className={'sa-ship' + (!effect && subject === s ? ' on' : '')} onClick={() => pickSubject(s)}>
         {shortName(s)}
       </button>
     ));
@@ -359,11 +416,17 @@ export function ShipArt() {
       <header className="sa-top">
         <h1>ShipArt</h1>
         <div className="sa-group">
-          {kind.states.map((s) => (
-            <button key={s.id} className={state === s.id ? 'on' : ''} onClick={() => setState(s.id)}>
-              {s.label}
-            </button>
-          ))}
+          {effect
+            ? effectTiers.map((n, i) => (
+                <button key={n} className={effect === n ? 'on' : ''} onClick={() => setEffectTier(i + 1)} title={n}>
+                  Tier {i + 1}
+                </button>
+              ))
+            : kind.states.map((s) => (
+                <button key={s.id} className={state === s.id ? 'on' : ''} onClick={() => setState(s.id)}>
+                  {s.label}
+                </button>
+              ))}
         </div>
         <div className="sa-group">
           Zoom
@@ -448,7 +511,27 @@ export function ShipArt() {
           </div>
         )}
 
-        {data && (
+        <button className="sa-rollout" onClick={() => setOpen({ ...open, effects: !open.effects })}>
+          {open.effects ? '▾' : '▸'} Effects
+        </button>
+        {open.effects && (
+          <div className="sa-rollout-body">
+            {effects.filter(matchesFilter).map((e) => (
+              <button
+                key={e}
+                className={'sa-ship' + (effectBase === e ? ' on' : '')}
+                onClick={() => {
+                  setEffectBase(e);
+                  setEffectTier(1);
+                }}
+              >
+                {e.replace(/^vfx\./, '')}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {data && !effect && (
           <fieldset disabled={READ_ONLY}>
             <h2>Base image</h2>
             {kind.mountStates.map((s) => (
@@ -492,11 +575,23 @@ export function ShipArt() {
         <canvas ref={overlayRef} className="sa-overlay" />
         {!assets && <div className="shipart-message">Loading…</div>}
         <div className="sa-hint">
-          {hover ? `x ${hover.x}, y ${hover.y} · ` : ''}Drag a mount, its pink VFX point, or a yellow point · Arrows nudge (Shift = 5 px) · Delete removes
+          {effect
+            ? 'Looping effects play on and on; play-once effects replay after a short pause'
+            : `${hover ? `x ${hover.x}, y ${hover.y} · ` : ''}Drag a mount, its pink VFX point, or a yellow point · Arrows nudge (Shift = 5 px) · Delete removes`}
         </div>
       </main>
 
-      {assets && data && (
+      {assets && effect && (
+        <EffectPanel
+          assets={assets}
+          sprite={effect}
+          tiers={effectTiers}
+          readOnly={READ_ONLY}
+          windowsRoot={windowsRoot}
+          onChangeEntries={changeEntries}
+        />
+      )}
+      {assets && data && !effect && (
         <VfxPanel
           assets={assets}
           data={data}
@@ -507,11 +602,17 @@ export function ShipArt() {
           windowsRoot={windowsRoot}
           onChange={(fn) => changeMount(fn)}
           onChangeData={(fn) => change(fn)}
+          flipbook={
+            shownImage
+              ? { file: shownImage, settings: data.images[shownImage] ?? {}, onChange: setImageSettings }
+              : undefined
+          }
         />
       )}
 
       <aside className="sa-right">
-        <fieldset disabled={READ_ONLY}>
+        {effect && <div className="sa-note sa-effect-note">Effects have no mounts. Their flipbook and image are in the purple panel.</div>}
+        <fieldset disabled={READ_ONLY} hidden={!!effect}>
           {kind.points.length > 0 && (
             <>
               <h2>Points</h2>
@@ -648,16 +749,6 @@ export function ShipArt() {
               <label className="sa-row">
                 <input type="checkbox" checked={mount.behind} onChange={(e) => changeMount((m) => (m.behind = e.target.checked))} /> Behind
               </label>
-
-              {shownImage && shownSettings && (
-                <>
-                  <div className="sa-sub">Animation of {baseName(shownImage)}</div>
-                  <div className="sa-row">
-                    <NumberField label="Frames" value={shownSettings.frames ?? 1} min={1} onChange={(v) => setImageSettings({ frames: Math.max(1, Math.round(v)) })} />
-                    <NumberField label="FPS" value={shownSettings.fps ?? 12} min={1} onChange={(v) => setImageSettings({ fps: v })} />
-                  </div>
-                </>
-              )}
 
               <div className="sa-row sa-actions">
                 <button

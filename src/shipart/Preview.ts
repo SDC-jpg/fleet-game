@@ -20,6 +20,8 @@ export interface PreviewSettings {
   kind: ArtKind;
   /** One of the kind's preview states. */
   state: string;
+  /** An effect sprite to show on its own (Effects section), instead of the subject. */
+  effect: string | null;
   zoom: number;
   spin: boolean;
   fly: boolean;
@@ -182,6 +184,13 @@ export class Preview {
       r.drawTiled(this.assets.get('bg.stars-near'), 0.6);
     }
 
+    if (st.effect) {
+      this.drawEffect(st.effect);
+      r.end();
+      this.drawGuides();
+      return;
+    }
+
     const state = this.mountState();
     const tier = tierOf(st.subject);
     const hidden = sequence && this.stateTime >= SEQ.impact;
@@ -205,6 +214,18 @@ export class Preview {
     if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, st.team, this.time, st.state === 'impact' ? 0.35 : 1);
     r.end();
     this.drawGuides();
+  }
+
+  /**
+   * An effect on its own, in the middle: looping effects play on and on;
+   * play-once effects replay after a short pause.
+   */
+  private drawEffect(name: string) {
+    const st = this.settings;
+    const sprite = this.assets.getRecolored(name, CONFIG.teamColors[st.team], CONFIG.teamColors);
+    const length = sprite.fps > 0 ? sprite.frames.length / sprite.fps : 1;
+    const t = sprite.loop ? this.time : this.time % (length + 0.5);
+    if (sprite.loop || t < length) this.renderer.drawSprite(sprite, this.x, this.y, this.angle, t);
   }
 
   /** The image a mount shows in this state, or (if hidden in this state) any of its images, for its outline. */
@@ -247,7 +268,7 @@ export class Preview {
     ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
     const st = this.settings;
     if (!st.guides) return;
-    const layout = this.layout;
+    const layout = st.effect ? undefined : this.layout;
     // The subject's centre (its anchor): where positions are measured from.
     const o = this.toScreen({ x: 0, y: 0 });
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';
@@ -332,7 +353,7 @@ export class Preview {
     const st = this.settings;
     const layout = this.layout;
     const p = this.shipPoint(e);
-    if (!st.guides) return this.events.select(null);
+    if (!st.guides || st.effect) return this.events.select(null);
     const scale = this.renderer.worldToScreen(1, 0).x - this.renderer.worldToScreen(0, 0).x;
     const near = 6 / Math.max(scale, 0.01);
     // Named points first (small handles on top).
