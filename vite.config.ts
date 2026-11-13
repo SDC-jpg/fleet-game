@@ -8,6 +8,8 @@ export default defineConfig({
   // Built files find each other with relative paths, so the game works at any
   // web address, e.g. https://<user>.github.io/fleet-game/
   base: './',
+  // When this version was built (shown with the version number at the bottom right).
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   build: {
     // Two pages: the game, and the ShipArt tool.
     rollupOptions: { input: { main: 'index.html', shipart: 'shipart.html' } },

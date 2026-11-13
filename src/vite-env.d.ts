@@ -5,3 +5,6 @@ interface ImportMetaEnv {
   readonly VITE_BUILD?: string;
   readonly VITE_TEST_KEYS?: string;
 }
+
+/** When this version was built (ISO date and time; set in vite.config.ts). */
+declare const __BUILD_TIME__: string;

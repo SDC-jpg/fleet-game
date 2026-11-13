@@ -12,6 +12,7 @@ import { CONFIG, ITEM_STATS, SKILLS, type ItemStat, type Rarity, type SkillId } 
 import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { loadEquipment, saveEquipment } from './save';
+import { recordRun, type RunRecord } from './runLog';
 import { describeItem, equip, rollItem, slotOf, slotTier, slotUnlocked, unequip, type Item } from './equipment';
 import { cooldownOf } from './skills';
 import { Particles } from './particles';
@@ -81,6 +82,8 @@ export interface HudInfo {
   rotation: RotationMode;
   /** Monitor size, display scaling and pixel zoom, for checking the zoom (test bar). */
   display: string;
+  /** Every logged run (shown on the game-over screen), oldest first, or null during a run. */
+  runs: RunRecord[] | null;
   soundOn: boolean;
   /** Auto-fire (Q) is on. */
   autoFire: boolean;
@@ -143,6 +146,8 @@ export class Game {
   private paused = false;
   /** Auto-fire (Q): fires as if left click were held. */
   private autoFire = false;
+  /** The run log, filled in when a run ends (null until then). */
+  private runs: RunRecord[] | null = null;
   /** Ship layouts from ships.json (thrusters and other parts, made with the ShipArt tool). */
   private layouts: ShipLayoutsFile;
   /** Thruster particles (visual only). */
@@ -206,6 +211,7 @@ export class Game {
 
   restart() {
     this.particles.clear();
+    this.runs = null;
     this.state = this.newState();
     this.paused = false;
   }
@@ -304,6 +310,11 @@ export class Game {
     updateGame(this.state, this.readControls(), dt, this.spawnDistance());
     this.playQueuedSounds();
     this.saveIfChanged();
+    // The run just ended: add it to the run log (once).
+    if (this.state.gameOver && !this.runs) {
+      this.runs = recordRun(this.state);
+      this.sendHud();
+    }
     // A level-up stops the game until a card is picked: send the cards to the screen now.
     if (this.state.cards) this.sendHud();
   }
@@ -499,6 +510,7 @@ export class Game {
       elitesEnabled: st.elitesEnabled,
       rotation: this.renderer.rotation,
       display: displayText(this.renderer.displayInfo),
+      runs: this.runs,
       soundOn: this.sounds.enabled,
       autoFire: this.autoFire,
       fps: this.fps,
