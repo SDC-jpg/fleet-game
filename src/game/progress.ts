@@ -7,7 +7,7 @@ import { xpToNextLevel } from './curves';
 import { addSound, type Card, type GameState } from './world';
 import { updateBonuses } from './equipment';
 
-/** Add XP. Every level reached waits for a card pick (the game pauses while cards are shown). */
+/** Add XP. Every level reached waits for a card pick (cards appear shortly after; the game pauses while they're shown). */
 export function gainXp(state: GameState, amount: number) {
   state.xp += amount;
   while (state.xp >= xpToNextLevel(state.level)) {
@@ -16,7 +16,6 @@ export function gainXp(state: GameState, amount: number) {
     state.pendingLevels++;
     addSound(state, 'sfx.levelup', { x: 0, y: 0 }, 1, 1, true);
   }
-  if (!state.cards && state.pendingLevels > 0) state.cards = drawCards(state);
 }
 
 /** Skills you can still pick up: not owned yet, and with room on their side (left or right click). */

@@ -40,6 +40,9 @@ body {
   opacity: 0.6;
   font-size: 12px;
 }
+.hud .auto-fire {
+  color: #ffd34a;
+}
 .hud .warn {
   margin-top: 8px;
   color: #ff9ad5;

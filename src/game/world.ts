@@ -4,7 +4,7 @@
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyFleetValue } from './curves';
-import { gainXp } from './progress';
+import { drawCards, gainXp } from './progress';
 import { dropItem, maybeDropItem, noBonus, updateLoot, type FleetBonus, type Item, type Loot } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 
@@ -263,6 +263,8 @@ export interface GameState {
   xp: number;
   /** Level-ups waiting for a card to be picked. */
   pendingLevels: number;
+  /** Seconds since a level-up started waiting for its cards (they appear after CONFIG.levels.cardDelay). */
+  cardDelay: number;
   /** The level-up cards on offer (the game is paused while there are some). */
   cards: Card[] | null;
   /** Skills you've picked, in the order you got them. */
@@ -394,6 +396,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     level: 1,
     xp: 0,
     pendingLevels: 0,
+    cardDelay: 0,
     cards: null,
     skills: [],
     cardBonus: { damage: 0, fireRate: 0 },
@@ -580,6 +583,14 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   startMerges(state);
   promoteFlagship(state);
   updateWaves(state, dt, spawnDistance);
+  // A level-up shows its cards after a short delay, so the kill that caused it can play out first.
+  if (!state.cards && state.pendingLevels > 0) {
+    state.cardDelay += dt;
+    if (state.cardDelay >= CONFIG.levels.cardDelay) {
+      state.cardDelay = 0;
+      state.cards = drawCards(state);
+    }
+  }
 
   const fleet = state.playerFleet;
   state.maxFleetSize = Math.max(state.maxFleetSize, fleetValue(fleet));

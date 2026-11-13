@@ -43,7 +43,7 @@ export default function App() {
 
       {hud && (
         <div className="top-bar">
-          <div>WASD move · Shift boost · Space dash · mouse aim · click fire · right-click defend · Esc pause & equipment · fly into wrecks to recruit</div>
+          <div>WASD move · Shift boost · Space dash · mouse aim · click fire · Q auto-fire · right-click defend · Esc pause & equipment · fly into wrecks to recruit</div>
           {TEST_KEYS_ENABLED && (
             <div>
               Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
@@ -72,6 +72,7 @@ export default function App() {
             </span>
           </div>
           <div>FPS: {hud.fps}</div>
+          {hud.autoFire && <div className="auto-fire">Auto-fire ON (Q)</div>}
           <button
             className="sound-toggle"
             onClick={(e) => {

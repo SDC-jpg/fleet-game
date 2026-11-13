@@ -5,7 +5,7 @@ import { Input } from '../engine/input';
 import { startLoop } from '../engine/loop';
 import { PixelRenderer } from '../engine/renderer';
 import type { Sounds } from '../engine/sound';
-import { clamp } from '../engine/math';
+import { clamp, wrapAngle } from '../engine/math';
 import { renderGame, tierSprite } from './render';
 import { CONFIG, ITEM_STATS, SKILLS, type ItemStat, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
@@ -90,6 +90,8 @@ export interface HudInfo {
   /** Whether elites come this run (test key O). */
   elitesEnabled: boolean;
   soundOn: boolean;
+  /** Auto-fire (Q) is on. */
+  autoFire: boolean;
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
   assetProblems: string[];
@@ -130,6 +132,10 @@ export class Game {
   private fpsFrames = 0;
   private fpsStart = performance.now();
   private paused = false;
+  /** Auto-fire (Q): fires as if left click were held. */
+  private autoFire = false;
+  /** Where each ship and shot was one step ago, for drawing them smoothly between steps. */
+  private previous = new Map<object, { x: number; y: number; angle: number }>();
   /** While paused the picture doesn't change, so it's only drawn again when needed. */
   private needsDraw = true;
   private onResize = () => {
@@ -166,7 +172,9 @@ export class Game {
     document.addEventListener('visibilitychange', this.onVisibility);
     this.stopLoop = startLoop(
       (dt) => this.update(dt),
-      (frameDt) => this.render(frameDt),
+      (frameDt, alpha) => this.render(frameDt, alpha),
+      // While the game is stopped (pause, equipment or level-up screen), 30 frames per second is plenty.
+      () => (this.isFrozen() ? 1 / 30 : 0),
     );
   }
 
@@ -237,7 +245,7 @@ export class Game {
       moveY: (i.isDown('KeyS', 'ArrowDown') ? 1 : 0) - (i.isDown('KeyW', 'ArrowUp') ? 1 : 0),
       aimX: aim.x,
       aimY: aim.y,
-      fire: i.mouseDown,
+      fire: i.mouseDown || this.autoFire,
       boost: i.isDown('ShiftLeft', 'ShiftRight'),
       dash: i.wasPressed('Space'),
       defend: i.wasPressed('MouseRight'),
@@ -248,6 +256,7 @@ export class Game {
     const i = this.input;
     if (this.state.gameOver && i.isDown('KeyR')) this.restart();
     if (i.wasPressed('KeyM')) this.toggleSound();
+    if (i.wasPressed('KeyQ')) this.autoFire = !this.autoFire;
     if (i.wasPressed('Escape')) this.setPaused(!this.paused);
     // Level-up cards: pick with 1, 2 or 3 (or a click).
     const cards = this.state.cards;
@@ -262,6 +271,7 @@ export class Game {
       return;
     }
     if (TEST_KEYS_ENABLED) this.handleTestKeys();
+    this.rememberPositions();
     // Spawn enemies a bit outside the visible area.
     updateGame(this.state, this.readControls(), dt, this.spawnDistance());
     this.playQueuedSounds();
@@ -333,23 +343,65 @@ export class Game {
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
-  private render(frameDt: number) {
+  /** True while the game is stopped: paused (equipment screen) or showing level-up cards. */
+  private isFrozen() {
+    return this.paused || this.state.cards !== null;
+  }
+
+  /** Note where every ship and shot is before a step (see drawAtSmoothPositions). */
+  private rememberPositions() {
+    this.previous.clear();
+    for (const s of this.state.ships) this.previous.set(s, { x: s.x, y: s.y, angle: s.angle });
+    for (const b of this.state.bullets) this.previous.set(b, { x: b.x, y: b.y, angle: 0 });
+  }
+
+  /**
+   * The game moves things 60 times a second, but many screens refresh faster
+   * (120 Hz, 144 Hz). Drawing ships and shots only where the last step left
+   * them makes them stutter against the smoothly moving camera, which looks
+   * like a blurry double image at high speed. So for drawing, each one is put
+   * `alpha` of the way from where it was one step ago to where it is now,
+   * then moved back after.
+   */
+  private drawAtSmoothPositions(alpha: number, draw: () => void) {
+    const moved: { o: { x: number; y: number; angle?: number }; x: number; y: number; angle?: number }[] = [];
+    const place = (o: { x: number; y: number; angle?: number }) => {
+      const p = this.previous.get(o);
+      if (!p) return;
+      moved.push({ o, x: o.x, y: o.y, angle: o.angle });
+      o.x = p.x + (o.x - p.x) * alpha;
+      o.y = p.y + (o.y - p.y) * alpha;
+      if (o.angle !== undefined) o.angle = p.angle + wrapAngle(o.angle - p.angle) * alpha;
+    };
+    for (const s of this.state.ships) place(s);
+    for (const b of this.state.bullets) place(b);
+    draw();
+    for (const m of moved) {
+      m.o.x = m.x;
+      m.o.y = m.y;
+      if (m.angle !== undefined) m.o.angle = m.angle;
+    }
+  }
+
+  private render(frameDt: number, alpha: number) {
     const r = this.renderer;
-    const ship = controlledShip(this.state);
-    if (ship) {
-      // Camera smoothly follows the ship you're flying.
-      const k = Math.min(1, frameDt * 8);
-      r.camX += (ship.x - r.camX) * k;
-      r.camY += (ship.y - r.camY) * k;
-    }
-    r.setZoom(this.state.zoom);
-    const frozen = this.paused || this.state.cards !== null;
-    if (!frozen || this.needsDraw) {
-      r.begin(frozen ? 0 : frameDt);
-      renderGame(this.state, r, this.assets);
-      r.end();
-      this.needsDraw = false;
-    }
+    const frozen = this.isFrozen();
+    this.drawAtSmoothPositions(frozen ? 1 : alpha, () => {
+      const ship = controlledShip(this.state);
+      if (ship) {
+        // Camera smoothly follows the ship you're flying.
+        const k = Math.min(1, frameDt * 8);
+        r.camX += (ship.x - r.camX) * k;
+        r.camY += (ship.y - r.camY) * k;
+      }
+      r.setZoom(this.state.zoom);
+      if (!frozen || this.needsDraw) {
+        r.begin(frozen ? 0 : frameDt);
+        renderGame(this.state, r, this.assets);
+        r.end();
+        this.needsDraw = false;
+      }
+    });
 
     // Count frames drawn; work out frames per second every half second (real clock time).
     this.fpsFrames++;
@@ -398,6 +450,7 @@ export class Game {
       invincible: st.invincible,
       elitesEnabled: st.elitesEnabled,
       soundOn: this.sounds.enabled,
+      autoFire: this.autoFire,
       fps: this.fps,
       assetProblems: [...this.assets.problems, ...this.sounds.problems],
     });

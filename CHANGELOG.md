@@ -6,6 +6,12 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- Smoother movement on fast screens (120 Hz and up): ships and shots no longer look blurry or doubled while boosting or dashing.
+- Ship tiers are back to the original pace: 16 ships merge into one bigger ship, starting once your fleet is worth 32.
+- Elites are one tier bigger than the normal enemies of their wave.
+- Level-up cards appear half a second after the kill, so you see it happen first.
+- Press Q to switch auto-fire on or off (fires as if you held left click).
+- Missiles launch a little faster (40 instead of 30).
 - Shots fly further before fading out.
 - Levelling up takes more XP (the first level needs 50).
 - Skills can now be upgraded up to rank 10 instead of 5.
