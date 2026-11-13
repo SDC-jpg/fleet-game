@@ -1,13 +1,14 @@
-// Particles: small visual-only dots (e.g. from thrusters). They don't affect
-// the game, so they live with the drawing code, not in world.ts. Each kind's
-// look is a sprite in the manifest (a short flipbook, e.g. a dot shrinking
-// away); amounts and speeds are in CONFIG.particles.
+// Particles: small visual-only dots (e.g. from thrusters, or a missile's
+// trail). They don't affect the game, so they live with the drawing code, not
+// in world.ts. Each kind's look is a sprite in the manifest (a short flipbook,
+// e.g. a dot shrinking away); amounts and speeds are set per emitter in
+// ShipArt (art.json). CONFIG.particles.max caps how many exist at once.
 
 import type { PixelRenderer } from '../engine/renderer';
 import type { Assets } from '../engine/assets';
 import { randRange } from '../engine/math';
 import { CONFIG } from './config';
-import { mountWorldAngle, particleSettings, shipPointToWorld, type ParticleSettings, type ShipLayout, type ShipState } from './shipLayout';
+import { mountWorldAngle, particleSettings, shipPointToWorld, type ArtLayout, type ArtLayoutsFile, type ParticleSettings } from './artLayout';
 
 interface Particle {
   sprite: string;
@@ -48,15 +49,15 @@ export class Particles {
   }
 
   /**
-   * Thruster particles for one ship: from the VFX point of every thruster mount
-   * showing in this state, flying out the back of the thruster.
+   * Particles from a ship's or object's mounts: every mount that gives off
+   * particles in this state does so from its VFX point, out the back of the mount.
    */
-  emitThrusters(layout: ShipLayout | undefined, state: ShipState, x: number, y: number, angle: number, dt: number) {
-    if (!layout || state === 'idle') return;
+  emitMounts(data: ArtLayoutsFile, layout: ArtLayout | undefined, state: string, x: number, y: number, angle: number, dt: number) {
+    if (!layout) return;
     for (const m of layout.mounts) {
-      if (m.category !== 'thruster' || !m.images[state]) continue;
+      if (!m.emit?.[state]) continue;
       const p = shipPointToWorld(m.x + m.vfxX, m.y + m.vfxY, x, y, angle);
-      this.emit(particleSettings(m, state), p.x, p.y, mountWorldAngle(m, angle) + Math.PI, dt);
+      this.emit(particleSettings(data, m, state), p.x, p.y, mountWorldAngle(m, angle) + Math.PI, dt);
     }
   }
 

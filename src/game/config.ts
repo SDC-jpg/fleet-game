@@ -418,20 +418,12 @@ export const CONFIG = {
   },
 
   /**
-   * Particles from thrusters (placed with the ShipArt tool), while moving and
-   * while boosting. Their look is the sprite (a short flipbook in the manifest).
+   * Particles (thrusters, missile trails...). Every emitter's settings, and the
+   * defaults per kind of mount, are edited in ShipArt and saved in art.json.
    */
   particles: {
     /** Most particles on screen at once (keeps big fleets fast). */
     max: 1500,
-    /**
-     * Defaults while moving: sprite, particles per second per thruster, speed, angle (width of the spawn cone
-     * in degrees: 0 = a straight line, 360 = every direction),
-     * seconds they last, drag (how quickly they slow down: 0 = never). Each thruster can change these in ShipArt.
-     */
-    move: { sprite: 'vfx.particle.move', perSecond: 10, speed: 35, angle: 30, life: 0.35, drag: 0 },
-    /** Defaults while boosting (more, faster particles). */
-    boost: { sprite: 'vfx.particle.boost', perSecond: 22, speed: 60, angle: 40, life: 0.4, drag: 0 },
   },
 
   /** Space dash: the whole fleet gets a burst of speed that fades out. */

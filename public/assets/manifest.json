@@ -37,6 +37,7 @@
 
     "vfx.particle.move": { "file": "vfx/particle-move.png", "frameWidth": 2, "frameHeight": 2, "frames": 3, "fps": 10, "loop": false },
     "vfx.particle.boost": { "file": "vfx/particle-boost.png", "frameWidth": 2, "frameHeight": 2, "frames": 3, "fps": 10, "loop": false },
+    "vfx.particle.trail": { "file": "vfx/particle-trail.png", "frameWidth": 2, "frameHeight": 2, "frames": 3, "fps": 10, "loop": false },
     "vfx.laser": { "file": "vfx/laser.png", "frameWidth": 8, "frameHeight": 8, "frames": 5, "fps": 16, "loop": false },
     "vfx.laser.t2": { "file": "vfx/laser-t2.png", "frameWidth": 8, "frameHeight": 11, "frames": 5, "fps": 16, "loop": false },
     "vfx.laser.t3": { "file": "vfx/laser-t3.png", "frameWidth": 8, "frameHeight": 16, "frames": 5, "fps": 16, "loop": false },
@@ -45,10 +46,6 @@
     "projectile.missile.t2": { "file": "projectiles/missile-t2.png" },
     "projectile.missile.t3": { "file": "projectiles/missile-t3.png" },
     "projectile.missile.t4": { "file": "projectiles/missile-t4.png" },
-    "vfx.missile-flame": { "file": "vfx/missile-flame.png", "frameWidth": 7, "frameHeight": 3, "frames": 3, "fps": 18, "anchorX": 7, "anchorY": 1.5 },
-    "vfx.missile-flame.t2": { "file": "vfx/missile-flame-t2.png", "frameWidth": 11, "frameHeight": 5, "frames": 3, "fps": 18, "anchorX": 11, "anchorY": 2.5 },
-    "vfx.missile-flame.t3": { "file": "vfx/missile-flame-t3.png", "frameWidth": 16, "frameHeight": 7, "frames": 3, "fps": 18, "anchorX": 16, "anchorY": 3.5 },
-    "vfx.missile-flame.t4": { "file": "vfx/missile-flame-t4.png", "frameWidth": 24, "frameHeight": 10, "frames": 3, "fps": 18, "anchorX": 24, "anchorY": 5 },
     "vfx.missile-hit": { "file": "vfx/missile-hit.png", "frameWidth": 20, "frameHeight": 20, "frames": 6, "fps": 20, "loop": false },
     "vfx.missile-hit.t2": { "file": "vfx/missile-hit-t2.png", "frameWidth": 30, "frameHeight": 30, "frames": 6, "fps": 20, "loop": false },
     "vfx.missile-hit.t3": { "file": "vfx/missile-hit-t3.png", "frameWidth": 46, "frameHeight": 46, "frames": 6, "fps": 20, "loop": false },

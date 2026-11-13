@@ -183,6 +183,11 @@ export interface Effect {
   age: number;
   /** Drawn this many times its normal size (e.g. a Repulse ring with a reach upgrade). */
   scale: number;
+  /**
+   * For an effect that belongs to a point on an object (a missile's impact burst):
+   * the object's sprite and tier, which way it faced, and the point's name (see art.json).
+   */
+  at?: { sprite: string; tier: number; angle: number; point: string };
 }
 
 /** Ships destroyed on each side this run (merged ships don't count as losses). */
@@ -1025,7 +1030,9 @@ function updateBullets(state: GameState, dt: number) {
       b.life = 0;
       if (b.homing > 0) {
         // Missiles burst in a small round explosion of their own.
-        addEffect(state, 'vfx.missile-hit', b.x, b.y, Math.random() * Math.PI * 2, b.tier);
+        const e = addEffect(state, 'vfx.missile-hit', b.x, b.y, Math.random() * Math.PI * 2, b.tier);
+        // It appears at the missile's impact point (placed in ShipArt).
+        e.at = { sprite: b.sprite, tier: b.tier, angle: b.facing ?? Math.atan2(b.vy, b.vx), point: 'impact' };
         addSound(state, 'sfx.missile-hit', b, b.tier);
       } else {
         addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
@@ -1414,7 +1421,9 @@ export function addSound(state: GameState, name: string, at: { x: number; y: num
 }
 
 export function addEffect(state: GameState, sprite: string, x: number, y: number, angle = 0, tier = 1, scale = 1) {
-  state.effects.push({ sprite, tier, x, y, angle, age: 0, scale });
+  const e: Effect = { sprite, tier, x, y, angle, age: 0, scale };
+  state.effects.push(e);
+  return e;
 }
 
 function updateEffects(state: GameState, dt: number) {

@@ -34,40 +34,43 @@ names, never the file paths, so you can swap art without touching code.
 flicker by turning its single image into a sheet and adding `frameWidth`,
 `frameHeight` and `fps`.
 
-## Ship parts and thrusters (the ShipArt tool)
+## Ships, objects and their effects (the ShipArt tool)
 
 A ship's image stays the same whether it's idle, moving or boosting.
-Thrusters (and later other parts, like turrets) are **separate images placed on
-the ship** with the ShipArt tool, so changing a ship's image never means
+Thrusters, flames and particle emitters are **separate pieces placed on the
+ship or object** with the ShipArt tool, so changing a ship's image never means
 redrawing its flames.
 
 **Open ShipArt:** run the game locally (`npm run dev`) and go to
 http://localhost:5173/shipart.html. The published copy
 (https://sdc-jpg.github.io/fleet-game/shipart.html) is view-only.
 
+- **The rollout menu** (left) lists **Ships** and **Objects** (missiles for now;
+  mines, shots, lasers and wrecks will follow). Each has its own states
+  (missile: Inert, Fired up, Impact, and Sequence, which plays them all).
 - **Parts live in `parts/`**, named `<category>-<anything>.png`, e.g.
-  `thruster-move-1.png`, `thruster-boost-2.png`. The first word is the
+  `thruster-move-1.png`, `flame-missile.png`. The first word is the
   category. New files appear in ShipArt by themselves (refresh the page); no
   manifest entry needed. A new first word (e.g. `turret-…`) makes a new category.
-- **Mounts:** each part placed on a ship is a mount, with an image for each
-  state it shows in (Idle / Move / Boost; unticked = hidden in that state). So a
-  boost-only thruster is one with Move unticked. Mounts also have a position,
-  angle, size, mirroring, and "behind the ship" or on top.
+- **Mounts:** each piece placed on a ship or object is a mount, with an image for
+  each state it shows in (unticked = hidden then), a position, angle, size,
+  mirroring, and behind or on top. **+ Emitter** adds a mount with no image that
+  only gives off particles (like the missile's smoke trail).
 - **VFX point** (pink): where the mount's particles come from. It starts at the
   image's centre; drag it anywhere, or "Reset VFX point to centre".
-- **Base image:** each state can also use a different ship image (by default
-  every state uses the normal one).
+- **Points** (yellow diamonds, objects only): spots like the missile's **Impact**
+  point, where its burst (`vfx.missile-hit`) appears.
+- **Base image:** each state can also use a different main image.
 - **Animated parts:** put the frames side by side in one file and set
   Frames and FPS in ShipArt.
-- **Save** writes `ships.json` in this folder; the game reads it. Draw parts
-  facing **right** like the ships (a flame's nozzle end on the right).
-- Thruster particles use `vfx.particle.move` and `vfx.particle.boost` in the
-  manifest (small flipbooks: a dot shrinking away). Defaults are in
-  `CONFIG.particles`; each thruster can change them in ShipArt's purple **VFX**
-  panel (particle image, spawn rate, life, speed, drag, and angle: the width of
-  the spawn cone, 0 = a straight line, 360 = every direction; separately for
-  Move and Boost). Any manifest sprite named `vfx.particle.<name>` can be picked there.
+- **Particles** (purple **VFX** panel): per state, on or off, and the particle
+  image, spawn rate, life, speed, drag and angle (the width of the spawn cone,
+  0 = a straight line, 360 = every direction). Edit them for one mount, or as the
+  **defaults for every mount of that category** (e.g. all thrusters). Any
+  manifest sprite named `vfx.particle.<name>` can be picked as the particle image.
   "Copy folder path" copies the image's Windows folder for File Explorer.
+- **Save** writes `art.json` in this folder; the game reads it. Draw parts
+  facing **right** like the ships (a flame's nozzle end on the right).
 - Dash doesn't change thrusters; it adds the dash trail (`vfx.dash`).
 - The old `fighter-*-move.png` and `fighter-*-boost.png` images are no longer
   used by the game, but they're still in `ships/` and can be picked as a
@@ -114,7 +117,6 @@ The game recolours the "team colour" parts for each side when it starts.
 | `ui.card.damage`, `ui.card.fire-rate`, `ui.card.repair` | Icons for the fleet bonus cards |
 | `vfx.laser` (+ tiers) | One short **segment** of the laser beam, repeated along its length. Faces right; plays once (the beam narrows away). Sky blue = team colour |
 | `projectile.missile` (+ tiers) | Homing missile, faces right, team-coloured. No flame painted on: the flame is separate |
-| `vfx.missile-flame` (+ tiers) | The missile's flame once it fires up, pointing right, loops. Its **right edge (anchor) sits at the missile's back** |
 | `vfx.missile-hit` (+ tiers) | Small round burst when a missile hits, plays once |
 | `projectile.mine` (+ tiers) | Mine, loops (blinking light), team-coloured |
 | `vfx.mine-blast` (+ tiers) | Mine explosion, plays once, sized for the blast reach (112 px at tier 1) |

@@ -542,7 +542,16 @@ function missile(tier = 1) {
   return img;
 }
 
-// Missile flame, pointing right like the missile, anchored at its right end (the nozzle). 3 flickering frames.
+// Missile trail particle: a pale grey puff that shrinks away (2×2, then one pixel twice, darker).
+function trailDot() {
+  const sheet = new Img(6, 2);
+  for (const [x, y] of [[0, 0], [1, 0], [0, 1], [1, 1]]) sheet.set(x, y, hex('#c9ced8'));
+  sheet.set(2, 0, hex('#9aa0ad'));
+  sheet.set(4, 0, hex('#6b6f78'));
+  return sheet;
+}
+
+// Missile flame (a ship part, placed in ShipArt), pointing right like the missile, nozzle at its right end. 3 flickering frames.
 function missileFlame(tier = 1) {
   const k = 1.5 ** (tier - 1);
   const W = Math.round(7 * k), H = Math.max(3, Math.round(3 * k));
@@ -881,7 +890,8 @@ const FILES = {
   'ui/elite-marker.png': () => eliteMarker(56),
   'ui/arrow-elite.png': eliteArrow,
   'projectiles/missile.png': () => missile(1),
-  'vfx/missile-flame.png': () => missileFlame(1),
+  'parts/flame-missile.png': () => missileFlame(1),
+  'vfx/particle-trail.png': () => trailDot(),
   'vfx/missile-hit.png': () => missileHitSheet(20),
   'projectiles/mine.png': () => mine(1),
   'vfx/mine-blast.png': () => mineBlast(112),
@@ -915,7 +925,7 @@ for (const tier of [2, 3, 4]) {
   FILES[`vfx/laser-warning-t${tier}.png`] = () => laserWarning(tier);
   FILES[`ui/elite-marker-t${tier}.png`] = () => eliteMarker(even(56 * k));
   FILES[`projectiles/missile-t${tier}.png`] = () => missile(tier);
-  FILES[`vfx/missile-flame-t${tier}.png`] = () => missileFlame(tier);
+  FILES[`parts/flame-missile-t${tier}.png`] = () => missileFlame(tier);
   FILES[`vfx/missile-hit-t${tier}.png`] = () => missileHitSheet(even(20 * k));
   FILES[`projectiles/mine-t${tier}.png`] = () => mine(tier);
   FILES[`vfx/mine-blast-t${tier}.png`] = () => mineBlast(even(112 * k));

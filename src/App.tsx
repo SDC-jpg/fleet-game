@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Assets } from './engine/assets';
 import { Sounds } from './engine/sound';
 import { CONFIG } from './game/config';
-import { loadShipLayouts } from './game/shipLayout';
+import { loadArtLayouts } from './game/artLayout';
 import { ROTATION_LABELS } from './engine/renderer';
 import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
 import type { HistoryPoint } from './game/world';
@@ -30,7 +30,7 @@ export default function App() {
   // Load the art, then start the game. Stop it when the page closes.
   useEffect(() => {
     let cancelled = false;
-    Promise.all([Assets.load().then(async (assets) => ({ assets, layouts: await loadShipLayouts(assets) })), Sounds.load(CONFIG.audio.masterVolume)])
+    Promise.all([Assets.load().then(async (assets) => ({ assets, layouts: await loadArtLayouts(assets) })), Sounds.load(CONFIG.audio.masterVolume)])
       .then(([{ assets, layouts }, sounds]) => {
         if (cancelled || !canvasRef.current) return;
         const game = new Game(canvasRef.current, assets, sounds, layouts, setHud);

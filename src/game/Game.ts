@@ -16,7 +16,7 @@ import { recordRun, type RunRecord } from './runLog';
 import { describeItem, equip, rollItem, slotOf, slotTier, slotUnlocked, unequip, type Item } from './equipment';
 import { cooldownOf } from './skills';
 import { Particles } from './particles';
-import type { ShipLayoutsFile } from './shipLayout';
+import type { ArtLayoutsFile } from './artLayout';
 import {
   controlledShip,
   createGame,
@@ -148,8 +148,8 @@ export class Game {
   private autoFire = false;
   /** The run log, filled in when a run ends (null until then). */
   private runs: RunRecord[] | null = null;
-  /** Ship layouts from ships.json (thrusters and other parts, made with the ShipArt tool). */
-  private layouts: ShipLayoutsFile;
+  /** Art layouts from art.json (thrusters, flames, emitters, points; made with the ShipArt tool). */
+  private layouts: ArtLayoutsFile;
   /** Thruster particles (visual only). */
   private particles = new Particles();
   /** Where each ship and shot was one step ago, for drawing them smoothly between steps. */
@@ -166,7 +166,7 @@ export class Game {
     if (document.hidden) this.setPaused(true);
   };
 
-  constructor(canvas: HTMLCanvasElement, assets: Assets, sounds: Sounds, layouts: ShipLayoutsFile, onHud: (hud: HudInfo) => void) {
+  constructor(canvas: HTMLCanvasElement, assets: Assets, sounds: Sounds, layouts: ArtLayoutsFile, onHud: (hud: HudInfo) => void) {
     this.assets = assets;
     this.layouts = layouts;
     this.sounds = sounds;
@@ -433,11 +433,17 @@ export class Game {
     this.particles.update(dt);
     const v = this.renderer.view;
     const margin = 100;
+    const near = (x: number, y: number) => x > v.x - margin && x < v.x + v.w + margin && y > v.y - margin && y < v.y + v.h + margin;
     for (const s of this.state.ships) {
-      if (s.dead || s.absorbed || s.thrust === 'idle') continue;
-      if (s.x < v.x - margin || s.x > v.x + v.w + margin || s.y < v.y - margin || s.y > v.y + v.h + margin) continue;
+      if (s.dead || s.absorbed || !near(s.x, s.y)) continue;
       const base = tierSprite(this.assets, typeOf(s).sprites.ship, s.tier);
-      this.particles.emitThrusters(this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt);
+      this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt);
+    }
+    // Missiles: their trail and other emitters (Inert until they fire up, then Fired).
+    for (const b of this.state.bullets) {
+      if (b.homing <= 0 || !near(b.x, b.y)) continue;
+      const name = tierSprite(this.assets, b.sprite, b.tier);
+      this.particles.emitMounts(this.layouts, this.layouts.objects[name], b.lit ? 'fired' : 'inert', b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx), dt);
     }
   }
 

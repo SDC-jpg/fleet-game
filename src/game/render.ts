@@ -6,7 +6,7 @@ import { clamp } from '../engine/math';
 import { SHIP_TYPES, CONFIG } from './config';
 import { laserLength } from './skills';
 import type { Particles } from './particles';
-import { fileSprite, type ShipLayoutsFile, type ShipState } from './shipLayout';
+import { fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile } from './artLayout';
 import { controlledShip, isMergePart, typeOf, type GameState, type Ship, type Team } from './world';
 
 /**
@@ -25,9 +25,9 @@ function teamSprite(assets: Assets, name: string, team: Team) {
   return assets.getRecolored(name, tc[team], tc);
 }
 
-/** Ship layouts (ships.json) and thruster particles, set up by Game.ts. */
+/** Art layouts (art.json) and particles, set up by Game.ts. */
 export interface ArtExtras {
-  layouts: ShipLayoutsFile;
+  layouts: ArtLayoutsFile;
   particles: Particles;
 }
 
@@ -105,19 +105,24 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   }
 
   for (const b of state.bullets) {
-    const sprite = teamSprite(assets, tierSprite(assets, b.sprite, b.tier), b.team);
-    // A missile that has fired up has a small flame just behind it (the flame's art is anchored at its front).
-    if (b.lit) {
-      const a = b.facing ?? Math.atan2(b.vy, b.vx);
-      const back = sprite.anchorX;
-      r.drawSprite(assets.get(tierSprite(assets, 'vfx.missile-flame', b.tier)), b.x - Math.cos(a) * back, b.y - Math.sin(a) * back, a, state.time);
-    }
-    // Missiles point where they face (they turn before speeding off); other shots point where they fly.
-    r.drawSprite(sprite, b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx), state.time);
+    const name = tierSprite(assets, b.sprite, b.tier);
+    if (b.homing > 0) {
+      // Missiles are drawn from their layout (art.json): Inert until they fire up, then Fired
+      // (with their flame mount). They point where they face, which can differ from where they fly.
+      const angle = b.facing ?? Math.atan2(b.vy, b.vx);
+      drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, angle, b.lit ? 'fired' : 'inert', b.team, state.time);
+    } else r.drawSprite(teamSprite(assets, name, b.team), b.x, b.y, Math.atan2(b.vy, b.vx), state.time);
   }
 
-  for (const e of state.effects)
-    r.drawSprite(assets.get(tierSprite(assets, e.sprite, e.tier)), e.x, e.y, e.angle, e.age, 1, false, e.scale);
+  for (const e of state.effects) {
+    let { x, y } = e;
+    // An effect tied to a point on an object (e.g. a missile's impact point) appears there.
+    if (e.at) {
+      const p = extras.layouts.objects[tierSprite(assets, e.at.sprite, e.at.tier)]?.points?.[e.at.point];
+      if (p) ({ x, y } = shipPointToWorld(p.x, p.y, e.x, e.y, e.at.angle));
+    }
+    r.drawSprite(assets.get(tierSprite(assets, e.sprite, e.tier)), x, y, e.angle, e.age, 1, false, e.scale);
+  }
 
   // Arrows at the screen edge pointing to things you can't see.
   const wreckArrow = assets.get('ui.arrow.wreck');
@@ -139,7 +144,7 @@ function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: nu
 }
 
 /** Draws one ship, plus a small health bar under it if it's damaged. */
-function drawShip(r: PixelRenderer, assets: Assets, layouts: ShipLayoutsFile, s: Ship, time: number) {
+function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number) {
   if (s.absorbed) return; // already inside the ship it's merging into
   // Dash trail behind the ship, pointing back along its movement. Plays once per dash.
   if (s.fleet.dashTime > 0 && !isMergePart(s)) {
@@ -153,7 +158,7 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ShipLayoutsFile, s:
     const core = s.merge.core;
     alpha = clamp(Math.hypot(core.x - s.x, core.y - s.y) / (core.stats.radius * 2), 0.3, 1);
   }
-  drawShipArt(r, assets, layouts, base, s.x, s.y, s.angle, s.thrust, s.team, time, alpha);
+  drawLayoutArt(r, assets, layouts.ships[base], base, s.x, s.y, s.angle, s.thrust, s.team, time, alpha);
   const maxHp = s.stats.maxHp;
   if (s.hp < maxHp) {
     const w = Math.round(16 * s.stats.size);
@@ -165,24 +170,23 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ShipLayoutsFile, s:
 }
 
 /**
- * Draws a ship's art: its base image for this state (from its layout in
- * ships.json, or the manifest sprite `base`), with its mounts (thrusters...)
- * under or over it. Used by the game and the ShipArt tool.
+ * Draws a ship's or object's art: its base image for this state (from its
+ * layout in art.json, or the manifest sprite `base`), with its mounts
+ * (thrusters, flames...) under or over it. Used by the game and ShipArt.
  */
-export function drawShipArt(
+export function drawLayoutArt(
   r: PixelRenderer,
   assets: Assets,
-  layouts: ShipLayoutsFile,
+  layout: ArtLayout | undefined,
   base: string,
   x: number,
   y: number,
   angle: number,
-  state: ShipState,
+  state: string,
   team: Team,
   time: number,
   alpha = 1,
 ) {
-  const layout = layouts.ships[base];
   const baseFile = layout?.base[state] ?? layout?.base.idle;
   const mounts = layout?.mounts ?? [];
   const drawMounts = (behind: boolean) => {

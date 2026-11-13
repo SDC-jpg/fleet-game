@@ -207,3 +207,32 @@
   width: 48px;
   flex: none;
 }
+
+/* Rollout menu on the left: sections that open and close, with a filter box on top. */
+.sa-filter {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 10px 0 6px;
+  padding: 3px 6px;
+  background: #141a33;
+  border: 1px solid #2c3a66;
+}
+.shipart .sa-rollout {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
+  font-weight: bold;
+  color: #9fd3ff;
+  background: rgba(44, 58, 102, 0.35);
+}
+.sa-rollout-body {
+  padding: 4px 0 2px 8px;
+}
+.sa-rollout-group {
+  margin: 6px 0 3px;
+  opacity: 0.7;
+}
+.sa-wrap {
+  flex-wrap: wrap;
+}

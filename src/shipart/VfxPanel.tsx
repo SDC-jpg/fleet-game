@@ -1,12 +1,13 @@
 // ShipArt's VFX panel (purple): everything about the effects coming from the
-// selected mount. Its VFX point, and its particles for each state (image,
-// spawn rate, life, speed, drag), with a preview of the particle image.
-// More VFX settings will be added here.
+// selected mount. Its VFX point, and its particles for each state (on/off,
+// image, spawn rate, life, speed, drag, angle), or the defaults for every
+// mount of its kind, with a preview of the particle image. More VFX settings
+// will be added here.
 
 import { useEffect, useRef, useState } from 'react';
 import { ASSET_ROOT, frameAt, type Assets } from '../engine/assets';
-import { PARTICLE_STATES, particleSettings, type Mount, type ParticleSettings, type ParticleState } from '../game/shipLayout';
-import type { PreviewState } from './Preview';
+import { particleDefaults, particleSettings, type ArtLayoutsFile, type Mount, type ParticleSettings } from '../game/artLayout';
+import type { ArtKind } from '../game/artKinds';
 import { NumberField } from './fields';
 
 const BACKGROUNDS = { black: '#000000', gray: '#808080', white: '#ffffff' } as const;
@@ -25,25 +26,34 @@ const label = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 export function VfxPanel({
   assets,
+  data,
+  kind,
   mount,
-  previewState,
+  mountState,
   readOnly,
   windowsRoot,
   onChange,
+  onChangeData,
 }: {
   assets: Assets;
+  data: ArtLayoutsFile;
+  kind: ArtKind;
   mount: Mount | undefined;
-  previewState: PreviewState;
+  /** The state the preview is showing mounts in (the Particles tab follows it). */
+  mountState: string;
   readOnly: boolean;
   /** The project folder on Windows (from the dev server), for "Copy folder path". */
   windowsRoot: string | null;
   /** Change the selected mount. */
   onChange: (fn: (m: Mount) => void) => void;
+  /** Change anything in the layouts file (used for the particle defaults). */
+  onChangeData: (fn: (d: ArtLayoutsFile) => void) => void;
 }) {
-  // Which state's particles are shown: follows the preview (Dash uses Move), but can be switched here.
-  const follow: ParticleState = previewState === 'boost' ? 'boost' : 'move';
-  const [tab, setTab] = useState<ParticleState>(follow);
-  useEffect(() => setTab(follow), [follow]);
+  // Which state's particles are shown: follows the preview, but can be switched here.
+  const [tab, setTab] = useState(mountState);
+  useEffect(() => setTab(mountState), [mountState]);
+  /** Editing this mount's particles, or the defaults for every mount of its category. */
+  const [editDefaults, setEditDefaults] = useState(false);
   const [bg, setBg] = useState<Background>('black');
   const [copied, setCopied] = useState('');
 
@@ -55,17 +65,27 @@ export function VfxPanel({
       </aside>
     );
 
-  const settings = particleSettings(mount, tab);
-  const own = mount.vfx?.[tab] ?? {};
-  const shows = !!mount.images[tab];
+  const states = kind.mountStates;
+  const state = states.includes(tab) ? tab : states[0];
+  const emits = !!mount.emit?.[state];
+  const settings = editDefaults ? particleDefaults(data, mount.category, state) : particleSettings(data, mount, state);
+  const own = editDefaults ? (data.particleDefaults[mount.category]?.[state] ?? {}) : (mount.emit?.[state] ?? {});
   const particleSprites = assets.names().filter((n) => n.startsWith('vfx.particle.')).sort();
   const file = assets.fileOf(settings.sprite);
+  const category = label(mount.category);
 
-  const set = <K extends keyof ParticleSettings>(key: K, value: ParticleSettings[K]) =>
-    onChange((m) => {
-      m.vfx ??= {};
-      m.vfx[tab] = { ...m.vfx[tab], [key]: value };
-    });
+  const set = <K extends keyof ParticleSettings>(key: K, value: ParticleSettings[K]) => {
+    if (editDefaults)
+      onChangeData((d) => {
+        d.particleDefaults[mount.category] ??= {};
+        d.particleDefaults[mount.category][state] = { ...d.particleDefaults[mount.category][state], [key]: value };
+      });
+    else
+      onChange((m) => {
+        m.emit ??= {};
+        m.emit[state] = { ...m.emit[state], [key]: value };
+      });
+  };
 
   const copyFolder = () => {
     if (!file) return;
@@ -100,18 +120,41 @@ export function VfxPanel({
           Reset VFX point to centre
         </button>
 
-        {mount.category === 'thruster' && (
-          <>
-            <div className="sa-sub">Particles</div>
-            <div className="sa-row">
-              {PARTICLE_STATES.map((s) => (
-                <button key={s} className={tab === s ? 'on' : ''} onClick={() => setTab(s)}>
-                  {label(s)}
-                </button>
-              ))}
-            </div>
-            {!shows && <div className="sa-note">This mount is hidden in {label(tab)}, so it gives off no particles then.</div>}
+        <div className="sa-sub">Particles</div>
+        <div className="sa-row sa-wrap">
+          {states.map((s) => (
+            <button key={s} className={state === s ? 'on' : ''} onClick={() => setTab(s)}>
+              {label(kind.states.find((k) => k.id === s)?.label ?? s)}
+            </button>
+          ))}
+        </div>
+        <label className="sa-row">
+          <input
+            type="checkbox"
+            checked={emits}
+            onChange={(e) =>
+              onChange((m) => {
+                m.emit ??= {};
+                if (e.target.checked) m.emit[state] ??= {};
+                else delete m.emit[state];
+              })
+            }
+          />
+          Gives off particles in {label(kind.states.find((k) => k.id === state)?.label ?? state)}
+        </label>
+        <div className="sa-row sa-wrap">
+          Edit
+          <button className={!editDefaults ? 'on' : ''} onClick={() => setEditDefaults(false)}>
+            This mount
+          </button>
+          <button className={editDefaults ? 'on' : ''} onClick={() => setEditDefaults(true)} title={`The starting values for every ${category} mount (each mount can change them)`}>
+            Defaults for all {category}
+          </button>
+        </div>
+        {!editDefaults && !emits && <div className="sa-note">Off in this state. Tick the box above to give off particles.</div>}
 
+        {(editDefaults || emits) && (
+          <>
             <label className="sa-row">
               <span>Image</span>
               <select value={settings.sprite} onChange={(e) => set('sprite', e.target.value)}>
@@ -132,47 +175,41 @@ export function VfxPanel({
                   max={f.max}
                   onChange={(v) => set(f.key, Math.min(f.max ?? Infinity, Math.max(f.min, v)))}
                 />
-                <span className="sa-note sa-default">{own[f.key] === undefined ? 'default' : ''}</span>
+                <span className="sa-note sa-default">{!editDefaults && own[f.key] === undefined ? 'default' : ''}</span>
               </div>
             ))}
-            <button
-              disabled={!mount.vfx?.[tab]}
-              onClick={() =>
-                onChange((m) => {
-                  if (m.vfx) delete m.vfx[tab];
-                })
-              }
-              title={`Back to the defaults in CONFIG.particles.${tab}`}
-            >
-              Reset {label(tab)} particles to defaults
-            </button>
+            {!editDefaults && (
+              <button
+                disabled={!Object.keys(own).length}
+                onClick={() => onChange((m) => m.emit && (m.emit[state] = {}))}
+                title={`Use the defaults for all ${category} mounts`}
+              >
+                Reset to defaults
+              </button>
+            )}
           </>
         )}
       </fieldset>
 
-      {mount.category === 'thruster' && (
+      <div className="sa-sub">Particle image</div>
+      <ParticleImage assets={assets} sprite={settings.sprite} background={BACKGROUNDS[bg]} />
+      <div className="sa-row">
+        {(Object.keys(BACKGROUNDS) as Background[]).map((b) => (
+          <button key={b} className={bg === b ? 'on' : ''} onClick={() => setBg(b)}>
+            {label(b)}
+          </button>
+        ))}
+      </div>
+      {file && (
         <>
-          <div className="sa-sub">Particle image</div>
-          <ParticleImage assets={assets} sprite={settings.sprite} background={BACKGROUNDS[bg]} />
+          <div className="sa-note sa-file">{file}</div>
           <div className="sa-row">
-            {(Object.keys(BACKGROUNDS) as Background[]).map((b) => (
-              <button key={b} className={bg === b ? 'on' : ''} onClick={() => setBg(b)}>
-                {label(b)}
-              </button>
-            ))}
+            <button onClick={() => window.open(ASSET_ROOT + file, '_blank')}>Open image</button>
+            <button onClick={copyFolder} title="Paste it into File Explorer's address bar">
+              Copy folder path
+            </button>
           </div>
-          {file && (
-            <>
-              <div className="sa-note sa-file">{file}</div>
-              <div className="sa-row">
-                <button onClick={() => window.open(ASSET_ROOT + file, '_blank')}>Open image</button>
-                <button onClick={copyFolder} title="Paste it into File Explorer's address bar">
-                  Copy folder path
-                </button>
-              </div>
-              {copied && <div className="sa-note sa-file">{copied}</div>}
-            </>
-          )}
+          {copied && <div className="sa-note sa-file">{copied}</div>}
         </>
       )}
     </aside>

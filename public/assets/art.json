@@ -1,0 +1,447 @@
+{
+  "_readme": "Art layouts for ships and objects (missiles...): parts, particle emitters, points, particle defaults and image animation settings. Edit with the ShipArt tool (npm run dev, then open /shipart.html), not by hand.",
+  "ships": {
+    "ship.fighter": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -20,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {
+              "perSecond": 5
+            },
+            "boost": {
+              "perSecond": 10
+            }
+          }
+        }
+      ]
+    },
+    "ship.fighter.t2": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -29,
+          "y": -7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -29,
+          "y": 7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        }
+      ]
+    },
+    "ship.fighter.t3": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": -7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": 7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        }
+      ]
+    },
+    "ship.fighter.t4": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -58,
+          "y": -15,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -58,
+          "y": -5,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -58,
+          "y": 5,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -58,
+          "y": 15,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        }
+      ]
+    }
+  },
+  "objects": {
+    "projectile.missile": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "flame",
+          "x": -10,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "fired": "parts/flame-missile.png"
+          }
+        },
+        {
+          "category": "emitter",
+          "x": -14,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {},
+          "emit": {
+            "fired": {}
+          }
+        }
+      ],
+      "points": {
+        "impact": {
+          "x": 6,
+          "y": 0
+        }
+      }
+    },
+    "projectile.missile.t2": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "flame",
+          "x": -15,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "fired": "parts/flame-missile-t2.png"
+          }
+        },
+        {
+          "category": "emitter",
+          "x": -21,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {},
+          "emit": {
+            "fired": {}
+          }
+        }
+      ],
+      "points": {
+        "impact": {
+          "x": 9,
+          "y": 0
+        }
+      }
+    },
+    "projectile.missile.t3": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "flame",
+          "x": -22,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "fired": "parts/flame-missile-t3.png"
+          }
+        },
+        {
+          "category": "emitter",
+          "x": -30,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {},
+          "emit": {
+            "fired": {}
+          }
+        }
+      ],
+      "points": {
+        "impact": {
+          "x": 13,
+          "y": 0
+        }
+      }
+    },
+    "projectile.missile.t4": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "flame",
+          "x": -33,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "fired": "parts/flame-missile-t4.png"
+          }
+        },
+        {
+          "category": "emitter",
+          "x": -45,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {},
+          "emit": {
+            "fired": {}
+          }
+        }
+      ],
+      "points": {
+        "impact": {
+          "x": 20,
+          "y": 0
+        }
+      }
+    }
+  },
+  "particleDefaults": {
+    "thruster": {
+      "move": {
+        "sprite": "vfx.particle.move",
+        "perSecond": 10,
+        "speed": 35,
+        "angle": 30,
+        "life": 0.35,
+        "drag": 0
+      },
+      "boost": {
+        "sprite": "vfx.particle.boost",
+        "perSecond": 22,
+        "speed": 60,
+        "angle": 40,
+        "life": 0.4,
+        "drag": 0
+      }
+    },
+    "emitter": {
+      "fired": {
+        "sprite": "vfx.particle.trail",
+        "perSecond": 40,
+        "speed": 10,
+        "angle": 40,
+        "life": 0.4,
+        "drag": 2
+      }
+    }
+  },
+  "images": {
+    "parts/flame-missile.png": {
+      "frames": 3,
+      "fps": 18
+    },
+    "parts/flame-missile-t2.png": {
+      "frames": 3,
+      "fps": 18
+    },
+    "parts/flame-missile-t3.png": {
+      "frames": 3,
+      "fps": 18
+    },
+    "parts/flame-missile-t4.png": {
+      "frames": 3,
+      "fps": 18
+    }
+  }
+}

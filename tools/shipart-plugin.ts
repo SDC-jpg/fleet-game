@@ -1,7 +1,7 @@
 // Vite plugin for the ShipArt tool (shipart.html).
 // While `npm run dev` runs it adds two addresses the tool talks to:
 //   GET  /__shipart/files  every .png in public/assets (so new art shows up in the tool by itself)
-//   POST /__shipart/save   writes the layouts the tool sends to public/assets/ships.json
+//   POST /__shipart/save   writes the layouts the tool sends to public/assets/art.json
 //   GET  /__shipart/info   the project folder's Windows path, if it's shared from Windows into
 //                          the container (so ShipArt can offer "Copy folder path"). Worked out
 //                          while running, never written to a file: it contains the user's name.
@@ -85,7 +85,7 @@ export function shipArtPlugin(): Plugin {
           try {
             const data = JSON.parse(body);
             if (typeof data !== 'object' || !data || typeof data.ships !== 'object') throw new Error('not a layouts file');
-            writeFileSync(join(assetsDir, 'ships.json'), JSON.stringify(data, null, 2) + '\n');
+            writeFileSync(join(assetsDir, 'art.json'), JSON.stringify(data, null, 2) + '\n');
             res.end('saved');
           } catch (e) {
             res.statusCode = 400;

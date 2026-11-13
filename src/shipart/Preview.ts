@@ -1,30 +1,25 @@
-// The ShipArt preview: draws one ship with the game's own drawing code (so it
-// looks exactly like the game), plays a state (idle, move, boost, dash) with
-// particles, and lets you drag mounts and their VFX points with the mouse.
-// Guides (outlines and points) are drawn on a second canvas on top.
+// The ShipArt preview: draws one ship or object with the game's own drawing
+// code (so it looks exactly like the game), plays one of its states with
+// particles and effects, and lets you drag mounts, their VFX points and named
+// points (like a missile's impact point) with the mouse. Guides (outlines and
+// handles) are drawn on a second canvas on top.
 
 import type { Assets } from '../engine/assets';
 import { PixelRenderer, type RotationMode } from '../engine/renderer';
 import { CONFIG, SHIP_TYPES } from '../game/config';
 import { Particles } from '../game/particles';
-import { drawShipArt, tierSprite } from '../game/render';
-import {
-  fileSprite,
-  shipPointToWorld,
-  worldToShipPoint,
-  type Mount,
-  type ShipLayoutsFile,
-  type ShipState,
-} from '../game/shipLayout';
+import { drawLayoutArt, tierSprite } from '../game/render';
+import { fileSprite, shipPointToWorld, worldToShipPoint, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
+import { tierOf, type ArtKind } from '../game/artKinds';
 import type { Team } from '../game/world';
 
-/** What the preview shows: the game's ship states, plus dash (thrusters as when moving, with the dash trail). */
-export type PreviewState = ShipState | 'dash';
-
 export interface PreviewSettings {
-  data: ShipLayoutsFile;
-  ship: string;
-  state: PreviewState;
+  data: ArtLayoutsFile;
+  /** The sprite being shown ("ship.fighter.t2", "projectile.missile"...) and its kind. */
+  subject: string;
+  kind: ArtKind;
+  /** One of the kind's preview states. */
+  state: string;
   zoom: number;
   spin: boolean;
   fly: boolean;
@@ -34,27 +29,32 @@ export interface PreviewSettings {
   stars: boolean;
   /** How rotated sprites are drawn (see renderer.ts). */
   rotation: RotationMode;
+  /** The selected mount (index), or point (name). */
   selected: number | null;
+  selectedPoint: string | null;
   readOnly: boolean;
 }
 
 /** What the mouse is dragging. */
-type Drag = { kind: 'mount' | 'vfx'; index: number; grabX: number; grabY: number };
+type Drag = { kind: 'mount' | 'vfx' | 'point'; index: number; point?: string; grabX: number; grabY: number };
 
 export interface PreviewEvents {
   /** A mount was clicked (null = empty space). */
   select: (index: number | null) => void;
+  /** A point was clicked. */
+  selectPoint: (id: string) => void;
   /** A drag is starting (save an undo step). */
   dragStart: () => void;
-  /** A mount moved to (x, y), or its VFX point to offset (x, y), in ship pixels. */
+  /** A mount moved to (x, y), its VFX point to offset (x, y), or a point to (x, y), in the subject's pixels. */
   moveMount: (index: number, x: number, y: number) => void;
   moveVfx: (index: number, x: number, y: number) => void;
-  /** Mouse position on the ship, in ship pixels (null = off the canvas). */
+  movePoint: (id: string, x: number, y: number) => void;
+  /** Mouse position on the subject, in its pixels (null = off the canvas). */
   hover: (p: { x: number; y: number } | null) => void;
 }
 
-/** The mount state a preview state uses (dash doesn't change thrusters). */
-export const mountState = (s: PreviewState): ShipState => (s === 'dash' ? 'move' : s);
+/** Missile Sequence preview timing (seconds): fire up, reach top speed, burst, start over. */
+const SEQ = { ignite: 0.25, impact: 1.25, restart: 2.1 };
 
 export class Preview {
   private renderer: PixelRenderer;
@@ -63,6 +63,9 @@ export class Preview {
   private handle = 0;
   private last = performance.now();
   private time = 0;
+  /** Seconds into the current state (restarts when the state changes). */
+  private stateTime = 0;
+  private lastState = '';
   private x = 0;
   private y = 0;
   private angle = 0;
@@ -99,9 +102,10 @@ export class Preview {
     window.removeEventListener('resize', this.onResize);
   }
 
-  /** Put the ship back in the middle, facing right (e.g. when switching ships or turning off spin and fly). */
+  /** Put the subject back in the middle, facing right (e.g. when switching subjects or turning off spin and fly). */
   resetPosition() {
     this.x = this.y = this.angle = 0;
+    this.stateTime = 0;
     this.particles.clear();
   }
 
@@ -113,13 +117,36 @@ export class Preview {
     this.overlay.height = box.clientHeight * dpr;
   };
 
-  /** How fast the ship flies forward in each state (game speeds, so particles trail like in the game). */
+  private get layout(): ArtLayout | undefined {
+    const st = this.settings;
+    return st.data[st.kind.section][st.subject];
+  }
+
+  /** The state mounts and particles use right now (the Sequence preview moves through several). */
+  private mountState() {
+    const st = this.settings;
+    if (st.kind.id === 'missile' && st.state === 'sequence') return this.stateTime < SEQ.ignite ? 'inert' : 'fired';
+    return st.kind.states.find((s) => s.id === st.state)?.uses ?? st.state;
+  }
+
+  /** How fast the subject flies forward now (game speeds, so particles trail like in the game). */
   private speed() {
+    const st = this.settings;
+    if (st.kind.id === 'missile') {
+      const M = CONFIG.missiles;
+      if (st.state === 'sequence') {
+        const t = this.stateTime;
+        if (t < SEQ.ignite) return M.ejectSpeed;
+        if (t >= SEQ.impact) return 0;
+        return M.ejectSpeed + (M.speed - M.ejectSpeed) * Math.min(1, (t - SEQ.ignite) / M.rampTime);
+      }
+      if (!st.fly || st.state === 'impact') return 0;
+      return st.state === 'inert' ? M.ejectSpeed : M.speed;
+    }
     const t = SHIP_TYPES.fighter;
-    const s = this.settings.state;
-    if (!this.settings.fly || s === 'idle') return 0;
-    if (s === 'boost') return t.maxSpeed * t.boostMultiplier;
-    if (s === 'dash') return t.maxSpeed * 3;
+    if (!st.fly || st.state === 'idle') return 0;
+    if (st.state === 'boost') return t.maxSpeed * t.boostMultiplier;
+    if (st.state === 'dash') return t.maxSpeed * 3;
     return t.maxSpeed;
   }
 
@@ -127,11 +154,23 @@ export class Preview {
     const st = this.settings;
     const r = this.renderer;
     this.time += dt;
-    if (st.spin) this.angle += dt * 0.6;
+    if (st.state !== this.lastState) {
+      this.lastState = st.state;
+      this.stateTime = 0;
+    }
+    this.stateTime += dt;
+    // The missile sequence starts over (back in the middle) once its burst has played.
+    const sequence = st.kind.id === 'missile' && st.state === 'sequence';
+    if (sequence && this.stateTime >= SEQ.restart) {
+      this.stateTime = 0;
+      this.x = this.y = 0;
+      this.particles.clear();
+    }
+    if (st.spin && !sequence) this.angle += dt * 0.6;
     const v = this.speed();
     this.x += Math.cos(this.angle) * v * dt;
     this.y += Math.sin(this.angle) * v * dt;
-    // The camera stays on the ship; when flying, the stars scroll past.
+    // The camera stays on the subject; when it flies, the stars scroll past.
     r.camX = this.x;
     r.camY = this.y;
     r.setZoom(st.zoom, true);
@@ -143,34 +182,44 @@ export class Preview {
       r.drawTiled(this.assets.get('bg.stars-near'), 0.6);
     }
 
-    const state = mountState(st.state);
+    const state = this.mountState();
+    const tier = tierOf(st.subject);
+    const hidden = sequence && this.stateTime >= SEQ.impact;
     this.particles.update(dt);
-    this.particles.emitThrusters(st.data.ships[st.ship], state, this.x, this.y, this.angle, dt);
+    if (!hidden && !(st.kind.id === 'missile' && st.state === 'impact'))
+      this.particles.emitMounts(st.data, this.layout, state, this.x, this.y, this.angle, dt);
     this.particles.draw(r, this.assets);
     if (st.state === 'dash') {
       // The dash trail replays every second.
-      const tier = Number(/\.t(\d+)$/.exec(st.ship)?.[1] ?? 1);
       const trail = this.assets.getRecolored(tierSprite(this.assets, 'vfx.dash', tier), CONFIG.teamColors[st.team], CONFIG.teamColors);
       r.drawSprite(trail, this.x, this.y, this.angle, this.time % 1);
     }
-    drawShipArt(r, this.assets, st.data, st.ship, this.x, this.y, this.angle, state, st.team, this.time);
+    // Impact (and the end of the sequence): the burst at the impact point. The missile shows faintly in Impact, for placing it.
+    const impact = st.kind.points.find((p) => p.id === 'impact');
+    if (impact && (st.state === 'impact' || hidden)) {
+      const p = this.layout?.points?.[impact.id] ?? { x: 0, y: 0 };
+      const w = shipPointToWorld(p.x, p.y, this.x, this.y, this.angle);
+      const age = st.state === 'impact' ? this.time % 1 : this.stateTime - SEQ.impact;
+      r.drawSprite(this.assets.get(tierSprite(this.assets, impact.effect, tier)), w.x, w.y, 0, age);
+    }
+    if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, st.team, this.time, st.state === 'impact' ? 0.35 : 1);
     r.end();
     this.drawGuides();
   }
 
   /** The image a mount shows in this state, or (if hidden in this state) any of its images, for its outline. */
   private mountImage(m: Mount) {
-    const file = m.images[mountState(this.settings.state)] ?? Object.values(m.images).find((f) => f);
+    const file = m.images[this.mountState()] ?? Object.values(m.images).find((f) => f);
     return file ? this.assets.get(fileSprite(file)) : null;
   }
 
-  /** The four corners of a mount's image, in ship pixels. */
+  /** The four corners of a mount's image (a small square for particle-only mounts), in the subject's pixels. */
   private mountCorners(m: Mount) {
     const sprite = this.mountImage(m);
-    const w = sprite ? sprite.frames[0].w : 8;
-    const h = sprite ? sprite.frames[0].h : 8;
-    const ax = sprite ? sprite.anchorX : 4;
-    const ay = sprite ? sprite.anchorY : 4;
+    const w = sprite ? sprite.frames[0].w : 6;
+    const h = sprite ? sprite.frames[0].h : 6;
+    const ax = sprite ? sprite.anchorX : 3;
+    const ay = sprite ? sprite.anchorY : 3;
     const a = (m.angle * Math.PI) / 180;
     const c = Math.cos(a);
     const s = Math.sin(a);
@@ -198,8 +247,8 @@ export class Preview {
     ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
     const st = this.settings;
     if (!st.guides) return;
-    const layout = st.data.ships[st.ship];
-    // The ship's centre (its anchor): where mount positions are measured from.
+    const layout = this.layout;
+    // The subject's centre (its anchor): where positions are measured from.
     const o = this.toScreen({ x: 0, y: 0 });
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';
     ctx.lineWidth = 1;
@@ -210,10 +259,10 @@ export class Preview {
     ctx.lineTo(o.x, o.y + 6);
     ctx.stroke();
     if (!layout) return;
-    const state = mountState(st.state);
+    const state = this.mountState();
     layout.mounts.forEach((m, i) => {
       const selected = i === st.selected;
-      const shown = !!m.images[state];
+      const shown = !!m.images[state] || !!m.emit?.[state];
       const pts = this.mountCorners(m).map((p) => this.toScreen(p));
       ctx.setLineDash(shown ? [] : [4, 3]);
       ctx.strokeStyle = selected ? '#ffd34a' : shown ? 'rgba(159,211,255,0.55)' : 'rgba(159,211,255,0.35)';
@@ -235,16 +284,34 @@ export class Preview {
       ctx.lineTo(v.x, v.y + 7);
       ctx.stroke();
     });
+    // Named points (e.g. Impact): a yellow diamond with its name.
+    for (const def of st.kind.points) {
+      const p = layout.points?.[def.id] ?? { x: 0, y: 0 };
+      const s = this.toScreen(p);
+      const selected = st.selectedPoint === def.id;
+      ctx.strokeStyle = selected ? '#ffd34a' : 'rgba(255,211,74,0.6)';
+      ctx.lineWidth = selected ? 2 : 1;
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y - 6);
+      ctx.lineTo(s.x + 6, s.y);
+      ctx.lineTo(s.x, s.y + 6);
+      ctx.lineTo(s.x - 6, s.y);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.font = '10px monospace';
+      ctx.fillText(def.label, s.x + 8, s.y - 6);
+    }
   }
 
-  /** Mouse position in ship pixels. */
+  /** Mouse position in the subject's pixels. */
   private shipPoint(e: MouseEvent) {
     const rect = this.overlay.getBoundingClientRect();
     const w = this.renderer.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
     return worldToShipPoint(w.x, w.y, this.x, this.y, this.angle);
   }
 
-  /** Is ship point p inside mount m's image? */
+  /** Is point p inside mount m's image? */
   private insideMount(m: Mount, p: { x: number; y: number }) {
     const pts = this.mountCorners(m);
     // Inside a convex shape: on the same side of every edge.
@@ -263,13 +330,23 @@ export class Preview {
   private onDown = (e: MouseEvent) => {
     if (e.button !== 0) return;
     const st = this.settings;
-    const layout = st.data.ships[st.ship];
+    const layout = this.layout;
     const p = this.shipPoint(e);
-    if (!layout || !st.guides) return this.events.select(null);
-    // The selected mount's VFX point first (it's small and sits on top). Other
-    // mounts' points can't be grabbed, so clicking a mount's middle picks the mount.
+    if (!st.guides) return this.events.select(null);
     const scale = this.renderer.worldToScreen(1, 0).x - this.renderer.worldToScreen(0, 0).x;
     const near = 6 / Math.max(scale, 0.01);
+    // Named points first (small handles on top).
+    for (const def of st.kind.points) {
+      const pt = layout?.points?.[def.id] ?? { x: 0, y: 0 };
+      if (Math.hypot(p.x - pt.x, p.y - pt.y) <= near) {
+        this.events.selectPoint(def.id);
+        if (!st.readOnly) this.startDrag({ kind: 'point', index: -1, point: def.id, grabX: p.x - pt.x, grabY: p.y - pt.y });
+        return;
+      }
+    }
+    if (!layout) return this.events.select(null);
+    // Then the selected mount's VFX point. Other mounts' points can't be grabbed,
+    // so clicking a mount's middle picks the mount.
     const sel = st.selected !== null ? layout.mounts[st.selected] : undefined;
     if (sel && Math.hypot(p.x - (sel.x + sel.vfxX), p.y - (sel.y + sel.vfxY)) <= near) {
       if (!st.readOnly) this.startDrag({ kind: 'vfx', index: st.selected!, grabX: p.x - sel.vfxX, grabY: p.y - sel.vfxY });
@@ -302,7 +379,8 @@ export class Preview {
     const x = Math.round(p.x - this.drag.grabX);
     const y = Math.round(p.y - this.drag.grabY);
     if (this.drag.kind === 'mount') this.events.moveMount(this.drag.index, x, y);
-    else this.events.moveVfx(this.drag.index, x, y);
+    else if (this.drag.kind === 'vfx') this.events.moveVfx(this.drag.index, x, y);
+    else this.events.movePoint(this.drag.point!, x, y);
   };
 
   private onUp = () => {

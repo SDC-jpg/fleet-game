@@ -1,9 +1,11 @@
-// ShipArt: a tool for dressing up ship art without editing files by hand.
-// Pick a ship tier on the left, preview it in any state in the middle, and
-// place mounts (thrusters...) on it. Each mount has an image per state (or
-// none: hidden in that state), position, rotation, mirroring, size, draw
-// order, and a VFX point where its particles come from. Save writes
-// public/assets/ships.json, which the game reads.
+// ShipArt: a tool for dressing up ships and other objects (missiles...)
+// without editing files by hand. Pick something in the rollout menu on the
+// left, preview it in any of its states in the middle, and place mounts on it:
+// images (thrusters, flames...) and particle emitters, each with an image and
+// particles per state, position, rotation, mirroring, size, draw order, and a
+// VFX point where particles come from. Objects also have named points (like
+// a missile's impact point). Save writes public/assets/art.json, which the
+// game reads.
 //
 // Locally (npm run dev) it can edit and save. The published copy is view-only.
 
@@ -11,35 +13,30 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ASSET_ROOT, Assets } from '../engine/assets';
 import { ROTATION_LABELS, ROTATION_MODES, type RotationMode } from '../engine/renderer';
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
-import {
-  SHIP_STATES,
-  fileSprite,
-  loadShipLayouts,
-  type Mount,
-  type ShipLayout,
-  type ShipLayoutsFile,
-  type ShipState,
-} from '../game/shipLayout';
+import { emptyLayout, fileSprite, loadArtLayouts, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
+import { OBJECT_KINDS, SHIP_KIND, kindOf, type ArtKind } from '../game/artKinds';
 import type { Team } from '../game/world';
-import { Preview, mountState, type PreviewState } from './Preview';
+import { Preview } from './Preview';
 import { NumberField } from './fields';
 import { VfxPanel } from './VfxPanel';
 
 /** Editing and saving only work with the dev server (npm run dev). */
 const READ_ONLY = !import.meta.env.DEV;
-const PREVIEW_STATES: PreviewState[] = ['idle', 'move', 'boost', 'dash'];
 const ZOOMS = [1, 2, 3, 4, 6, 8];
+/** The mount category for particle-only mounts (no image). */
+const EMITTER = 'emitter';
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
-const emptyLayout = (): ShipLayout => ({ base: {}, mounts: [] });
 /** "parts/thruster-boost-1.png" → "thruster-boost-1". */
 const baseName = (file: string) => file.replace(/^.*\//, '').replace(/\.png$/i, '');
 /** "parts/thruster-boost-1.png" → "thruster". */
 const categoryOf = (file: string) => baseName(file).split('-')[0];
 const label = (s: string) => s[0].toUpperCase() + s.slice(1);
+/** "ship.fighter.t2" → "fighter.t2", "projectile.missile.t3" → "missile.t3". */
+const shortName = (sprite: string) => sprite.replace(/^(ship|projectile)\./, '');
 
 /** Load every image in the art folder (the list comes from the dev server, or from the published build). */
-async function loadArtFiles(assets: Assets, data: ShipLayoutsFile): Promise<string[]> {
+async function loadArtFiles(assets: Assets, data: ArtLayoutsFile): Promise<string[]> {
   const url = import.meta.env.DEV ? '/__shipart/files' : ASSET_ROOT + 'art-files.json';
   const files: string[] = (await (await fetch(url, { cache: 'no-store' })).json()).files;
   await Promise.all(files.map((f) => assets.loadFile(fileSprite(f), f, data.images[f])));
@@ -49,10 +46,15 @@ async function loadArtFiles(assets: Assets, data: ShipLayoutsFile): Promise<stri
 export function ShipArt() {
   const [assets, setAssets] = useState<Assets | null>(null);
   const [files, setFiles] = useState<string[]>([]);
-  const [data, setData] = useState<ShipLayoutsFile | null>(null);
+  const [data, setData] = useState<ArtLayoutsFile | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ship, setShip] = useState('ship.fighter');
-  const [state, setState] = useState<PreviewState>('idle');
+  /** The sprite being edited ("ship.fighter", "projectile.missile.t2"...). */
+  const [subject, setSubject] = useState('ship.fighter');
+  const kind: ArtKind = kindOf(subject) ?? SHIP_KIND;
+  /** The preview state, remembered per kind (so switching between ships keeps Move, say). */
+  const [states, setStates] = useState<Record<string, string>>({});
+  const state = states[kind.id] ?? kind.states[0].id;
+  const setState = (s: string) => setStates((all) => ({ ...all, [kind.id]: s }));
   const [zoom, setZoom] = useState(4);
   const [spin, setSpin] = useState(false);
   const [fly, setFly] = useState(true);
@@ -66,12 +68,16 @@ export function ShipArt() {
     return r && ROTATION_MODES.includes(r) ? r : 'grid';
   });
   const [selected, setSelected] = useState<number | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
-  const [history, setHistory] = useState<ShipLayoutsFile[]>([]);
+  const [history, setHistory] = useState<ArtLayoutsFile[]>([]);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState('');
   /** What the arrow keys move: the selected mount, or its VFX point. */
   const [nudge, setNudge] = useState<'mount' | 'vfx'>('mount');
+  /** Rollout sections that are open, and the filter text. */
+  const [open, setOpen] = useState<Record<string, boolean>>({ ships: true, objects: true });
+  const [filter, setFilter] = useState('');
   /** The project folder on Windows, from the dev server (for "Copy folder path"). */
   const [windowsRoot, setWindowsRoot] = useState<string | null>(null);
   useEffect(() => {
@@ -93,7 +99,7 @@ export function ShipArt() {
   useEffect(() => {
     (async () => {
       const a = await Assets.load();
-      const d = await loadShipLayouts(a);
+      const d = await loadArtLayouts(a);
       const f = await loadArtFiles(a, d);
       setAssets(a);
       setData(d);
@@ -101,29 +107,35 @@ export function ShipArt() {
     })().catch((e: Error) => setError(e.message));
   }, []);
 
-  /** Ships to choose from: every ship sprite in the manifest ("ship.fighter", "ship.fighter.t2"...). */
-  const ships = useMemo(
-    () => (assets ? assets.names().filter((n) => /^ship\.[a-z]+(\.t\d+)?$/.test(n)).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })) : []),
+  /** Every sprite of a kind (one per tier), in tier order. */
+  const spritesOf = useCallback(
+    (k: ArtKind) => (assets ? assets.names().filter(k.matches).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })) : []),
     [assets],
   );
-  const layout = data?.ships[ship] ?? emptyLayout();
+  const matchesFilter = (s: string) => !filter || s.toLowerCase().includes(filter.toLowerCase());
+  const section = kind.section;
+  const layout: ArtLayout = data?.[section][subject] ?? emptyLayout();
   const mount = selected !== null ? layout.mounts[selected] : undefined;
   const categories = useMemo(() => [...new Set(files.filter((f) => f.startsWith('parts/')).map(categoryOf))], [files]);
-  const shipFiles = files.filter((f) => f.startsWith('ships/'));
+  const baseFiles = files.filter((f) => f.startsWith(section === 'ships' ? 'ships/' : 'projectiles/'));
+  const mountState = kind.states.find((s) => s.id === state)?.uses ?? state;
 
-  /** Change the data (saving an undo step first unless `noUndo`). */
-  const change = useCallback((fn: (d: ShipLayoutsFile) => void, noUndo = false) => {
-    const current = dataRef.current;
-    if (!current || READ_ONLY) return;
-    const next = clone(current);
-    next.ships[ship] ??= emptyLayout();
-    fn(next);
-    if (!noUndo) setHistory((h) => [...h.slice(-99), current]);
-    setData(next);
-    setDirty(true);
-  }, [ship]);
+  /** Change the data (saving an undo step first unless `noUndo`). The current subject always has a layout to change. */
+  const change = useCallback(
+    (fn: (d: ArtLayoutsFile) => void, noUndo = false) => {
+      const current = dataRef.current;
+      if (!current || READ_ONLY) return;
+      const next = clone(current);
+      next[section][subject] ??= emptyLayout();
+      fn(next);
+      if (!noUndo) setHistory((h) => [...h.slice(-99), current]);
+      setData(next);
+      setDirty(true);
+    },
+    [section, subject],
+  );
   const changeMount = (fn: (m: Mount) => void, noUndo = false) =>
-    selected !== null && change((d) => fn(d.ships[ship].mounts[selected]), noUndo);
+    selected !== null && change((d) => fn(d[section][subject].mounts[selected]), noUndo);
 
   const undo = useCallback(() => {
     setHistory((h) => {
@@ -148,47 +160,52 @@ export function ShipArt() {
     }
   }, []);
 
+  const previewSettings = () =>
+    data && { data, subject, kind, state, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, readOnly: READ_ONLY };
+
   // Start the preview once everything has loaded.
   useEffect(() => {
-    if (!assets || !data || !canvasRef.current || !overlayRef.current || previewRef.current) return;
-    previewRef.current = new Preview(
-      canvasRef.current,
-      overlayRef.current,
-      assets,
-      { data, ship, state, zoom, spin, fly, team, guides, stars, rotation, selected, readOnly: READ_ONLY },
-      {
-        select: (i) => setSelected(i),
-        dragStart: () => {
-          const current = dataRef.current;
-          if (current) setHistory((h) => [...h.slice(-99), current]);
-        },
-        moveMount: (i, x, y) => {
-          setNudge('mount');
-          setData((d) => {
-            if (!d) return d;
-            const next = clone(d);
-            const m = next.ships[previewRef.current!.settings.ship].mounts[i];
-            m.x = x;
-            m.y = y;
-            return next;
-          });
-          setDirty(true);
-        },
-        moveVfx: (i, x, y) => {
-          setNudge('vfx');
-          setData((d) => {
-            if (!d) return d;
-            const next = clone(d);
-            const m = next.ships[previewRef.current!.settings.ship].mounts[i];
-            m.vfxX = x;
-            m.vfxY = y;
-            return next;
-          });
-          setDirty(true);
-        },
-        hover: setHover,
+    const settings = previewSettings();
+    if (!assets || !settings || !canvasRef.current || !overlayRef.current || previewRef.current) return;
+    const edit = (fn: (l: ArtLayout) => void) => {
+      const s = previewRef.current!.settings;
+      setData((d) => {
+        if (!d) return d;
+        const next = clone(d);
+        next[s.kind.section][s.subject] ??= emptyLayout();
+        fn(next[s.kind.section][s.subject]);
+        return next;
+      });
+      setDirty(true);
+    };
+    previewRef.current = new Preview(canvasRef.current, overlayRef.current, assets, settings, {
+      select: (i) => {
+        setSelected(i);
+        setSelectedPoint(null);
       },
-    );
+      selectPoint: (id) => {
+        setSelectedPoint(id);
+        setSelected(null);
+      },
+      dragStart: () => {
+        const current = dataRef.current;
+        if (current) setHistory((h) => [...h.slice(-99), current]);
+      },
+      moveMount: (i, x, y) => {
+        setNudge('mount');
+        edit((l) => Object.assign(l.mounts[i], { x, y }));
+      },
+      moveVfx: (i, x, y) => {
+        setNudge('vfx');
+        edit((l) => Object.assign(l.mounts[i], { vfxX: x, vfxY: y }));
+      },
+      movePoint: (id, x, y) =>
+        edit((l) => {
+          l.points ??= {};
+          l.points[id] = { x, y };
+        }),
+      hover: setHover,
+    });
     return () => {
       previewRef.current?.destroy();
       previewRef.current = null;
@@ -199,13 +216,17 @@ export function ShipArt() {
 
   // Keep the preview's settings up to date.
   useEffect(() => {
-    if (previewRef.current && data)
-      previewRef.current.settings = { data, ship, state, zoom, spin, fly, team, guides, stars, rotation, selected, readOnly: READ_ONLY };
-  }, [data, ship, state, zoom, spin, fly, team, guides, stars, rotation, selected]);
+    const settings = previewSettings();
+    if (previewRef.current && settings) previewRef.current.settings = settings;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, subject, state, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint]);
 
-  // Switching ships, or turning spin/fly off, puts the ship back in the middle facing right.
-  useEffect(() => previewRef.current?.resetPosition(), [ship, spin, fly]);
-  useEffect(() => setSelected(null), [ship]);
+  // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
+  useEffect(() => previewRef.current?.resetPosition(), [subject, spin, fly]);
+  useEffect(() => {
+    setSelected(null);
+    setSelectedPoint(null);
+  }, [subject]);
 
   // Keyboard: arrows nudge (Shift = 5 px), Delete removes, Ctrl+Z undoes, Ctrl+S saves.
   useEffect(() => {
@@ -222,13 +243,24 @@ export function ShipArt() {
         save();
         return;
       }
-      if (selected === null || READ_ONLY) return;
+      if (READ_ONLY) return;
       const step = e.shiftKey ? 5 : 1;
       const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+      if (d && selectedPoint) {
+        e.preventDefault();
+        change((data) => {
+          const l = data[section][subject];
+          l.points ??= {};
+          const p = l.points[selectedPoint] ?? { x: 0, y: 0 };
+          l.points[selectedPoint] = { x: p.x + d[0], y: p.y + d[1] };
+        });
+        return;
+      }
+      if (selected === null) return;
       if (d) {
         e.preventDefault();
         change((data) => {
-          const m = data.ships[ship].mounts[selected];
+          const m = data[section][subject].mounts[selected];
           if (nudge === 'vfx') {
             m.vfxX += d[0];
             m.vfxY += d[1];
@@ -238,13 +270,13 @@ export function ShipArt() {
           }
         });
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        change((data) => data.ships[ship].mounts.splice(selected, 1));
+        change((data) => data[section][subject].mounts.splice(selected, 1));
         setSelected(null);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, ship, nudge, change, undo, save]);
+  }, [selected, selectedPoint, section, subject, nudge, change, undo, save]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -256,47 +288,45 @@ export function ShipArt() {
   }, [dirty]);
 
   /** Images a mount of this category can use, the ones named for `state` first ("thruster-boost-…" for boost). */
-  const imagesFor = (category: string, state: ShipState) =>
+  const imagesFor = (category: string, state: string) =>
     files
       .filter((f) => f.startsWith('parts/') && categoryOf(f) === category)
       .sort((a, b) => Number(baseName(b).includes(`-${state}`)) - Number(baseName(a).includes(`-${state}`)) || a.localeCompare(b));
 
   const addMount = (category: string) => {
-    const m: Mount = {
-      category,
-      x: 0,
-      y: 0,
-      angle: 0,
-      flipX: false,
-      flipY: false,
-      scale: 1,
-      behind: true,
-      vfxX: 0,
-      vfxY: 0,
-      images: {},
-    };
-    // Start with an image for the state being previewed (or move, from idle), named for that state if there is one.
-    const s: ShipState = mountState(state) === 'idle' && category === 'thruster' ? 'move' : mountState(state);
-    const img = imagesFor(category, s)[0];
-    if (img) m.images[s] = img;
-    change((d) => d.ships[ship].mounts.push(m));
+    const m: Mount = { category, x: 0, y: 0, angle: 0, flipX: false, flipY: false, scale: 1, behind: true, vfxX: 0, vfxY: 0, images: {} };
+    // Start in the state being previewed (from Idle, a thruster starts in Move).
+    const s = mountState === 'idle' && category === 'thruster' ? 'move' : mountState;
+    if (category === EMITTER) m.emit = { [s]: {} };
+    else {
+      const img = imagesFor(category, s)[0];
+      if (img) m.images[s] = img;
+      // Thrusters give off particles wherever they show (they can be turned off in the VFX panel).
+      if (category === 'thruster') m.emit = { [s]: {} };
+    }
+    change((d) => d[section][subject].mounts.push(m));
     setSelected(layout.mounts.length);
+    setSelectedPoint(null);
     setNudge('mount');
   };
 
-  /** Copy another ship's layout onto this one, with positions scaled by how much bigger this ship's image is. */
+  /** Copy another tier's layout onto this one, with positions scaled by how much bigger this image is. */
   const copyFrom = (from: string) => {
-    if (!assets || !data?.ships[from]) return;
-    const k = assets.get(ship).frames[0].w / assets.get(from).frames[0].w;
+    if (!assets || !data?.[section][from]) return;
+    const k = assets.get(subject).frames[0].w / assets.get(from).frames[0].w;
     change((d) => {
-      const copy = clone(d.ships[from]);
+      const copy = clone(d[section][from]);
       for (const m of copy.mounts) {
         m.x = Math.round(m.x * k);
         m.y = Math.round(m.y * k);
         m.vfxX = Math.round(m.vfxX * k);
         m.vfxY = Math.round(m.vfxY * k);
       }
-      d.ships[ship] = copy;
+      for (const p of Object.values(copy.points ?? {})) {
+        p.x = Math.round(p.x * k);
+        p.y = Math.round(p.y * k);
+      }
+      d[section][subject] = copy;
     });
     setSelected(null);
   };
@@ -304,7 +334,7 @@ export function ShipArt() {
   if (error) return <div className="shipart-message">Couldn't start ShipArt: {error}</div>;
 
   // The image shown for the selected mount in the current state (its animation settings can be edited).
-  const shownImage = mount?.images[mountState(state)];
+  const shownImage = mount?.images[mountState];
   const shownSettings = shownImage ? (data?.images[shownImage] ?? {}) : null;
   const setImageSettings = (patch: { frames?: number; fps?: number }) => {
     if (!shownImage || !assets) return;
@@ -312,15 +342,26 @@ export function ShipArt() {
     change((d) => (d.images[shownImage] = next));
     assets.loadFile(fileSprite(shownImage), shownImage, next);
   };
+  const point = selectedPoint ? (layout.points?.[selectedPoint] ?? { x: 0, y: 0 }) : null;
+  const pickSubject = (s: string) => setSubject(s);
+  const stateLabel = (s: string) => kind.states.find((k) => k.id === s)?.label ?? label(s);
+
+  /** One list of sprites in the rollout menu. */
+  const subjectList = (list: string[]) =>
+    list.filter(matchesFilter).map((s) => (
+      <button key={s} className={'sa-ship' + (subject === s ? ' on' : '')} onClick={() => pickSubject(s)}>
+        {shortName(s)}
+      </button>
+    ));
 
   return (
     <div className="shipart">
       <header className="sa-top">
         <h1>ShipArt</h1>
         <div className="sa-group">
-          {PREVIEW_STATES.map((s) => (
-            <button key={s} className={state === s ? 'on' : ''} onClick={() => setState(s)}>
-              {label(s)}
+          {kind.states.map((s) => (
+            <button key={s.id} className={state === s.id ? 'on' : ''} onClick={() => setState(s.id)}>
+              {s.label}
             </button>
           ))}
         </div>
@@ -352,7 +393,7 @@ export function ShipArt() {
           >
             Stars
           </button>
-          <button className={guides ? 'on' : ''} onClick={() => setGuides(!guides)} title="Outlines and VFX points">
+          <button className={guides ? 'on' : ''} onClick={() => setGuides(!guides)} title="Outlines, VFX points and points">
             Guides
           </button>
         </div>
@@ -388,29 +429,42 @@ export function ShipArt() {
       </header>
 
       <aside className="sa-left">
-        <h2>Ships</h2>
-        {ships.map((s) => (
-          <button key={s} className={'sa-ship' + (ship === s ? ' on' : '')} onClick={() => setShip(s)}>
-            {s.replace(/^ship\./, '')}
-          </button>
-        ))}
+        <input className="sa-filter" placeholder="Filter…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <button className="sa-rollout" onClick={() => setOpen({ ...open, ships: !open.ships })}>
+          {open.ships ? '▾' : '▸'} Ships
+        </button>
+        {open.ships && <div className="sa-rollout-body">{subjectList(spritesOf(SHIP_KIND))}</div>}
+        <button className="sa-rollout" onClick={() => setOpen({ ...open, objects: !open.objects })}>
+          {open.objects ? '▾' : '▸'} Objects
+        </button>
+        {open.objects && (
+          <div className="sa-rollout-body">
+            {OBJECT_KINDS.map((k) => (
+              <div key={k.id}>
+                <div className="sa-rollout-group">{k.label}</div>
+                {subjectList(spritesOf(k))}
+              </div>
+            ))}
+          </div>
+        )}
+
         {data && (
           <fieldset disabled={READ_ONLY}>
             <h2>Base image</h2>
-            {SHIP_STATES.map((s) => (
+            {kind.mountStates.map((s) => (
               <label key={s} className="sa-row">
-                <span>{label(s)}</span>
+                <span>{stateLabel(s)}</span>
                 <select
                   value={layout.base[s] ?? ''}
                   onChange={(e) =>
                     change((d) => {
-                      if (e.target.value) d.ships[ship].base[s] = e.target.value;
-                      else delete d.ships[ship].base[s];
+                      if (e.target.value) d[section][subject].base[s] = e.target.value;
+                      else delete d[section][subject].base[s];
                     })
                   }
                 >
-                  <option value="">{s === 'idle' ? 'Normal image' : 'Same as idle'}</option>
-                  {shipFiles.map((f) => (
+                  <option value="">{s === kind.mountStates[0] ? 'Normal image' : 'Same as first'}</option>
+                  {baseFiles.map((f) => (
                     <option key={f} value={f}>
                       {baseName(f)}
                     </option>
@@ -420,12 +474,12 @@ export function ShipArt() {
             ))}
             <h2>Copy layout from</h2>
             <select value="" onChange={(e) => e.target.value && copyFrom(e.target.value)}>
-              <option value="">Choose a ship…</option>
-              {ships
-                .filter((s) => s !== ship && data.ships[s]?.mounts.length)
+              <option value="">Choose…</option>
+              {spritesOf(kind)
+                .filter((s) => s !== subject && data[section][s]?.mounts.length)
                 .map((s) => (
                   <option key={s} value={s}>
-                    {s.replace(/^ship\./, '')} (positions scaled)
+                    {shortName(s)} (positions scaled)
                   </option>
                 ))}
             </select>
@@ -438,43 +492,91 @@ export function ShipArt() {
         <canvas ref={overlayRef} className="sa-overlay" />
         {!assets && <div className="shipart-message">Loading…</div>}
         <div className="sa-hint">
-          {hover ? `x ${hover.x}, y ${hover.y} · ` : ''}Drag a mount or its pink VFX point · Arrows nudge (Shift = 5 px) · Delete removes
+          {hover ? `x ${hover.x}, y ${hover.y} · ` : ''}Drag a mount, its pink VFX point, or a yellow point · Arrows nudge (Shift = 5 px) · Delete removes
         </div>
       </main>
 
-      {assets && (
+      {assets && data && (
         <VfxPanel
           assets={assets}
+          data={data}
+          kind={kind}
           mount={mount}
-          previewState={state}
+          mountState={mountState}
           readOnly={READ_ONLY}
           windowsRoot={windowsRoot}
           onChange={(fn) => changeMount(fn)}
+          onChangeData={(fn) => change(fn)}
         />
       )}
 
       <aside className="sa-right">
         <fieldset disabled={READ_ONLY}>
+          {kind.points.length > 0 && (
+            <>
+              <h2>Points</h2>
+              {kind.points.map((p) => (
+                <button
+                  key={p.id}
+                  className={'sa-mount' + (selectedPoint === p.id ? ' on' : '')}
+                  onClick={() => {
+                    setSelectedPoint(p.id);
+                    setSelected(null);
+                  }}
+                >
+                  {p.label} <span className="sa-note">shows {p.effect}</span>
+                </button>
+              ))}
+              {point && selectedPoint && (
+                <div className="sa-row">
+                  <NumberField
+                    label="x"
+                    value={point.x}
+                    onChange={(v) => change((d) => ((d[section][subject].points ??= {})[selectedPoint] = { ...point, x: v }))}
+                  />
+                  <NumberField
+                    label="y"
+                    value={point.y}
+                    onChange={(v) => change((d) => ((d[section][subject].points ??= {})[selectedPoint] = { ...point, y: v }))}
+                  />
+                </div>
+              )}
+            </>
+          )}
+
           <h2>Mounts</h2>
           <div className="sa-mounts">
             {layout.mounts.map((m, i) => (
-              <button key={i} className={'sa-mount' + (selected === i ? ' on' : '')} onClick={() => setSelected(i)}>
+              <button
+                key={i}
+                className={'sa-mount' + (selected === i ? ' on' : '')}
+                onClick={() => {
+                  setSelected(i);
+                  setSelectedPoint(null);
+                }}
+              >
                 {label(m.category)} {i + 1}
                 <span className="sa-note">
                   {' '}
-                  {SHIP_STATES.filter((s) => m.images[s]).join(', ') || 'hidden'}
+                  {kind.mountStates
+                    .filter((s) => m.images[s] || m.emit?.[s])
+                    .map(stateLabel)
+                    .join(', ') || 'hidden'}
                 </span>
               </button>
             ))}
-            {layout.mounts.length === 0 && <div className="sa-note">No mounts on this ship yet.</div>}
+            {layout.mounts.length === 0 && <div className="sa-note">No mounts here yet.</div>}
           </div>
-          <div className="sa-row">
+          <div className="sa-row sa-wrap">
             <span>Add</span>
             {categories.map((c) => (
               <button key={c} onClick={() => addMount(c)}>
                 + {label(c)}
               </button>
             ))}
+            <button onClick={() => addMount(EMITTER)} title="Particles only, no image">
+              + Emitter
+            </button>
           </div>
 
           {mount && (
@@ -482,37 +584,49 @@ export function ShipArt() {
               <h2>
                 {label(mount.category)} {selected! + 1}
               </h2>
-              <div className="sa-sub">Shows in</div>
-              {SHIP_STATES.map((s) => {
-                const options = imagesFor(mount.category, s);
-                return (
-                  <label key={s} className="sa-row">
-                    <input
-                      type="checkbox"
-                      checked={!!mount.images[s]}
-                      onChange={(e) =>
-                        changeMount((m) => {
-                          if (e.target.checked) m.images[s] = options[0];
-                          else delete m.images[s];
-                        })
-                      }
-                    />
-                    <span>{label(s)}</span>
-                    <select
-                      value={mount.images[s] ?? ''}
-                      disabled={!mount.images[s]}
-                      onChange={(e) => changeMount((m) => (m.images[s] = e.target.value))}
-                    >
-                      {!mount.images[s] && <option value="">Hidden</option>}
-                      {options.map((f) => (
-                        <option key={f} value={f}>
-                          {baseName(f)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                );
-              })}
+              {mount.category === EMITTER ? (
+                <div className="sa-note">Particles only: set when and how in the VFX panel.</div>
+              ) : (
+                <>
+                  <div className="sa-sub">Shows in</div>
+                  {kind.mountStates.map((s) => {
+                    const options = imagesFor(mount.category, s);
+                    return (
+                      <label key={s} className="sa-row">
+                        <input
+                          type="checkbox"
+                          checked={!!mount.images[s]}
+                          onChange={(e) =>
+                            changeMount((m) => {
+                              if (e.target.checked) {
+                                m.images[s] = options[0];
+                                // Thrusters give off particles wherever they show.
+                                if (m.category === 'thruster') (m.emit ??= {})[s] ??= {};
+                              } else {
+                                delete m.images[s];
+                                if (m.category === 'thruster' && m.emit) delete m.emit[s];
+                              }
+                            })
+                          }
+                        />
+                        <span>{stateLabel(s)}</span>
+                        <select
+                          value={mount.images[s] ?? ''}
+                          disabled={!mount.images[s]}
+                          onChange={(e) => changeMount((m) => (m.images[s] = e.target.value))}
+                        >
+                          {!mount.images[s] && <option value="">Hidden</option>}
+                          {options.map((f) => (
+                            <option key={f} value={f}>
+                              {baseName(f)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  })}
+                </>
+              )}
 
               <div className="sa-sub">Placement</div>
               <div className="sa-row">
@@ -532,7 +646,7 @@ export function ShipArt() {
                 </label>
               </div>
               <label className="sa-row">
-                <input type="checkbox" checked={mount.behind} onChange={(e) => changeMount((m) => (m.behind = e.target.checked))} /> Behind the ship
+                <input type="checkbox" checked={mount.behind} onChange={(e) => changeMount((m) => (m.behind = e.target.checked))} /> Behind
               </label>
 
               {shownImage && shownSettings && (
@@ -548,7 +662,7 @@ export function ShipArt() {
               <div className="sa-row sa-actions">
                 <button
                   onClick={() => {
-                    change((d) => d.ships[ship].mounts.push({ ...clone(mount), x: mount.x, y: mount.y + 4 }));
+                    change((d) => d[section][subject].mounts.push({ ...clone(mount), x: mount.x, y: mount.y + 4 }));
                     setSelected(layout.mounts.length);
                   }}
                 >
@@ -557,7 +671,7 @@ export function ShipArt() {
                 <button
                   title="A copy on the other side (top ↔ bottom), mirrored"
                   onClick={() => {
-                    change((d) => d.ships[ship].mounts.push({ ...clone(mount), y: -mount.y, vfxY: -mount.vfxY, flipY: !mount.flipY }));
+                    change((d) => d[section][subject].mounts.push({ ...clone(mount), y: -mount.y, vfxY: -mount.vfxY, flipY: !mount.flipY }));
                     setSelected(layout.mounts.length);
                   }}
                 >
@@ -566,7 +680,7 @@ export function ShipArt() {
                 <button
                   className="sa-danger"
                   onClick={() => {
-                    change((d) => d.ships[ship].mounts.splice(selected!, 1));
+                    change((d) => d[section][subject].mounts.splice(selected!, 1));
                     setSelected(null);
                   }}
                 >
