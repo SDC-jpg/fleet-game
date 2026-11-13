@@ -53,7 +53,7 @@ export const SHIP_TYPES = {
     fireCooldown: 0.25,
     range: 240,
     bulletSpeed: 380,
-    bulletLife: 1.1,
+    bulletLife: 2.0,
     bulletDamage: 1,
     gunOffset: 14,
     sprites: { ship: "ship.fighter", bullet: "projectile" },
@@ -232,7 +232,7 @@ export const CONFIG = {
     /** XP per tier-1 ship's worth of enemy destroyed. */
     xpPerValue: 1,
     /** XP needed to go from level 1 to level 2. */
-    firstLevelXp: 5,
+    firstLevelXp: 50,
     /** Each level needs this many times more XP than the last (1 = always the same). */
     growth: 1.15,
   },
@@ -250,7 +250,7 @@ export const CONFIG = {
     /** How much more likely a rank-up card (for a skill you have) is than a bonus card. */
     rankUpWeight: 3,
     /** Highest rank a skill can reach (rank 1 = just picked). */
-    maxRank: 5,
+    maxRank: 10,
     /** Bonus card: extra damage for the whole fleet (0.1 = +10%). */
     damageBonus: 0.1,
     /** Bonus card: faster firing for the whole fleet (0.1 = +10%). */
@@ -293,7 +293,7 @@ export const CONFIG = {
     /** Bigger enemies drop more often: chance × (their value ^ this). 0.5 = a value-16 enemy is 4× as likely. */
     dropChanceGrowth: 0.5,
     /** Seconds before an item nobody picked up disappears. */
-    lifetime: 40,
+    lifetime: 120,
     /** Equipment slots per tier of your biggest ship so far. */
     slotsPerTier: 3,
     /** Common Targeting Computer: extra damage (0.05 = +5%). */
@@ -332,8 +332,12 @@ export const CONFIG = {
     count: 4,
     /** Damage per missile (tier 1). */
     damage: 2,
-    /** Missile speed. */
-    speed: 260,
+    /** Missile speed at launch: they start slow, then speed up. */
+    startSpeed: 30,
+    /** Missile top speed, reached rampTime seconds after launch. */
+    speed: 500,
+    /** Seconds for a missile to go from startSpeed to speed. */
+    rampTime: 0.5,
     /** How fast missiles turn toward their target (radians per second). */
     turnRate: 4,
     /** Seconds a missile lasts. */

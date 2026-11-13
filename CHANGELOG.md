@@ -4,6 +4,14 @@ Player-facing changes, newest first. When a new version goes live, the lines
 added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
+## 2026-11-13
+
+- Shots fly further before fading out.
+- Levelling up takes more XP (the first level needs 50).
+- Skills can now be upgraded up to rank 10 instead of 5.
+- Dropped items stay for 2 minutes before disappearing.
+- Missiles launch slowly, then speed up to a much higher speed in half a second.
+
 ## 2026-11-12
 
 - Elite enemies: from wave 10, every 5 waves a strong enemy with an orange ring arrives. It uses skills like yours (watch for the dashed line before its laser fires) and always drops a wreck, an item, or both, with better odds of rare items.

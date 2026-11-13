@@ -119,8 +119,8 @@ function launchMissiles(state: GameState, ship: Ship, c: Controls, sk: OwnedSkil
       tier: ship.tier,
       x: ship.x,
       y: ship.y,
-      vx: Math.cos(a) * M.speed,
-      vy: Math.sin(a) * M.speed,
+      vx: Math.cos(a) * M.startSpeed,
+      vy: Math.sin(a) * M.startSpeed,
       life: M.life,
       damage,
       radius: 2 * ship.stats.size,
@@ -305,7 +305,8 @@ function eliteWants(state: GameState, ship: Ship, sk: OwnedSkill, target: Ship) 
     case 'laser':
       return off < 0.12 && d < laserLength(ship, sk);
     case 'missiles':
-      return d < CONFIG.missiles.speed * CONFIG.missiles.life * 0.6;
+      // Close enough to be on screen, so you see them coming.
+      return d < 450;
     case 'mines':
       return d < 200 * ship.stats.size;
     case 'shield':

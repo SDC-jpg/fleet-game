@@ -922,6 +922,13 @@ export function damageShip(state: GameState, s: Ship, amount: number) {
 
 /** Turn a homing missile toward its target, or the nearest enemy if its target is gone. */
 function steerMissile(state: GameState, b: Bullet, dt: number) {
+  // Missiles launch slowly and speed up to full speed over CONFIG.missiles.rampTime.
+  const M = CONFIG.missiles;
+  const age = M.life - b.life;
+  const speed = M.startSpeed + (M.speed - M.startSpeed) * Math.min(1, age / M.rampTime);
+  const heading = Math.atan2(b.vy, b.vx);
+  b.vx = Math.cos(heading) * speed;
+  b.vy = Math.sin(heading) * speed;
   if (!b.target || b.target.dead || b.target.merge) {
     b.target = null;
     let bestD = 500 * 500;
@@ -935,7 +942,6 @@ function steerMissile(state: GameState, b: Bullet, dt: number) {
     }
   }
   if (!b.target) return;
-  const speed = Math.hypot(b.vx, b.vy);
   const now = Math.atan2(b.vy, b.vx);
   const want = Math.atan2(b.target.y - b.y, b.target.x - b.x);
   const turn = clamp(wrapAngle(want - now), -b.homing * dt, b.homing * dt);
