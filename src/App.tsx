@@ -49,7 +49,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div>
               Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
-              screen · X end run · L level up · J all skills · I drop items · E spawn elite · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · U rotation ({ROTATION_LABELS[hud.rotation]})
+              screen · X end run · L level up · J all skills · I drop items · E spawn elite · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
             </div>
           )}
         </div>

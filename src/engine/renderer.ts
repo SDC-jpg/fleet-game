@@ -65,11 +65,23 @@ export class PixelRenderer {
     this.screen.style.height = `${this.screen.height / dpr}px`;
   }
 
+  /**
+   * Physical screen pixels per zoom unit. In the game, zoom steps are measured
+   * against a 1080-pixel-tall monitor, using the monitor's real pixels (not
+   * Windows-scaled ones): zoom 3 shows a 360-pixel-tall view on any monitor
+   * and with any Windows display scaling. In ShipArt (fitParent), a zoom step
+   * is simply screen pixels per art pixel.
+   */
+  private get zoomUnit() {
+    if (this.fitParent) return this.dpr;
+    return Math.max(1, window.screen.height * this.dpr) / 1080;
+  }
+
   /** Set the zoom step (e.g. 4, 3, 2, 1, 0.5). The change animates. */
   setZoom(step: number, instant = false) {
     // At 1× and above, round so each game pixel is a whole number of real
     // screen pixels, even with Windows display scaling (125%, 150%...).
-    const exact = step * this.dpr;
+    const exact = step * this.zoomUnit;
     this.targetScale = exact >= 1 ? Math.round(exact) : exact;
     if (instant) this.scale = this.targetScale;
   }
@@ -253,6 +265,16 @@ export class PixelRenderer {
     this.sctx.fillStyle = '#000';
     this.sctx.fillRect(0, 0, this.screen.width, this.screen.height);
     this.sctx.drawImage(this.buffer, 0, 0, this.buffer.width * this.bufferScale, this.buffer.height * this.bufferScale);
+  }
+
+  /** For the test bar: the monitor's real size, Windows display scaling, and screen pixels per art pixel. */
+  get displayInfo() {
+    const dpr = this.dpr;
+    return {
+      monitor: `${Math.round(window.screen.width * dpr)}×${Math.round(window.screen.height * dpr)}`,
+      scaling: Math.round(dpr * 100),
+      pixelsPerArtPixel: Math.round(this.scale * 100) / 100,
+    };
   }
 
   /** Convert world coordinates to a position on the canvas in CSS pixels (as of the last `begin`). */

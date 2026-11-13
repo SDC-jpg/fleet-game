@@ -79,6 +79,8 @@ export interface HudInfo {
   elitesEnabled: boolean;
   /** How rotated ships are drawn (test key U). */
   rotation: RotationMode;
+  /** Monitor size, display scaling and pixel zoom, for checking the zoom (test bar). */
+  display: string;
   soundOn: boolean;
   /** Auto-fire (Q) is on. */
   autoFire: boolean;
@@ -119,6 +121,11 @@ export interface EquipmentInfo {
   inventory: ItemInfo[];
   /** Your fleet's total bonuses from cards and equipment, e.g. "+12% damage". */
   totals: string[];
+}
+
+/** "Monitor 1920×1080 · scaling 125% · 3 px per art pixel". */
+function displayText(d: { monitor: string; scaling: number; pixelsPerArtPixel: number }) {
+  return `Monitor ${d.monitor} · scaling ${d.scaling}% · ${d.pixelsPerArtPixel} px per art pixel`;
 }
 
 export class Game {
@@ -491,6 +498,7 @@ export class Game {
       invincible: st.invincible,
       elitesEnabled: st.elitesEnabled,
       rotation: this.renderer.rotation,
+      display: displayText(this.renderer.displayInfo),
       soundOn: this.sounds.enabled,
       autoFire: this.autoFire,
       fps: this.fps,
