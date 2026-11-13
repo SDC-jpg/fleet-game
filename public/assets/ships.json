@@ -6,34 +6,26 @@
       "mounts": [
         {
           "category": "thruster",
-          "x": -19,
-          "y": -10,
+          "x": -20,
+          "y": 0,
           "angle": 0,
           "flipX": false,
           "flipY": false,
           "scale": 1,
-          "behind": true,
-          "vfxX": 0,
+          "behind": false,
+          "vfxX": 6,
           "vfxY": 0,
           "images": {
             "move": "parts/thruster-move-1.png",
             "boost": "parts/thruster-boost-1.png"
-          }
-        },
-        {
-          "category": "thruster",
-          "x": -19,
-          "y": 10,
-          "angle": 0,
-          "flipX": false,
-          "flipY": false,
-          "scale": 1,
-          "behind": true,
-          "vfxX": 0,
-          "vfxY": 0,
-          "images": {
-            "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
+          },
+          "vfx": {
+            "move": {
+              "perSecond": 5
+            },
+            "boost": {
+              "perSecond": 10
+            }
           }
         }
       ]
@@ -43,63 +35,33 @@
       "mounts": [
         {
           "category": "thruster",
-          "x": -38,
-          "y": -6,
+          "x": -29,
+          "y": -7,
           "angle": 0,
           "flipX": false,
           "flipY": false,
           "scale": 1,
-          "behind": true,
-          "vfxX": 0,
+          "behind": false,
+          "vfxX": 6,
           "vfxY": 0,
           "images": {
             "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
-          }
-        },
-        {
-          "category": "thruster",
-          "x": -38,
-          "y": 6,
-          "angle": 0,
-          "flipX": false,
-          "flipY": false,
-          "scale": 1,
-          "behind": true,
-          "vfxX": 0,
-          "vfxY": 0,
-          "images": {
-            "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
-          }
-        },
-        {
-          "category": "thruster",
-          "x": -27,
-          "y": -17,
-          "angle": 0,
-          "flipX": false,
-          "flipY": false,
-          "scale": 1,
-          "behind": true,
-          "vfxX": 0,
-          "vfxY": 0,
-          "images": {
             "boost": "parts/thruster-boost-2.png"
           }
         },
         {
           "category": "thruster",
-          "x": -27,
-          "y": 17,
+          "x": -29,
+          "y": 7,
           "angle": 0,
           "flipX": false,
           "flipY": false,
           "scale": 1,
-          "behind": true,
-          "vfxX": 0,
+          "behind": false,
+          "vfxX": 6,
           "vfxY": 0,
           "images": {
+            "move": "parts/thruster-move-1.png",
             "boost": "parts/thruster-boost-2.png"
           }
         }

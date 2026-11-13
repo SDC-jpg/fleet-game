@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- New thruster placement on the first two ship sizes: the smallest ship has one centre thruster with fewer sparks, and the tier 2 ship has two thrusters drawn over its hull.
 - ShipArt: thruster particles have an Angle setting, the width of the cone they spray in (360 = every direction).
 - ShipArt: a purple VFX panel shows each thruster's particle settings (image, spawn rate, life, speed, drag) with a preview of the particle image.
 - ShipArt: a Stars button switches the preview background between stars and plain black (remembered).
