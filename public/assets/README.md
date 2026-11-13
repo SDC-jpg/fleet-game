@@ -45,9 +45,12 @@ redrawing its flames.
 http://localhost:5173/shipart.html. The published copy
 (https://sdc-jpg.github.io/fleet-game/shipart.html) is view-only.
 
-- **The rollout menu** (left) lists **Ships** and **Objects** (missiles for now;
-  mines, shots, lasers and wrecks will follow). Each has its own states
-  (missile: Inert, Fired up, Impact, and Sequence, which plays them all).
+- **The rollout menu** (left) lists **Ships**, **Objects** and **Effects**. Each
+  object has its own states:
+  - **Missile:** Inert, Fired up, Impact, and Sequence (plays them all).
+  - **Mine:** Armed, Blast. **Gun shot:** Flying, Hit.
+  - **Laser:** Warning (an elite's aim line), Beam. Its mounts sit at the muzzle.
+  - **Wreck:** Drifting (shown on its marker, in its own colours).
 - **Parts live in `parts/`**, named `<category>-<anything>.png`, e.g.
   `thruster-move-1.png`, `flame-missile.png`. The first word is the
   category. New files appear in ShipArt by themselves (refresh the page); no
@@ -58,8 +61,9 @@ http://localhost:5173/shipart.html. The published copy
   only gives off particles (like the missile's smoke trail).
 - **VFX point** (pink): where the mount's particles come from. It starts at the
   image's centre; drag it anywhere, or "Reset VFX point to centre".
-- **Points** (yellow diamonds, objects only): spots like the missile's **Impact**
-  point, where its burst (`vfx.missile-hit`) appears.
+- **Points** (yellow diamonds, objects only): where an object's effect appears:
+  the missile's **Impact** burst, the mine's **Blast**, the gun shot's **Hit** spark.
+  The states with the same names play the effect there, with the object faint.
 - **Base image:** each state can also use a different main image.
 - **Animated parts:** put the frames side by side in one file and set
   Frames, Speed (FPS) and Loop in ShipArt's purple panel.

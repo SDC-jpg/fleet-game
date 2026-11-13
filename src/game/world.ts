@@ -1035,7 +1035,9 @@ function updateBullets(state: GameState, dt: number) {
         e.at = { sprite: b.sprite, tier: b.tier, angle: b.facing ?? Math.atan2(b.vy, b.vx), point: 'impact' };
         addSound(state, 'sfx.missile-hit', b, b.tier);
       } else {
-        addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
+        const e = addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
+        // It appears at the shot's Hit point (placed in ShipArt).
+        e.at = { sprite: b.sprite, tier: b.tier, angle: Math.atan2(b.vy, b.vx), point: 'hit' };
         addSound(state, 'sfx.hit', b, b.tier);
       }
       break;

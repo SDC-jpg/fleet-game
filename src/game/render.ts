@@ -41,8 +41,9 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     const alpha = blinking ? 0.35 : 1;
     // A marker ring under the wreck, kept full size when zoomed out so wrecks stay easy to spot.
     r.drawSprite(assets.get(tierSprite(assets, 'ui.wreck-marker', w.tier)), w.x, w.y, 0, state.time, alpha, true);
-    const sprite = assets.get(tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck'));
-    r.drawRotated(sprite, w.x, w.y, w.angle, state.time, alpha);
+    // Drawn from its layout (art.json), in its own colours (wrecks aren't team-coloured).
+    const name = tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, w.x, w.y, w.angle, 'drifting', 'player', state.time, alpha);
   }
 
   // Loot: a crate glowing in its rarity's colour (blinks before it disappears).
@@ -53,8 +54,8 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
 
   // Mines (team-coloured, looping blink).
   for (const m of state.mines) {
-    const sprite = teamSprite(assets, tierSprite(assets, 'projectile.mine', m.tier), m.team);
-    r.drawSprite(sprite, m.x, m.y, 0, m.age);
+    const name = tierSprite(assets, 'projectile.mine', m.tier);
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, m.x, m.y, 0, 'armed', m.team, m.age);
   }
 
   // Elites get a marker ring under them.
@@ -96,12 +97,17 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     const x = s.x + Math.cos(s.angle) * s.stats.gunOffset;
     const y = s.y + Math.sin(s.angle) * s.stats.gunOffset;
     drawBeam(r, warn, x, y, s.angle, laserLength(s, laser), laser.mods.size, state.time);
+    // The laser's Warning mounts (art.json), at the muzzle.
+    const name = tierSprite(assets, 'vfx.laser', s.tier);
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, x, y, s.angle, 'warning', s.team, state.time, 1, false);
   }
 
   // Laser beams: one short segment image repeated along the beam's length.
   for (const b of state.beams) {
-    const seg = teamSprite(assets, tierSprite(assets, 'vfx.laser', b.tier), b.team);
-    drawBeam(r, seg, b.x, b.y, b.angle, b.length, b.width, b.age);
+    const name = tierSprite(assets, 'vfx.laser', b.tier);
+    drawBeam(r, teamSprite(assets, name, b.team), b.x, b.y, b.angle, b.length, b.width, b.age);
+    // The laser's Beam mounts (art.json), at the muzzle.
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, b.angle, 'beam', b.team, b.age, 1, false);
   }
 
   for (const b of state.bullets) {
@@ -111,7 +117,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
       // (with their flame mount). They point where they face, which can differ from where they fly.
       const angle = b.facing ?? Math.atan2(b.vy, b.vx);
       drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, angle, b.lit ? 'fired' : 'inert', b.team, state.time);
-    } else r.drawSprite(teamSprite(assets, name, b.team), b.x, b.y, Math.atan2(b.vy, b.vx), state.time);
+    } else drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, Math.atan2(b.vy, b.vx), 'flying', b.team, state.time);
   }
 
   for (const e of state.effects) {
@@ -135,7 +141,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
 }
 
 /** A beam: one short segment image repeated along its length, scaled by `width`. */
-function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: number, length: number, width: number, time: number) {
+export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: number, length: number, width: number, time: number) {
   const w = seg.frames[0].w;
   const n = Math.ceil(length / (w * width));
   const dx = Math.cos(angle);
@@ -186,6 +192,8 @@ export function drawLayoutArt(
   team: Team,
   time: number,
   alpha = 1,
+  /** false = only the mounts (e.g. a laser, whose beam is drawn separately). */
+  drawBase = true,
 ) {
   const baseFile = layout?.base[state] ?? layout?.base.idle;
   const mounts = layout?.mounts ?? [];
@@ -198,7 +206,7 @@ export function drawLayoutArt(
     }
   };
   drawMounts(true);
-  r.drawRotated(teamSprite(assets, baseFile ? fileSprite(baseFile) : base, team), x, y, angle, time, alpha);
+  if (drawBase) r.drawRotated(teamSprite(assets, baseFile ? fileSprite(baseFile) : base, team), x, y, angle, time, alpha);
   drawMounts(false);
 }
 

@@ -191,7 +191,8 @@ function updateMines(state: GameState, dt: number) {
       if (s.team === m.team || s.dead || s.merge) continue;
       if (distSq(s.x, s.y, m.x, m.y) < (m.blastRadius + s.stats.radius) ** 2) damageShip(state, s, m.damage);
     }
-    addEffect(state, 'vfx.mine-blast', m.x, m.y, 0, m.tier, m.scale);
+    // The blast appears at the mine's Blast point (placed in ShipArt).
+    addEffect(state, 'vfx.mine-blast', m.x, m.y, 0, m.tier, m.scale).at = { sprite: 'projectile.mine', tier: m.tier, angle: 0, point: 'blast' };
     addSound(state, 'sfx.mine-blast', m, m.tier);
     m.age = Infinity; // gone
   }

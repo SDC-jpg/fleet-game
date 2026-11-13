@@ -8,7 +8,7 @@ import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
 import { renderGame, tierSprite } from './render';
-import { CONFIG, ITEM_STATS, SKILLS, type ItemStat, type Rarity, type SkillId } from './config';
+import { CONFIG, ITEM_STATS, SHIP_TYPES, SKILLS, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { loadEquipment, saveEquipment } from './save';
@@ -439,12 +439,24 @@ export class Game {
       const base = tierSprite(this.assets, typeOf(s).sprites.ship, s.tier);
       this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt);
     }
-    // Missiles: their trail and other emitters (Inert until they fire up, then Fired).
+    // Objects with particle emitters (art.json): missiles (Inert until they fire up, then Fired),
+    // gun shots, mines, wrecks, laser beams and elite laser warnings.
+    const emit = (base: string, tier: number, state: string, x: number, y: number, angle: number, suffix = '') => {
+      if (!near(x, y)) return;
+      const name = tierSprite(this.assets, base, tier, suffix);
+      const layout = this.layouts.objects[name];
+      if (layout) this.particles.emitMounts(this.layouts, layout, state, x, y, angle, dt);
+    };
     for (const b of this.state.bullets) {
-      if (b.homing <= 0 || !near(b.x, b.y)) continue;
-      const name = tierSprite(this.assets, b.sprite, b.tier);
-      this.particles.emitMounts(this.layouts, this.layouts.objects[name], b.lit ? 'fired' : 'inert', b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx), dt);
+      if (b.homing > 0) emit(b.sprite, b.tier, b.lit ? 'fired' : 'inert', b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx));
+      else emit(b.sprite, b.tier, 'flying', b.x, b.y, Math.atan2(b.vy, b.vx));
     }
+    for (const m of this.state.mines) emit('projectile.mine', m.tier, 'armed', m.x, m.y, 0);
+    for (const w of this.state.wrecks) emit(SHIP_TYPES[w.type].sprites.ship, w.tier, 'drifting', w.x, w.y, w.angle, '.wreck');
+    for (const b of this.state.beams) emit('vfx.laser', b.tier, 'beam', b.x, b.y, b.angle);
+    for (const s of this.state.ships)
+      if (s.elite && s.elite.laserCharge > 0)
+        emit('vfx.laser', s.tier, 'warning', s.x + Math.cos(s.angle) * s.stats.gunOffset, s.y + Math.sin(s.angle) * s.stats.gunOffset, s.angle);
   }
 
   private render(frameDt: number, alpha: number) {

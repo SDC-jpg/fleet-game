@@ -8,7 +8,7 @@ import type { Assets } from '../engine/assets';
 import { PixelRenderer, type RotationMode } from '../engine/renderer';
 import { CONFIG, SHIP_TYPES } from '../game/config';
 import { Particles } from '../game/particles';
-import { drawLayoutArt, tierSprite } from '../game/render';
+import { drawBeam, drawLayoutArt, tierSprite } from '../game/render';
 import { fileSprite, shipPointToWorld, worldToShipPoint, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
 import { tierOf, type ArtKind } from '../game/artKinds';
 import type { Team } from '../game/world';
@@ -145,6 +145,9 @@ export class Preview {
       if (!st.fly || st.state === 'impact') return 0;
       return st.state === 'inert' ? M.ejectSpeed : M.speed;
     }
+    if (st.kind.id === 'shot') return st.fly && st.state === 'flying' ? SHIP_TYPES.fighter.bulletSpeed : 0;
+    if (st.kind.id === 'wreck') return st.fly ? 15 : 0;
+    if (st.kind.section === 'objects') return 0;
     const t = SHIP_TYPES.fighter;
     if (!st.fly || st.state === 'idle') return 0;
     if (st.state === 'boost') return t.maxSpeed * t.boostMultiplier;
@@ -193,27 +196,47 @@ export class Preview {
 
     const state = this.mountState();
     const tier = tierOf(st.subject);
+    const team = st.kind.teamColored === false ? 'player' : st.team;
     const hidden = sequence && this.stateTime >= SEQ.impact;
+    // A state that shows a point's effect (Impact, Blast, Hit): the object faint, no particles.
+    const pointId = st.kind.states.find((s) => s.id === st.state)?.point ?? (hidden ? 'impact' : undefined);
     this.particles.update(dt);
-    if (!hidden && !(st.kind.id === 'missile' && st.state === 'impact'))
-      this.particles.emitMounts(st.data, this.layout, state, this.x, this.y, this.angle, dt);
+    if (!pointId) this.particles.emitMounts(st.data, this.layout, state, this.x, this.y, this.angle, dt);
     this.particles.draw(r, this.assets);
+    // Wrecks sit on their marker ring, like in the game.
+    if (st.kind.id === 'wreck') r.drawSprite(this.assets.get(tierSprite(this.assets, 'ui.wreck-marker', tier)), this.x, this.y, 0, this.time, 1, true);
     if (st.state === 'dash') {
       // The dash trail replays every second.
       const trail = this.assets.getRecolored(tierSprite(this.assets, 'vfx.dash', tier), CONFIG.teamColors[st.team], CONFIG.teamColors);
       r.drawSprite(trail, this.x, this.y, this.angle, this.time % 1);
     }
-    // Impact (and the end of the sequence): the burst at the impact point. The missile shows faintly in Impact, for placing it.
-    const impact = st.kind.points.find((p) => p.id === 'impact');
-    if (impact && (st.state === 'impact' || hidden)) {
-      const p = this.layout?.points?.[impact.id] ?? { x: 0, y: 0 };
+    // The point's effect, replaying (or once, at the end of the missile sequence).
+    const def = pointId ? st.kind.points.find((p) => p.id === pointId) : undefined;
+    if (def) {
+      const p = this.layout?.points?.[def.id] ?? { x: 0, y: 0 };
       const w = shipPointToWorld(p.x, p.y, this.x, this.y, this.angle);
-      const age = st.state === 'impact' ? this.time % 1 : this.stateTime - SEQ.impact;
-      r.drawSprite(this.assets.get(tierSprite(this.assets, impact.effect, tier)), w.x, w.y, 0, age);
+      const sprite = this.assets.get(tierSprite(this.assets, def.effect, tier));
+      const length = sprite.fps > 0 ? sprite.frames.length / sprite.fps : 1;
+      const age = hidden ? this.stateTime - SEQ.impact : this.time % (length + 0.4);
+      if (age < length) r.drawSprite(sprite, w.x, w.y, 0, age);
     }
-    if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, st.team, this.time, st.state === 'impact' ? 0.35 : 1);
+    if (st.kind.id === 'laser') this.drawLaser(state, tier, team);
+    else if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, this.time, pointId ? 0.35 : 1);
     r.end();
     this.drawGuides();
+  }
+
+  /**
+   * The laser from its muzzle (the subject's centre): the aim line looping in
+   * Warning, the beam firing about once a second in Beam; then its mounts.
+   */
+  private drawLaser(state: string, tier: number, team: Team) {
+    const st = this.settings;
+    const seg = this.assets.getRecolored(tierSprite(this.assets, state === 'warning' ? 'vfx.laser-warning' : 'vfx.laser', tier), CONFIG.teamColors[team], CONFIG.teamColors);
+    const length = seg.fps > 0 ? seg.frames.length / seg.fps : 0.3;
+    const t = state === 'warning' ? this.time : this.time % 1;
+    if (state === 'warning' || t < length) drawBeam(this.renderer, seg, this.x, this.y, this.angle, CONFIG.laser.length, 1, t);
+    drawLayoutArt(this.renderer, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, t, 1, false);
   }
 
   /**

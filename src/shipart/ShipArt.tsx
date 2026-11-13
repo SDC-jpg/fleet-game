@@ -14,7 +14,7 @@ import { ASSET_ROOT, Assets, type ManifestEntry } from '../engine/assets';
 import { ROTATION_LABELS, ROTATION_MODES, type RotationMode } from '../engine/renderer';
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import { emptyLayout, fileSprite, loadArtLayouts, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
-import { OBJECT_KINDS, SHIP_KIND, kindOf, type ArtKind } from '../game/artKinds';
+import { OBJECT_KINDS, SHIP_KIND, kindOf, tierOf, type ArtKind } from '../game/artKinds';
 import { tierSprite } from '../game/render';
 import type { Team } from '../game/world';
 import { Preview } from './Preview';
@@ -40,8 +40,15 @@ const baseName = (file: string) => file.replace(/^.*\//, '').replace(/\.png$/i, 
 /** "parts/thruster-boost-1.png" → "thruster". */
 const categoryOf = (file: string) => baseName(file).split('-')[0];
 const label = (s: string) => s[0].toUpperCase() + s.slice(1);
-/** "ship.fighter.t2" → "fighter.t2", "projectile.missile.t3" → "missile.t3". */
-const shortName = (sprite: string) => sprite.replace(/^(ship|projectile)\./, '');
+/**
+ * How a sprite is listed: ships by name ("fighter.t2"); objects, which sit
+ * under their kind's heading, by tier ("Tier 3"; wrecks also by ship: "fighter tier 2").
+ */
+const shortName = (sprite: string) => {
+  const k = kindOf(sprite);
+  if (!k || k.section === 'ships') return sprite.replace(/^ship\./, '');
+  return (k.id === 'wreck' ? `${sprite.split('.')[1]} tier ` : 'Tier ') + tierOf(sprite);
+};
 
 /** Load every image in the art folder (the list comes from the dev server, or from the published build). */
 async function loadArtFiles(assets: Assets, data: ArtLayoutsFile): Promise<string[]> {
@@ -128,7 +135,7 @@ export function ShipArt() {
 
   /** Every sprite of a kind (one per tier), in tier order. */
   const spritesOf = useCallback(
-    (k: ArtKind) => (assets ? assets.names().filter(k.matches).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })) : []),
+    (k: ArtKind) => (assets ? assets.names().filter(k.matches).sort((a, b) => tierOf(a) - tierOf(b) || a.localeCompare(b, 'en', { numeric: true })) : []),
     [assets],
   );
   const matchesFilter = (s: string) => !filter || s.toLowerCase().includes(filter.toLowerCase());
@@ -136,7 +143,7 @@ export function ShipArt() {
   const layout: ArtLayout = data?.[section][subject] ?? emptyLayout();
   const mount = selected !== null ? layout.mounts[selected] : undefined;
   const categories = useMemo(() => [...new Set(files.filter((f) => f.startsWith('parts/')).map(categoryOf))], [files]);
-  const baseFiles = files.filter((f) => f.startsWith(section === 'ships' ? 'ships/' : 'projectiles/'));
+  const baseFiles = files.filter((f) => f.startsWith(kind.baseFolder));
   const mountState = kind.states.find((s) => s.id === state)?.uses ?? state;
 
   /** Change the data (saving an undo step first unless `noUndo`). The current subject always has a layout to change. */
