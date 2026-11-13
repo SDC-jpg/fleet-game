@@ -88,6 +88,8 @@ export function ShipArt() {
   /** The effect being shown (Effects section), by its base name, and which tier version. */
   const [effectBase, setEffectBase] = useState<string | null>(null);
   const [effectTier, setEffectTier] = useState(1);
+  /** Bumped when reloaded art has finished loading, so panels showing its size and frames update. */
+  const [, setArtVersion] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState('');
   /** What the arrow keys move: the selected mount, or its VFX point. */
@@ -158,13 +160,15 @@ export function ShipArt() {
     if (!assets || !current || READ_ONLY) return;
     setHistory((h) => [...h.slice(-99), { data: current, patch: patchRef.current }]);
     const next = { ...patchRef.current };
+    const loads: Promise<void>[] = [];
     for (const name of names) {
       const entry = next[name] ?? assets.entryOf(name);
       if (!entry) continue;
       baselineRef.current[name] ??= assets.entryOf(name)!;
       next[name] = fn({ ...entry });
-      assets.setEntry(name, next[name]);
+      loads.push(assets.setEntry(name, next[name]));
     }
+    Promise.all(loads).then(() => setArtVersion((v) => v + 1));
     setPatch(next);
     setDirty(true);
   };
@@ -178,7 +182,7 @@ export function ShipArt() {
       // Put back any effect entries this undoes.
       for (const name of new Set([...Object.keys(patchRef.current), ...Object.keys(back.patch)])) {
         const entry = back.patch[name] ?? baselineRef.current[name];
-        if (entry && entry !== patchRef.current[name]) assets?.setEntry(name, entry);
+        if (entry && entry !== patchRef.current[name]) assets?.setEntry(name, entry).then(() => setArtVersion((v) => v + 1));
       }
       setData(back.data);
       setPatch(back.patch);
@@ -588,7 +592,14 @@ export function ShipArt() {
           tiers={effectTiers}
           readOnly={READ_ONLY}
           windowsRoot={windowsRoot}
+          artFiles={files}
           onChangeEntries={changeEntries}
+          onFilesChanged={() =>
+            fetch('/__shipart/files', { cache: 'no-store' })
+              .then((r) => r.json())
+              .then((r) => setFiles(r.files))
+              .catch(() => {})
+          }
         />
       )}
       {assets && data && !effect && (

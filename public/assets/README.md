@@ -67,6 +67,15 @@ http://localhost:5173/shipart.html. The published copy
   over the stars, with buttons for its tier versions. The purple panel sets its
   Speed (FPS) and Loop, for all tiers or only the one shown; Save writes them
   into `manifest.json`.
+- **Changing an effect's image** (purple panel, "Image source", per tier):
+  - **Use another PNG**: pick any image in the art folder and say how many
+    frames sit side by side in it.
+  - **Import zip of PNG frames**: a zip of separate frames (e.g. exported from
+    your animation app). They're used in name order (frame 2 before frame 10),
+    must all be the same size, and are unpacked into their own folder, e.g.
+    `vfx/explosion-t2/frame-01.png`… Importing again replaces that folder's frames.
+  - Either change is kept when you **Save** (Undo can take it back first).
+  Particle images (`particle.*` in the list) work the same way.
 - **Particles** (purple **VFX** panel): per state, on or off, and the particle
   image, spawn rate, life, speed, drag and angle (the width of the spawn cone,
   0 = a straight line, 360 = every direction). Edit them for one mount, or as the

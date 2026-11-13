@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- ShipArt: an effect's image can be swapped for another PNG, or for a zip of PNG frames, which is unpacked into its own folder.
 - ShipArt: an Effects section plays every effect (explosions, hits, shields...) over the stars, with its speed and looping adjustable.
 - Missiles now leave a faint smoke trail once they fire up.
 - ShipArt: a rollout menu with Ships and Objects. Missiles can be previewed inert, fired up, at impact, or as a full launch sequence, and their flame, smoke trail and impact point can be moved and edited.

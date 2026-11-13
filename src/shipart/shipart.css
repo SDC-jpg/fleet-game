@@ -239,3 +239,20 @@
 .sa-effect-note {
   margin-top: 12px;
 }
+/* "Import zip" is a file picker dressed as a button. */
+.sa-zip input[type='file'] {
+  display: none;
+}
+.sa-button-like {
+  padding: 3px 8px;
+  background: rgba(30, 38, 70, 0.8);
+  border: 1px solid #2c3a66;
+  cursor: pointer;
+}
+.sa-zip:hover .sa-button-like {
+  border-color: #6f8fd0;
+}
+.sa-vfx fieldset:disabled .sa-button-like {
+  opacity: 0.45;
+  cursor: default;
+}
