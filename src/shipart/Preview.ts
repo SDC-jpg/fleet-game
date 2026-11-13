@@ -4,7 +4,7 @@
 // Guides (outlines and points) are drawn on a second canvas on top.
 
 import type { Assets } from '../engine/assets';
-import { PixelRenderer } from '../engine/renderer';
+import { PixelRenderer, type RotationMode } from '../engine/renderer';
 import { CONFIG, SHIP_TYPES } from '../game/config';
 import { Particles } from '../game/particles';
 import { drawShipArt, tierSprite } from '../game/render';
@@ -32,6 +32,8 @@ export interface PreviewSettings {
   guides: boolean;
   /** false = plain black background instead of stars. */
   stars: boolean;
+  /** How rotated sprites are drawn (see renderer.ts). */
+  rotation: RotationMode;
   selected: number | null;
   readOnly: boolean;
 }
@@ -133,6 +135,7 @@ export class Preview {
     r.camX = this.x;
     r.camY = this.y;
     r.setZoom(st.zoom, true);
+    r.rotation = st.rotation;
     r.begin(dt);
     // The screen behind is black, so leaving the stars out gives a plain black background.
     if (st.stars) {

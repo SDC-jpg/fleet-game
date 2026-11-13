@@ -3,6 +3,7 @@ import { Assets } from './engine/assets';
 import { Sounds } from './engine/sound';
 import { CONFIG } from './game/config';
 import { loadShipLayouts } from './game/shipLayout';
+import { ROTATION_LABELS } from './engine/renderer';
 import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
 import type { HistoryPoint } from './game/world';
 import { CardScreen } from './CardScreen';
@@ -48,7 +49,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div>
               Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
-              screen · X end run · L level up · J all skills · I drop items · E spawn elite · O elites {hud.elitesEnabled ? '(ON)' : '(off)'}
+              screen · X end run · L level up · J all skills · I drop items · E spawn elite · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · U rotation ({ROTATION_LABELS[hud.rotation]})
             </div>
           )}
         </div>

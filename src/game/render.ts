@@ -42,7 +42,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     // A marker ring under the wreck, kept full size when zoomed out so wrecks stay easy to spot.
     r.drawSprite(assets.get(tierSprite(assets, 'ui.wreck-marker', w.tier)), w.x, w.y, 0, state.time, alpha, true);
     const sprite = assets.get(tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck'));
-    r.drawSprite(sprite, w.x, w.y, w.angle, state.time, alpha);
+    r.drawRotated(sprite, w.x, w.y, w.angle, state.time, alpha);
   }
 
   // Loot: a crate glowing in its rarity's colour (blinks before it disappears).
@@ -187,7 +187,7 @@ export function drawShipArt(
     }
   };
   drawMounts(true);
-  r.drawSprite(teamSprite(assets, baseFile ? fileSprite(baseFile) : base, team), x, y, angle, time, alpha);
+  r.drawRotated(teamSprite(assets, baseFile ? fileSprite(baseFile) : base, team), x, y, angle, time, alpha);
   drawMounts(false);
 }
 

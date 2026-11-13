@@ -9,6 +9,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ASSET_ROOT, Assets } from '../engine/assets';
+import { ROTATION_LABELS, ROTATION_MODES, type RotationMode } from '../engine/renderer';
+import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import {
   SHIP_STATES,
   fileSprite,
@@ -36,22 +38,6 @@ const baseName = (file: string) => file.replace(/^.*\//, '').replace(/\.png$/i, 
 const categoryOf = (file: string) => baseName(file).split('-')[0];
 const label = (s: string) => s[0].toUpperCase() + s.slice(1);
 
-/** Read and write a remembered setting in this browser (ignored if storage is blocked). */
-function loadSetting(key: string) {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-function saveSetting(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Storage blocked: the setting just isn't remembered.
-  }
-}
-
 /** Load every image in the art folder (the list comes from the dev server, or from the published build). */
 async function loadArtFiles(assets: Assets, data: ShipLayoutsFile): Promise<string[]> {
   const url = import.meta.env.DEV ? '/__shipart/files' : ASSET_ROOT + 'art-files.json';
@@ -74,6 +60,11 @@ export function ShipArt() {
   const [guides, setGuides] = useState(true);
   // Stars on or off, remembered in this browser.
   const [stars, setStars] = useState(() => loadSetting('shipart.stars') !== 'off');
+  // How rotated ships are drawn; shared with the game (same browser setting).
+  const [rotation, setRotation] = useState<RotationMode>(() => {
+    const r = loadSetting(ROTATION_SETTING) as RotationMode | null;
+    return r && ROTATION_MODES.includes(r) ? r : 'grid';
+  });
   const [selected, setSelected] = useState<number | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [history, setHistory] = useState<ShipLayoutsFile[]>([]);
@@ -164,7 +155,7 @@ export function ShipArt() {
       canvasRef.current,
       overlayRef.current,
       assets,
-      { data, ship, state, zoom, spin, fly, team, guides, stars, selected, readOnly: READ_ONLY },
+      { data, ship, state, zoom, spin, fly, team, guides, stars, rotation, selected, readOnly: READ_ONLY },
       {
         select: (i) => setSelected(i),
         dragStart: () => {
@@ -209,8 +200,8 @@ export function ShipArt() {
   // Keep the preview's settings up to date.
   useEffect(() => {
     if (previewRef.current && data)
-      previewRef.current.settings = { data, ship, state, zoom, spin, fly, team, guides, stars, selected, readOnly: READ_ONLY };
-  }, [data, ship, state, zoom, spin, fly, team, guides, stars, selected]);
+      previewRef.current.settings = { data, ship, state, zoom, spin, fly, team, guides, stars, rotation, selected, readOnly: READ_ONLY };
+  }, [data, ship, state, zoom, spin, fly, team, guides, stars, rotation, selected]);
 
   // Switching ships, or turning spin/fly off, puts the ship back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [ship, spin, fly]);
@@ -364,6 +355,21 @@ export function ShipArt() {
           <button className={guides ? 'on' : ''} onClick={() => setGuides(!guides)} title="Outlines and VFX points">
             Guides
           </button>
+        </div>
+        <div className="sa-group" title="How rotated ships are drawn (the game uses the same choice)">
+          Rotation
+          {ROTATION_MODES.map((m) => (
+            <button
+              key={m}
+              className={rotation === m ? 'on' : ''}
+              onClick={() => {
+                setRotation(m);
+                saveSetting(ROTATION_SETTING, m);
+              }}
+            >
+              {ROTATION_LABELS[m]}
+            </button>
+          ))}
         </div>
         <div className="sa-spacer" />
         {READ_ONLY ? (

@@ -6,8 +6,20 @@
 //
 // Zoomed out below 1×, the buffer is screen-sized instead and the art is
 // shrunk smoothly into it (a little softer, but nothing flickers).
+//
+// Rotated pixel art can look crunchy ("laddering"), so there are three ways
+// to rotate (`rotation`), to compare:
+//   'grid'      rotate on the game-pixel grid (the original way)
+//   'hires'     draw everything at screen resolution: pixels tilt as solid squares
+//   'rotsprite' ships and their parts use RotSprite copies (see rotsprite.ts),
+//               snapped to 128 angle steps, staying on the pixel grid
 
 import { frameAt, type Sprite } from './assets';
+import { angleStep, rotatedFrame, stepAngle } from './rotsprite';
+
+export type RotationMode = 'grid' | 'hires' | 'rotsprite';
+export const ROTATION_MODES: RotationMode[] = ['grid', 'hires', 'rotsprite'];
+export const ROTATION_LABELS: Record<RotationMode, string> = { grid: 'Grid', hires: 'Hi-res', rotsprite: 'RotSprite' };
 
 export class PixelRenderer {
   private screen: HTMLCanvasElement;
@@ -24,6 +36,9 @@ export class PixelRenderer {
   /** World coordinate of the buffer's top-left pixel (for the current frame). */
   private originX = 0;
   private originY = 0;
+
+  /** How rotated sprites are drawn (see the top of this file). */
+  rotation: RotationMode = 'grid';
 
   /** true = fill the canvas's parent element instead of the whole window (used by the ShipArt tool). */
   private fitParent: boolean;
@@ -59,14 +74,14 @@ export class PixelRenderer {
     if (instant) this.scale = this.targetScale;
   }
 
-  /** Screen pixels per buffer pixel (1 when zoomed out below 1×). */
+  /** Screen pixels per buffer pixel (1 when zoomed out below 1×, or in 'hires' mode). */
   private get bufferScale() {
-    return Math.max(1, this.scale);
+    return this.rotation === 'hires' ? 1 : Math.max(1, this.scale);
   }
 
-  /** Buffer pixels per game pixel: 1, or less than 1 when zoomed out below 1×. */
+  /** Buffer pixels per game pixel: 1, less than 1 when zoomed out below 1×, or the zoom in 'hires' mode. */
   get worldScale() {
-    return Math.min(1, this.scale);
+    return this.rotation === 'hires' ? this.scale : Math.min(1, this.scale);
   }
 
   /** Visible area in game pixels. */
@@ -127,12 +142,33 @@ export class PixelRenderer {
     const f = frameAt(sprite, time);
     const ctx = this.ctx;
     const ws = this.worldScale;
-    const k = (fixedSize ? 1 : ws) * scale;
+    // Fixed-size sprites are never shrunk below 1×, but are enlarged like everything else in 'hires'.
+    const k = (fixedSize ? Math.max(1, ws) : ws) * scale;
     ctx.globalAlpha = alpha;
     ctx.setTransform(k, 0, 0, k, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
     if (angle !== 0) ctx.rotate(angle);
     if (flipX || flipY) ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
     ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, -sprite.anchorX, -sprite.anchorY, f.w, f.h);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Draw a ship-like sprite turned to `angle`. In 'rotsprite' mode it uses a
+   * RotSprite copy for the nearest angle step; otherwise it's drawSprite.
+   */
+  drawRotated(sprite: Sprite, x: number, y: number, angle: number, time = 0, alpha = 1) {
+    if (this.rotation !== 'rotsprite') return this.drawSprite(sprite, x, y, angle, time, alpha);
+    const r = rotatedFrame(frameAt(sprite, time), sprite.anchorX, sprite.anchorY, angleStep(angle));
+    this.drawRotatedCopy(r, x, y, alpha, 1);
+  }
+
+  private drawRotatedCopy(r: { canvas: HTMLCanvasElement; x: number; y: number }, x: number, y: number, alpha: number, scale: number) {
+    const ctx = this.ctx;
+    const ws = this.worldScale;
+    ctx.globalAlpha = alpha;
+    ctx.setTransform(ws * scale, 0, 0, ws * scale, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
+    ctx.drawImage(r.canvas, r.x, r.y);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
   }
@@ -157,6 +193,15 @@ export class PixelRenderer {
     flipY = false,
   ) {
     const f = frameAt(sprite, time);
+    if (this.rotation === 'rotsprite') {
+      // Use the same angle step as the ship, so the part stays put on it.
+      const a = stepAngle(angleStep(angle));
+      const px = x + ox * Math.cos(a) - oy * Math.sin(a);
+      const py = y + ox * Math.sin(a) + oy * Math.cos(a);
+      const r = rotatedFrame(f, sprite.anchorX, sprite.anchorY, angleStep(a + localAngle), flipX, flipY);
+      this.drawRotatedCopy(r, px, py, alpha, scale);
+      return;
+    }
     const ctx = this.ctx;
     const ws = this.worldScale;
     ctx.globalAlpha = alpha;
@@ -176,14 +221,18 @@ export class PixelRenderer {
    */
   drawTiled(sprite: Sprite, parallax: number) {
     // Backgrounds are never shrunk (tiny stars would vanish); they just scroll slower.
+    // In 'hires' mode they're enlarged to match the zoom, so they look the same.
     const f = sprite.frames[0];
     const ctx = this.ctx;
+    const ts = Math.max(1, Math.round(this.worldScale));
+    const tw = f.w * ts;
+    const th = f.h * ts;
     const ox = Math.round(this.originX * this.worldScale * parallax);
     const oy = Math.round(this.originY * this.worldScale * parallax);
-    const startX = -(((ox % f.w) + f.w) % f.w);
-    const startY = -(((oy % f.h) + f.h) % f.h);
-    for (let y = startY; y < this.buffer.height; y += f.h)
-      for (let x = startX; x < this.buffer.width; x += f.w) ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, x, y, f.w, f.h);
+    const startX = -(((ox % tw) + tw) % tw);
+    const startY = -(((oy % th) + th) % th);
+    for (let y = startY; y < this.buffer.height; y += th)
+      for (let x = startX; x < this.buffer.width; x += tw) ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, x, y, tw, th);
   }
 
   /** Plain rectangle in world coordinates (used for health bars). Never thinner than 1 pixel. */

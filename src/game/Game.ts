@@ -3,7 +3,8 @@
 import { spriteDuration, type Assets } from '../engine/assets';
 import { Input } from '../engine/input';
 import { startLoop } from '../engine/loop';
-import { PixelRenderer } from '../engine/renderer';
+import { PixelRenderer, ROTATION_MODES, type RotationMode } from '../engine/renderer';
+import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
 import { renderGame, tierSprite } from './render';
@@ -42,23 +43,6 @@ export const TEST_KEYS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_TES
 /** Browser storage key for the elite test switch. */
 const ELITES_SETTING = 'fleet-game.elites';
 
-/** Read a remembered setting from this browser (null if none, or if storage is blocked). */
-function loadSetting(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function saveSetting(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Storage blocked (e.g. private window): the switch still works for this visit.
-  }
-}
-
 /** Numbers shown on screen by React. */
 export interface HudInfo {
   /** Fleet value: what all your ships are worth in tier-1 ships. */
@@ -93,6 +77,8 @@ export interface HudInfo {
   invincible: boolean;
   /** Whether elites come this run (test key O). */
   elitesEnabled: boolean;
+  /** How rotated ships are drawn (test key U). */
+  rotation: RotationMode;
   soundOn: boolean;
   /** Auto-fire (Q) is on. */
   autoFire: boolean;
@@ -174,6 +160,9 @@ export class Game {
     this.sounds = sounds;
     this.onHud = onHud;
     this.renderer = new PixelRenderer(canvas);
+    // How rotated ships are drawn (test key U, or ShipArt's Rotation buttons), remembered in this browser.
+    const rotation = loadSetting(ROTATION_SETTING) as RotationMode | null;
+    if (rotation && ROTATION_MODES.includes(rotation)) this.renderer.rotation = rotation;
     this.input = new Input(canvas);
     this.state = this.newState();
   }
@@ -373,6 +362,11 @@ export class Game {
       s.elitesEnabled = !s.elitesEnabled;
       saveSetting(ELITES_SETTING, s.elitesEnabled ? 'on' : 'off');
     }
+    if (i.wasPressed('KeyU')) {
+      const modes = ROTATION_MODES;
+      this.renderer.rotation = modes[(modes.indexOf(this.renderer.rotation) + 1) % modes.length];
+      saveSetting(ROTATION_SETTING, this.renderer.rotation);
+    }
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
@@ -496,6 +490,7 @@ export class Game {
       history: st.history,
       invincible: st.invincible,
       elitesEnabled: st.elitesEnabled,
+      rotation: this.renderer.rotation,
       soundOn: this.sounds.enabled,
       autoFire: this.autoFire,
       fps: this.fps,
