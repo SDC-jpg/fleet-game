@@ -34,6 +34,22 @@ const baseName = (file: string) => file.replace(/^.*\//, '').replace(/\.png$/i, 
 const categoryOf = (file: string) => baseName(file).split('-')[0];
 const label = (s: string) => s[0].toUpperCase() + s.slice(1);
 
+/** Read and write a remembered setting in this browser (ignored if storage is blocked). */
+function loadSetting(key: string) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function saveSetting(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage blocked: the setting just isn't remembered.
+  }
+}
+
 /** Load every image in the art folder (the list comes from the dev server, or from the published build). */
 async function loadArtFiles(assets: Assets, data: ShipLayoutsFile): Promise<string[]> {
   const url = import.meta.env.DEV ? '/__shipart/files' : ASSET_ROOT + 'art-files.json';
@@ -54,6 +70,8 @@ export function ShipArt() {
   const [fly, setFly] = useState(true);
   const [team, setTeam] = useState<Team>('player');
   const [guides, setGuides] = useState(true);
+  // Stars on or off, remembered in this browser.
+  const [stars, setStars] = useState(() => loadSetting('shipart.stars') !== 'off');
   const [selected, setSelected] = useState<number | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [history, setHistory] = useState<ShipLayoutsFile[]>([]);
@@ -135,7 +153,7 @@ export function ShipArt() {
       canvasRef.current,
       overlayRef.current,
       assets,
-      { data, ship, state, zoom, spin, fly, team, guides, selected, readOnly: READ_ONLY },
+      { data, ship, state, zoom, spin, fly, team, guides, stars, selected, readOnly: READ_ONLY },
       {
         select: (i) => setSelected(i),
         dragStart: () => {
@@ -180,8 +198,8 @@ export function ShipArt() {
   // Keep the preview's settings up to date.
   useEffect(() => {
     if (previewRef.current && data)
-      previewRef.current.settings = { data, ship, state, zoom, spin, fly, team, guides, selected, readOnly: READ_ONLY };
-  }, [data, ship, state, zoom, spin, fly, team, guides, selected]);
+      previewRef.current.settings = { data, ship, state, zoom, spin, fly, team, guides, stars, selected, readOnly: READ_ONLY };
+  }, [data, ship, state, zoom, spin, fly, team, guides, stars, selected]);
 
   // Switching ships, or turning spin/fly off, puts the ship back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [ship, spin, fly]);
@@ -322,6 +340,16 @@ export function ShipArt() {
           <button onClick={() => setTeam(team === 'player' ? 'enemy' : 'player')} title="Team colours">
             {team === 'player' ? 'Player' : 'Enemy'}
           </button>
+          <button
+            className={stars ? 'on' : ''}
+            onClick={() => {
+              setStars(!stars);
+              saveSetting('shipart.stars', stars ? 'off' : 'on');
+            }}
+            title="Starry background, or plain black"
+          >
+            Stars
+          </button>
           <button className={guides ? 'on' : ''} onClick={() => setGuides(!guides)} title="Outlines and VFX points">
             Guides
           </button>
@@ -393,7 +421,7 @@ export function ShipArt() {
         <canvas ref={overlayRef} className="sa-overlay" />
         {!assets && <div className="shipart-message">Loading…</div>}
         <div className="sa-hint">
-          {hover ? `x ${hover.x}, y ${hover.y}` : ''} · Drag a mount or its pink VFX point · Arrows nudge (Shift = 5 px) · Delete removes
+          {hover ? `x ${hover.x}, y ${hover.y} · ` : ''}Drag a mount or its pink VFX point · Arrows nudge (Shift = 5 px) · Delete removes
         </div>
       </main>
 

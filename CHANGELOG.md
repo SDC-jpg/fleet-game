@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- ShipArt: a Stars button switches the preview background between stars and plain black (remembered).
 - Ships now have separate thruster flames, placed per ship with the new ShipArt tool, and they give off small orange sparks when moving and purple ones when boosting. Some bigger ships have extra thrusters that only light up while boosting.
 - Dashing no longer switches ships to their boosting look.
 - ShipArt (view only): see every ship tier with its thrusters in each state at https://sdc-jpg.github.io/fleet-game/shipart.html

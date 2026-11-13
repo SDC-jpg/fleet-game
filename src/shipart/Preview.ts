@@ -30,6 +30,8 @@ export interface PreviewSettings {
   fly: boolean;
   team: Team;
   guides: boolean;
+  /** false = plain black background instead of stars. */
+  stars: boolean;
   selected: number | null;
   readOnly: boolean;
 }
@@ -132,8 +134,11 @@ export class Preview {
     r.camY = this.y;
     r.setZoom(st.zoom, true);
     r.begin(dt);
-    r.drawTiled(this.assets.get('bg.stars-far'), 0.3);
-    r.drawTiled(this.assets.get('bg.stars-near'), 0.6);
+    // The screen behind is black, so leaving the stars out gives a plain black background.
+    if (st.stars) {
+      r.drawTiled(this.assets.get('bg.stars-far'), 0.3);
+      r.drawTiled(this.assets.get('bg.stars-near'), 0.6);
+    }
 
     const state = mountState(st.state);
     this.particles.update(dt);
