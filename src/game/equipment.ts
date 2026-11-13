@@ -37,10 +37,15 @@ const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic'];
 /** Equipment slots you have: 3 per tier of the biggest ship you've had this run. */
 export const slotCount = (state: GameState) => CONFIG.items.slotsPerTier * state.maxTier;
 
-/** A new random item: random stat, rarity rolled with the same odds as cards. */
-export function rollItem(state: GameState): Item {
+/** Normal rarity odds (the same as cards). */
+const normalWeights = (): Record<Rarity, number> => {
   const R = CONFIG.rarity;
-  const weights = { common: R.commonWeight, uncommon: R.uncommonWeight, rare: R.rareWeight, epic: R.epicWeight };
+  return { common: R.commonWeight, uncommon: R.uncommonWeight, rare: R.rareWeight, epic: R.epicWeight };
+};
+
+/** A new random item: random stat, rarity rolled with the given odds (normally the same as cards). */
+export function rollItem(state: GameState, weights = normalWeights()): Item {
+  const R = CONFIG.rarity;
   // Rarer items scale up like card bonuses do (Epic ≈ 3.2× Common).
   const scale = { common: 1, uncommon: R.uncommonBonus / R.commonBonus, rare: R.rareBonus / R.commonBonus, epic: R.epicBonus / R.commonBonus };
   let roll = Math.random() * RARITY_ORDER.reduce((sum, k) => sum + weights[k], 0);
@@ -55,9 +60,13 @@ export function rollItem(state: GameState): Item {
 export function maybeDropItem(state: GameState, s: Ship) {
   const I = CONFIG.items;
   const chance = I.dropChance * tierValue(s.tier) ** I.dropChanceGrowth;
-  if (Math.random() >= chance) return;
+  if (Math.random() < chance) dropItem(state, s);
+}
+
+/** Drop an item where ship `s` was, with the given rarity odds (normal ones by default). */
+export function dropItem(state: GameState, s: Ship, weights = normalWeights()) {
   const a = Math.random() * Math.PI * 2;
-  state.loot.push({ item: rollItem(state), x: s.x, y: s.y, vx: Math.cos(a) * 40, vy: Math.sin(a) * 40, life: I.lifetime });
+  state.loot.push({ item: rollItem(state, weights), x: s.x, y: s.y, vx: Math.cos(a) * 40, vy: Math.sin(a) * 40, life: CONFIG.items.lifetime });
 }
 
 /** Loot drifts, is pulled toward your ships when close, and is picked up by any of them. */

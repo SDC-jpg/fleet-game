@@ -4,6 +4,7 @@ import type { Assets, Sprite } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { clamp } from '../engine/math';
 import { SHIP_TYPES, CONFIG } from './config';
+import { laserLength } from './skills';
 import { controlledShip, isMergePart, typeOf, type GameState, type Ship, type Team, type Thrust } from './world';
 
 /**
@@ -48,6 +49,9 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     r.drawSprite(sprite, m.x, m.y, 0, m.age);
   }
 
+  // Elites get a marker ring under them.
+  for (const s of state.ships) if (s.elite) r.drawSprite(assets.get(tierSprite(assets, 'ui.elite-marker', s.tier)), s.x, s.y, 0, state.time);
+
   // Draw every other ship first (small ones under big ones), then the
   // command ring and the ship you fly on top.
   const flagship = controlledShip(state);
@@ -73,15 +77,20 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
     r.drawSprite(assets.get(tierSprite(assets, 'vfx.frozen', s.tier)), s.x, s.y, 0, state.time, Math.min(1, s.frozen * 2));
   }
 
+  // An elite's laser warning: a flickering line where its beam is about to go.
+  for (const s of state.ships) {
+    const laser = s.elite?.skills.find((sk) => sk.id === 'laser');
+    if (!laser || !s.elite || s.elite.laserCharge <= 0) continue;
+    const warn = teamSprite(assets, tierSprite(assets, 'vfx.laser-warning', s.tier), s.team);
+    const x = s.x + Math.cos(s.angle) * s.stats.gunOffset;
+    const y = s.y + Math.sin(s.angle) * s.stats.gunOffset;
+    drawBeam(r, warn, x, y, s.angle, laserLength(s, laser), laser.mods.size, state.time);
+  }
+
   // Laser beams: one short segment image repeated along the beam's length.
   for (const b of state.beams) {
     const seg = teamSprite(assets, tierSprite(assets, 'vfx.laser', b.tier), b.team);
-    const w = seg.frames[0].w;
-    const n = Math.ceil(b.length / (w * b.width));
-    const dx = Math.cos(b.angle);
-    const dy = Math.sin(b.angle);
-    for (let i = 0; i < n; i++)
-      r.drawSprite(seg, b.x + dx * (i + 0.5) * w * b.width, b.y + dy * (i + 0.5) * w * b.width, b.angle, b.age, 1, false, b.width);
+    drawBeam(r, seg, b.x, b.y, b.angle, b.length, b.width, b.age);
   }
 
   for (const b of state.bullets) {
@@ -98,7 +107,17 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets) {
   const lootArrow = assets.get('ui.arrow.loot');
   for (const l of state.loot) drawEdgeArrow(r, lootArrow, l.x, l.y, state.time);
   const enemyArrow = assets.get('ui.arrow.enemy');
-  for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, enemyArrow, s.x, s.y, state.time);
+  const eliteArrow = assets.get('ui.arrow.elite');
+  for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, s.elite ? eliteArrow : enemyArrow, s.x, s.y, state.time);
+}
+
+/** A beam: one short segment image repeated along its length, scaled by `width`. */
+function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: number, length: number, width: number, time: number) {
+  const w = seg.frames[0].w;
+  const n = Math.ceil(length / (w * width));
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  for (let i = 0; i < n; i++) r.drawSprite(seg, x + dx * (i + 0.5) * w * width, y + dy * (i + 0.5) * w * width, angle, time, 1, false, width);
 }
 
 /** Draws one ship, plus a small health bar under it if it's damaged. */

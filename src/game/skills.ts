@@ -1,14 +1,16 @@
 // Pilot skills: weapons (left click) and defences (right click), used from the
 // ship you fly. Their damage and size grow with that ship's tier, and the
-// fleet's damage bonus applies too. Like world.ts, nothing is drawn here.
+// fleet's damage bonus applies too. Elite enemies use the same skills, decided
+// by simple rules (updateEliteSkills). Like world.ts, nothing is drawn here.
 
 import { distSq, wrapAngle } from '../engine/math';
-import { CONFIG, SKILLS, type SkillId } from './config';
+import { CONFIG, SKILLS, type SkillId, type SkillStat } from './config';
 import {
   addEffect,
   addSound,
   controlledShip,
   damageShip,
+  findNearestEnemy,
   type Controls,
   type GameState,
   type OwnedSkill,
@@ -47,15 +49,21 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
   for (const sk of state.skills) {
     if (sk.timer > 0) continue;
     // Weapons fire while you hold left click; defences go off when you right-click.
-    const wants = SKILLS[sk.id].side === 'left' ? c.fire : c.defend;
-    if (!wants) continue;
+    const weapon = SKILLS[sk.id].side === 'left';
+    const wants = weapon ? c.fire : c.defend;
+    // A frozen ship can't shoot, but defences still work.
+    if (!wants || (weapon && ship.frozen > 0)) continue;
     sk.timer = cooldownOf(state, sk);
     USE[sk.id](state, ship, c, sk);
   }
 }
 
-/** Skill damage for the ship you fly: grows with its tier, plus the fleet's damage bonus. */
-const powerOf = (state: GameState, ship: Ship) => CONFIG.tiers.powerPerTier ** (ship.tier - 1) * state.bonus.damage;
+/**
+ * Skill damage: grows with the ship's tier. Yours gets the fleet's damage bonus;
+ * an elite's is scaled by CONFIG.elite.skillDamage.
+ */
+const powerOf = (state: GameState, ship: Ship) =>
+  CONFIG.tiers.powerPerTier ** (ship.tier - 1) * (ship.team === 'player' ? state.bonus.damage : CONFIG.elite.skillDamage);
 
 type Use = (state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) => void;
 
@@ -76,7 +84,7 @@ function fireLaser(state: GameState, ship: Ship, sk: OwnedSkill) {
   const dy = Math.sin(a);
   const x0 = ship.x + dx * ship.stats.gunOffset;
   const y0 = ship.y + dy * ship.stats.gunOffset;
-  const length = L.length * CONFIG.tiers.rangePerTier ** (ship.tier - 1) * sk.mods.size;
+  const length = laserLength(ship, sk);
   const halfWidth = (L.width * ship.stats.size * sk.mods.size) / 2;
   const damage = L.damage * powerOf(state, ship) * sk.mods.power;
   for (const s of state.ships) {
@@ -91,6 +99,9 @@ function fireLaser(state: GameState, ship: Ship, sk: OwnedSkill) {
   state.beams.push({ team: ship.team, tier: ship.tier, x: x0, y: y0, angle: a, length, width: sk.mods.size, age: 0 });
   addSound(state, 'sfx.laser', ship, ship.tier);
 }
+
+/** How far a ship's laser reaches. */
+export const laserLength = (ship: Ship, sk: OwnedSkill) => CONFIG.laser.length * CONFIG.tiers.rangePerTier ** (ship.tier - 1) * sk.mods.size;
 
 /** Missiles: a fan of homing missiles, aimed at the enemy nearest your cursor. */
 function launchMissiles(state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) {
@@ -176,7 +187,9 @@ function updateMines(state: GameState, dt: number) {
 /** Shield: you and ships of your fleet near you get a bubble that soaks up damage. */
 function raiseShield(state: GameState, ship: Ship, sk: OwnedSkill) {
   const S = CONFIG.shield;
-  const amount = S.amount * powerOf(state, ship) * CONFIG.playerHpMultiplier * sk.mods.power;
+  // Shields match the ship's health: yours get the player health bonus, an elite's its extra health.
+  const hpMul = ship.team === 'player' ? CONFIG.playerHpMultiplier : ship.elite ? CONFIG.elite.healthMultiplier : 1;
+  const amount = S.amount * powerOf(state, ship) * hpMul * sk.mods.power;
   const radius = S.radius * ship.stats.size * sk.mods.size;
   for (const s of ship.fleet.members) {
     if (s.dead || s.merge) continue;
@@ -223,4 +236,88 @@ function freeze(state: GameState, ship: Ship, sk: OwnedSkill) {
   }
   addEffect(state, 'vfx.freeze', ship.x, ship.y, ship.angle, ship.tier, sk.mods.size);
   addSound(state, 'sfx.freeze', ship, ship.tier);
+}
+
+// ---------- Elite enemies ----------
+
+const STATS: SkillStat[] = ['power', 'rate', 'size'];
+
+/**
+ * Skills for the elite number `index` (0 = the first of the run): random and
+ * all different, one more each elite up to the maximum, and from
+ * CONFIG.elite.rankUpFrom on each elite's skills are a rank higher.
+ */
+export function makeEliteSkills(index: number): OwnedSkill[] {
+  const E = CONFIG.elite;
+  const ids = (Object.keys(SKILLS) as SkillId[]).sort(() => Math.random() - 0.5);
+  const count = Math.min(E.maxSkills, E.firstSkills + index, ids.length);
+  const rank = Math.min(CONFIG.cards.maxRank, 1 + Math.max(0, index + 2 - E.rankUpFrom));
+  return ids.slice(0, count).map((id) => {
+    const sk: OwnedSkill = { id, rank, timer: 0, mods: { power: 1, rate: 1, size: 1 } };
+    for (let r = 1; r < rank; r++) sk.mods[STATS[Math.floor(Math.random() * STATS.length)]] += E.rankBonus;
+    // Start part-way through a cooldown, so an elite doesn't use everything the moment it arrives.
+    sk.timer = Math.random() * eliteCooldown(sk);
+    return sk;
+  });
+}
+
+const eliteCooldown = (sk: OwnedSkill) => (COOLDOWNS[sk.id]() / sk.mods.rate) * CONFIG.elite.cooldownMultiplier;
+
+/** Elites use their skills when it makes sense: weapons when you're in front and in reach, defences when hurt or crowded. */
+export function updateEliteSkills(state: GameState, dt: number) {
+  for (const ship of state.ships) {
+    const e = ship.elite;
+    if (!e || ship.dead || ship.merge) continue;
+    for (const sk of e.skills) sk.timer = Math.max(0, sk.timer - dt);
+    // Frozen: can't shoot, and a laser that was charging fizzles.
+    if (ship.frozen > 0) {
+      e.laserCharge = 0;
+      continue;
+    }
+    // The laser fires when its warning line runs out. Nothing else happens meanwhile.
+    if (e.laserCharge > 0) {
+      e.laserCharge -= dt;
+      const laser = e.skills.find((sk) => sk.id === 'laser');
+      if (e.laserCharge <= 0 && laser) fireLaser(state, ship, laser);
+      continue;
+    }
+    const target = findNearestEnemy(state, ship, Infinity);
+    if (!target) continue;
+    for (const sk of e.skills) {
+      if (sk.timer > 0 || !eliteWants(state, ship, sk, target)) continue;
+      sk.timer = eliteCooldown(sk);
+      if (sk.id === 'laser') {
+        e.laserCharge = CONFIG.elite.laserWarning;
+        break;
+      }
+      const aim: Controls = { moveX: 0, moveY: 0, aimX: target.x, aimY: target.y, fire: false, boost: false, dash: false, defend: false };
+      USE[sk.id](state, ship, aim, sk);
+    }
+  }
+}
+
+/** Whether an elite should use this skill now, against its nearest target. */
+function eliteWants(state: GameState, ship: Ship, sk: OwnedSkill, target: Ship) {
+  const d = Math.sqrt(distSq(ship.x, ship.y, target.x, target.y));
+  // How far the target is from where the elite faces (radians).
+  const off = Math.abs(wrapAngle(Math.atan2(target.y - ship.y, target.x - ship.x) - ship.angle));
+  switch (sk.id) {
+    case 'laser':
+      return off < 0.12 && d < laserLength(ship, sk);
+    case 'missiles':
+      return d < CONFIG.missiles.speed * CONFIG.missiles.life * 0.6;
+    case 'mines':
+      return d < 200 * ship.stats.size;
+    case 'shield':
+      return ship.shield <= 0 && ship.hp < ship.stats.maxHp * 0.9;
+    case 'repulse': {
+      const r = CONFIG.repulse.radius * ship.stats.size * sk.mods.size;
+      const shots = state.bullets.filter((b) => b.team !== ship.team && distSq(b.x, b.y, ship.x, ship.y) < r * r).length;
+      return d < r * 0.8 || shots >= 4;
+    }
+    case 'freeze': {
+      const half = ((CONFIG.freeze.angle * Math.PI) / 180) * Math.min(2, sk.mods.size);
+      return off < half && d < CONFIG.freeze.length * ship.stats.size * sk.mods.size;
+    }
+  }
 }

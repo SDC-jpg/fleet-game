@@ -5,8 +5,8 @@ import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../en
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyFleetValue } from './curves';
 import { gainXp } from './progress';
-import { maybeDropItem, noBonus, updateLoot, type FleetBonus, type Item, type Loot } from './equipment';
-import { updateSkills } from './skills';
+import { dropItem, maybeDropItem, noBonus, updateLoot, type FleetBonus, type Item, type Loot } from './equipment';
+import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 
 export type Team = 'player' | 'enemy';
 export type Thrust = 'idle' | 'move' | 'boost';
@@ -60,8 +60,17 @@ export interface Ship {
   /** Damage a Shield (skill) will still absorb, and seconds until it fades. */
   shield: number;
   shieldTime: number;
+  /** Set for elite enemies: their skills, and the laser warning countdown. */
+  elite: EliteInfo | null;
   /** Personal randomness so ships in a formation don't move in perfect sync. */
   quirk: { phaseX: number; phaseY: number; speedX: number; speedY: number; delay: number };
+}
+
+/** What makes a ship an elite enemy. */
+export interface EliteInfo {
+  skills: OwnedSkill[];
+  /** Seconds left of the laser warning line (0 = not charging). The laser fires when it reaches 0. */
+  laserCharge: number;
 }
 
 /** 15 ships flying into a 16th (the core), which then becomes one tier bigger. */
@@ -271,6 +280,12 @@ export interface GameState {
   found: { item: Item; time: number } | null;
   beams: Beam[];
   mines: Mine[];
+  /** Elites spawned so far this run (each new one gets more skills). */
+  elitesSpawned: number;
+  /** An elite is waiting to come (its wave brought an enemy fleet, so it comes next wave). */
+  eliteDue: boolean;
+  /** When the last elite arrived (for the "Elite incoming" message). */
+  eliteAlertTime: number;
   /** Boost stamina, 0–1 (shown by the ring around the ship you fly). */
   boostStamina: number;
   /** True after the bar ran dry, until it refills to CONFIG.boost.restartAt. */
@@ -387,6 +402,9 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     found: null,
     beams: [],
     mines: [],
+    elitesSpawned: 0,
+    eliteDue: false,
+    eliteAlertTime: -Infinity,
     boostStamina: 1,
     boostLocked: false,
     boostRest: 0,
@@ -437,6 +455,7 @@ function addShip(
     frozen: 0,
     shield: 0,
     shieldTime: 0,
+    elite: null,
     quirk: {
       phaseX: Math.random() * Math.PI * 2,
       phaseY: Math.random() * Math.PI * 2,
@@ -533,15 +552,18 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   updatePlayerLeader(state, controls, dt);
   for (const fleet of [state.playerFleet, ...state.enemyFleets]) updateFleet(state, fleet, dt);
   updateSkills(state, controls, dt);
+  updateEliteSkills(state, dt);
   updateMerges(state, dt);
   separateShips(state, dt);
 
   for (const s of state.ships) {
-    // Frozen ships hang still (Freeze skill).
+    // Frozen enemies hang still (Freeze skill). Your frozen ships can still move, but not shoot.
     if (s.frozen > 0) {
       s.frozen = Math.max(0, s.frozen - dt);
-      s.vx = s.vy = 0;
-      continue;
+      if (s.team === 'enemy') {
+        s.vx = s.vy = 0;
+        continue;
+      }
     }
     s.x += s.vx * dt;
     s.y += s.vy * dt;
@@ -625,7 +647,7 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   if (boosting && ship.thrust !== 'boost') addSound(state, 'sfx.boost', ship, ship.tier);
   ship.thrust = boosting || fleet.dashTime > 0 ? 'boost' : steering ? 'move' : 'idle';
   ship.angle = turnToward(ship.angle, Math.atan2(c.aimY - ship.y, c.aimX - ship.x), ship.stats.turnRate * dt);
-  if (c.fire && ship.fireTimer <= 0 && !ship.merge) fire(state, ship, ship.stats.fireCooldown, 0);
+  if (c.fire && ship.fireTimer <= 0 && !ship.merge && ship.frozen <= 0) fire(state, ship, ship.stats.fireCooldown, 0);
 }
 
 /**
@@ -753,6 +775,8 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
  */
 function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number, arc?: FireArc) {
   if (ship.frozen > 0) return;
+  // An elite holds still while its laser warning shows, so the warning line is where the beam will go.
+  if (ship.elite && ship.elite.laserCharge > 0) return;
   // Merging ships hold fire.
   const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range, arc);
   if (!target) {
@@ -945,8 +969,8 @@ function removeDeadShips(state: GameState) {
     if (s.team === 'enemy') {
       state.stats.kills++;
       state.stats.killValue += tierValue(s.tier);
-      gainXp(state, tierValue(s.tier) * CONFIG.levels.xpPerValue);
-      maybeDropItem(state, s);
+      gainXp(state, tierValue(s.tier) * CONFIG.levels.xpPerValue * (s.elite ? CONFIG.elite.xpMultiplier : 1));
+      if (!s.elite) maybeDropItem(state, s);
     } else {
       state.stats.losses++;
       state.stats.lossValue += tierValue(s.tier);
@@ -954,11 +978,20 @@ function removeDeadShips(state: GameState) {
     // Bigger enemies leave wrecks less often.
     // Your first kill of a run always leaves one.
     const firstKill = s.team === 'enemy' && state.stats.kills === 1 && CONFIG.firstKillWreck;
-    const wreckChance = firstKill ? 1 : CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
+    let wreckChance = firstKill ? 1 : CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
+    let wreckTier = s.tier;
+    if (s.elite) {
+      // An elite always drops a wreck, a (better) item, or both.
+      const drop = eliteDrop();
+      if (drop !== 'wreck') dropItem(state, s, eliteRarityWeights());
+      wreckChance = firstKill || drop !== 'item' ? 1 : 0;
+      // Its wreck never lets you jump too far ahead of your biggest ship.
+      wreckTier = Math.min(s.tier, state.maxTier + CONFIG.elite.wreckMaxTiersAbove);
+    }
     if (s.team === 'enemy' && Math.random() < wreckChance) {
       state.wrecks.push({
         type: s.type,
-        tier: s.tier,
+        tier: wreckTier,
         x: s.x,
         y: s.y,
         vx: s.vx * 0.3,
@@ -978,6 +1011,21 @@ function removeDeadShips(state: GameState) {
   state.ships = state.ships.filter((s) => !s.dead);
   state.enemyFleets = state.enemyFleets.filter((f) => f.members.length > 0);
 }
+
+/** What an elite drops: 'wreck', 'item' or 'both' (odds in CONFIG.elite). */
+function eliteDrop(): 'wreck' | 'item' | 'both' {
+  const E = CONFIG.elite;
+  const roll = Math.random() * (E.dropWreckWeight + E.dropItemWeight + E.dropBothWeight);
+  if (roll < E.dropWreckWeight) return 'wreck';
+  if (roll < E.dropWreckWeight + E.dropItemWeight) return 'item';
+  return 'both';
+}
+
+/** Rarity odds for an elite's item (better than normal drops). */
+const eliteRarityWeights = (): Record<Rarity, number> => {
+  const E = CONFIG.elite;
+  return { common: E.commonWeight, uncommon: E.uncommonWeight, rare: E.rareWeight, epic: E.epicWeight };
+};
 
 /** When a leader dies, the closest of the biggest surviving ships takes command. */
 function pickNewLeader(fleet: Fleet, old: Ship): Ship | null {
@@ -1159,6 +1207,13 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   const first = CONFIG.enemyFleetsFromWave;
   const fleetWave = state.wave >= first && (state.wave - first) % CONFIG.enemyFleetEveryNthWave === 0;
 
+  // Every few waves an elite comes. If this wave already brings a fleet, it waits for the next one.
+  if (CONFIG.elite.enabled && state.wave % CONFIG.elite.everyNthWave === 0) state.eliteDue = true;
+  if (state.eliteDue && !fleetWave) {
+    state.eliteDue = false;
+    if (CONFIG.elite.enabled) spawnElite(state, center, spawnDistance);
+  }
+
   if (fleetWave) {
     // One enemy fleet in formation. It grows with the wave number (see curves.ts), not with your fleet.
     spawnEnemyFleet(state, center, spawnDistance, enemyFleetValue(state.wave), room);
@@ -1208,6 +1263,32 @@ function spawnEnemyFleet(state: GameState, near: Ship, distance: number, value: 
   state.enemyFleets.push(fleet);
 }
 
+/**
+ * Spawn an elite: one strong enemy that uses skills. Its tier is the biggest
+ * tier an enemy fleet of this wave would have (plus CONFIG.elite.extraTiers).
+ */
+function spawnElite(state: GameState, near: Ship, distance: number) {
+  const E = CONFIG.elite;
+  const counts = tierCounts(enemyFleetValue(state.wave));
+  let top = 1;
+  counts.forEach((n, i) => {
+    if (n > 0) top = i + 1;
+  });
+  const a = Math.random() * Math.PI * 2;
+  const fleet = newFleet('enemy');
+  const ship = addShip(state, 'enemy', 'fighter', top + E.extraTiers, fleet, 0, 0, a + Math.PI);
+  ship.stats.maxHp = Math.round(ship.stats.maxHp * E.healthMultiplier);
+  ship.hp = ship.stats.maxHp;
+  ship.elite = { skills: makeEliteSkills(state.elitesSpawned), laserCharge: 0 };
+  ship.x = near.x + Math.cos(a) * (distance + ship.stats.radius);
+  ship.y = near.y + Math.sin(a) * (distance + ship.stats.radius);
+  fleet.leader = ship;
+  state.enemyFleets.push(fleet);
+  state.elitesSpawned++;
+  state.eliteAlertTime = state.time;
+  addSound(state, 'sfx.alert', near, 1, 1, true);
+}
+
 // ---------- Test tools (only reachable from dev-mode keys) ----------
 
 /** Adds tier-1 ships to your fleet right next to the flagship. */
@@ -1234,6 +1315,12 @@ export function testRemoveShip(state: GameState) {
 /** Destroys your whole fleet (to test the end-of-run screen). */
 export function testDestroyFleet(state: GameState) {
   for (const s of state.playerFleet.members) s.dead = true;
+}
+
+/** Spawns an elite right away (even if elites are turned off). */
+export function testSpawnElite(state: GameState, spawnDistance: number) {
+  const center = controlledShip(state);
+  if (center) spawnElite(state, center, spawnDistance);
 }
 
 /** Destroys every enemy inside the given area (they can still leave wrecks). */

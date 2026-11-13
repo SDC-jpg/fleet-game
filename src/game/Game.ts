@@ -19,6 +19,7 @@ import {
   testAddShips,
   testDestroyFleet,
   testKillEnemies,
+  testSpawnElite,
   testRemoveShip,
   updateGame,
   type Controls,
@@ -60,6 +61,8 @@ export interface HudInfo {
   equipment: EquipmentInfo | null;
   /** The item you just picked up (shown for a few seconds), or null. */
   found: ItemInfo | null;
+  /** True for a few seconds after an elite arrives. */
+  eliteAlert: boolean;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -235,8 +238,7 @@ export class Game {
     }
     if (TEST_KEYS_ENABLED) this.handleTestKeys();
     // Spawn enemies a bit outside the visible area.
-    const spawnDistance = Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2 + CONFIG.spawnMargin;
-    updateGame(this.state, this.readControls(), dt, spawnDistance);
+    updateGame(this.state, this.readControls(), dt, this.spawnDistance());
     this.playQueuedSounds();
     // A level-up stops the game until a card is picked: send the cards to the screen now.
     if (this.state.cards) this.sendHud();
@@ -277,6 +279,11 @@ export class Game {
     }
   }
 
+  /** How far from you enemies appear: just outside the visible area. */
+  private spawnDistance() {
+    return Math.hypot(this.renderer.viewWidth, this.renderer.viewHeight) / 2 + CONFIG.spawnMargin;
+  }
+
   private handleTestKeys() {
     const i = this.input;
     const s = this.state;
@@ -293,6 +300,7 @@ export class Game {
       const f = controlledShip(s);
       if (f) for (let n = 0; n < 3; n++) s.loot.push({ item: rollItem(s), x: f.x + 60 + n * 25, y: f.y - 40, vx: 0, vy: 0, life: 40 });
     }
+    if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
@@ -355,6 +363,7 @@ export class Game {
       cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
       equipment: this.paused ? equipmentInfo(st) : null,
       found: st.found && st.time - st.found.time < 3 ? itemInfo(st, st.found.item) : null,
+      eliteAlert: st.time - st.eliteAlertTime < 3,
       stats: { ...st.stats },
       history: st.history,
       invincible: st.invincible,

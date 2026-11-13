@@ -394,6 +394,30 @@ function wreckMarker(S = 48) {
   return sheet;
 }
 
+// Elite marker: an orange ring with eight spikes, slowly pulsing in and out. Drawn under elite enemies.
+function eliteMarker(S = 56) {
+  const F = 6;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    const pulse = (1 - Math.cos((f / F) * Math.PI * 2)) * S * 0.025;
+    const R = S / 2 - 4 - pulse;
+    const th = Math.max(1.2, S / 40);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const dx = x + 0.5 - S / 2, dy = y + 0.5 - S / 2;
+        const d = Math.hypot(dx, dy);
+        const a = Math.atan2(dy, dx);
+        // Spikes point outward at 8 angles.
+        const spike = Math.max(0, 1 - Math.abs(((a / (Math.PI / 4)) % 1 + 1.5) % 1 - 0.5) * 6) * S * 0.08;
+        if (Math.abs(d - R) < th || (d > R && d < R + spike)) frame.set(x, y, hex(d > R + th ? '#ffd08a' : '#ff8a3a'));
+      }
+    outline(frame, hex('#2a1205'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 // Command ring around the ship you fly, doubling as the boost stamina meter.
 // 33 frames: frame N has N/32 of the ring lit, filling clockwise from the top.
 function commandRing(S = 44) {
@@ -418,6 +442,14 @@ function edgeArrow(fill, dark) {
   const img = new Img(11, 11);
   fillPolygon(img, [[9.5, 5.5], [2, 1.5], [4, 5.5], [2, 9.5]], () => hex(fill));
   outline(img, hex(dark));
+  return img;
+}
+
+// Elite edge arrow: bigger than the others, orange with a pale tip.
+function eliteArrow() {
+  const img = new Img(15, 15);
+  fillPolygon(img, [[13.5, 7.5], [2, 1.5], [5, 7.5], [2, 13.5]], (x) => hex(x > 9 ? '#ffd08a' : '#ff8a3a'));
+  outline(img, hex('#2a1205'));
   return img;
 }
 
@@ -471,6 +503,20 @@ function laserSegment(tier = 1) {
         sheet.set(f * W + x, y, hex(d < half * 0.45 ? '#ffffff' : '#41a6d9'));
       }
   }
+  return sheet;
+}
+
+// Laser warning line: a thin dashed line (sky blue = team colour) that flickers. 2 frames, looping.
+// Same height as the laser segment of its tier, so it lines up with the beam.
+function laserWarning(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const W = 8, H = Math.max(6, Math.round(6 * k)) + 2, F = 2;
+  const sheet = new Img(W * F, H);
+  const th = Math.max(1, Math.round(k));
+  const y0 = Math.round((H - th) / 2);
+  for (let f = 0; f < F; f++)
+    for (let x = 0; x < 5; x++)
+      for (let y = y0; y < y0 + th; y++) sheet.set(f * W + ((x + f * 4) % W), y, hex(f ? '#7ecff2' : '#41a6d9'));
   return sheet;
 }
 
@@ -763,6 +809,9 @@ const FILES = {
   'ui/loot-epic.png': () => lootCrate('#c890ff'),
   ...Object.fromEntries(Object.entries(ITEM_ICONS).map(([name, draw]) => [`ui/item-${name}.png`, () => icon16(draw)])),
   'vfx/laser.png': () => laserSegment(1),
+  'vfx/laser-warning.png': () => laserWarning(1),
+  'ui/elite-marker.png': () => eliteMarker(56),
+  'ui/arrow-elite.png': eliteArrow,
   'projectiles/missile.png': () => missile(1),
   'projectiles/mine.png': () => mine(1),
   'vfx/mine-blast.png': () => mineBlast(112),
@@ -793,6 +842,8 @@ for (const tier of [2, 3, 4]) {
   FILES[`ui/wreck-marker-t${tier}.png`] = () => wreckMarker(even(48 * k));
   FILES[`vfx/dash-t${tier}.png`] = () => dashSheet(even(56 * k), even(28 * k));
   FILES[`vfx/laser-t${tier}.png`] = () => laserSegment(tier);
+  FILES[`vfx/laser-warning-t${tier}.png`] = () => laserWarning(tier);
+  FILES[`ui/elite-marker-t${tier}.png`] = () => eliteMarker(even(56 * k));
   FILES[`projectiles/missile-t${tier}.png`] = () => missile(tier);
   FILES[`projectiles/mine-t${tier}.png`] = () => mine(tier);
   FILES[`vfx/mine-blast-t${tier}.png`] = () => mineBlast(even(112 * k));

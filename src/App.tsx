@@ -75,7 +75,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div className="hint">
               Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
-              enemies on screen · X end run · L level up · J all skills · I drop items
+              enemies on screen · X end run · L level up · J all skills · I drop items · E elite
             </div>
           )}
           {hud.assetProblems.length > 0 && (
@@ -94,6 +94,7 @@ export default function App() {
 
       {hud?.paused && <EquipmentScreen hud={hud} game={gameRef.current} />}
       {hud && !hud.gameOver && <FoundToast hud={hud} />}
+      {hud?.eliteAlert && !hud.gameOver && <div className="elite-toast">Elite incoming!</div>}
 
       {hud?.gameOver && (
         <div className="panel center report">

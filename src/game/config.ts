@@ -496,6 +496,54 @@ export const CONFIG = {
   /** 1 = enemy fleets grow steadily; higher = they grow faster and faster in later waves. */
   enemyFleetValueCurve: 1.3,
 
+  /**
+   * Elite enemies: one strong ship every few waves that uses skills and always
+   * drops a wreck, an item, or both (items of better rarity). Set `enabled` to
+   * false to turn elites off completely.
+   */
+  elite: {
+    /** true = elites appear; false = no elites at all. */
+    enabled: true,
+    /** An elite comes every this-many waves (5 = waves 5, 10, 15...). If that wave brings an enemy fleet, the elite waits one wave. */
+    everyNthWave: 5,
+    /** Elite tier = biggest tier in an enemy fleet of that wave, plus this. */
+    extraTiers: 0,
+    /** Elite health compared to a normal enemy of its tier. */
+    healthMultiplier: 4,
+    /** XP for destroying an elite, compared to a normal enemy of its tier. */
+    xpMultiplier: 3,
+    /** Skills the first elite has; each later elite has one more, up to maxSkills. */
+    firstSkills: 1,
+    /** Most skills an elite can have. */
+    maxSkills: 3,
+    /** From this elite on (4 = the 4th), each new elite's skills are one rank higher (up to rank 5). */
+    rankUpFrom: 4,
+    /** Each rank above 1 improves one random stat of the skill by this (0.15 = +15%). */
+    rankBonus: 0.15,
+    /** An elite's skill damage compared to yours (0.25 = a quarter; full strength would destroy a ship of its tier in one hit). */
+    skillDamage: 0.25,
+    /** An elite's skill cooldowns compared to yours (1.5 = 50% longer). */
+    cooldownMultiplier: 1.5,
+    /** Seconds an elite's laser shows a warning line before it fires. */
+    laserWarning: 0.6,
+    /** Drop odds: weight for "a wreck only". */
+    dropWreckWeight: 40,
+    /** Drop odds: weight for "an item only". */
+    dropItemWeight: 40,
+    /** Drop odds: weight for "a wreck and an item". */
+    dropBothWeight: 20,
+    /** An elite's wreck is never more than this many tiers above your biggest ship this run (0 = never bigger). */
+    wreckMaxTiersAbove: 1,
+    /** Item rarity odds for elite drops (normal drops use the rarity weights above): Common. */
+    commonWeight: 20,
+    /** Elite item odds: Uncommon. */
+    uncommonWeight: 35,
+    /** Elite item odds: Rare. */
+    rareWeight: 30,
+    /** Elite item odds: Epic. */
+    epicWeight: 15,
+  },
+
   /** Sound settings. Each sound's own volume is in public/assets/manifest.json. */
   audio: {
     /** Overall volume, 0–1. */

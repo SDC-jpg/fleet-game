@@ -115,6 +115,16 @@ Sounds: `sfx.laser`, `sfx.missile`, `sfx.mine` (dropped), `sfx.mine-blast`,
 
 Sound: `sfx.loot` (item picked up).
 
+## Elite enemies
+
+| Name | What it is |
+| --- | --- |
+| `ui.elite-marker` (+ `.t2`…`.t4`) | Ring drawn under an elite enemy, loops. One size per tier |
+| `ui.arrow.elite` | Edge arrow pointing to an elite (bigger than the enemy arrow) |
+| `vfx.laser-warning` (+ `.t2`…`.t4`) | Warning line before an elite's laser fires: one short segment repeated along the beam, loops. Same height as `vfx.laser` of its tier. Sky blue parts take the team colour |
+
+Elites use the normal ship art and the normal skill art and sounds.
+
 Rank-up cards are coloured by rarity: Common white, Uncommon green, Rare gold,
 Epic purple (`RARITIES` in `src/game/config.ts`).
 
