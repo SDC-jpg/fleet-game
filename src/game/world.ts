@@ -135,6 +135,10 @@ export interface Bullet {
   /** Homing missiles: how fast they turn toward `target` (0 = fly straight). */
   homing: number;
   target: Ship | null;
+  /** Missiles: which way it points (it turns before speeding off, so this can differ from its movement). */
+  facing?: number;
+  /** Missiles: its speed when it started speeding off. */
+  boostFrom?: number;
 }
 
 export interface Wreck {
@@ -665,7 +669,7 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   }
   const steering = mx !== 0 || my !== 0;
   // Boost only counts while you're actually steering somewhere. A dash outdoes it.
-  const boosting = useBoostStamina(state, ship, c.boost && len > 0, dt);
+  const boosting = spendBoostStamina(state, ship, c.boost && len > 0, dt);
   const mul = Math.max(boosting ? t.boostMultiplier * state.bonus.boostSpeed : 1, dashMultiplier(fleet));
   const speed = t.maxSpeed * state.bonus.speed * mul * directionFactor(ship.angle, mx, my);
   steer(ship, mx * speed, my * speed, t.accel * mul, dt);
@@ -681,7 +685,7 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
  * dry locks boost until the bar is partly refilled, so it doesn't stutter on and off.
  * Returns whether the ship boosts this step.
  */
-function useBoostStamina(state: GameState, ship: Ship, wants: boolean, dt: number) {
+function spendBoostStamina(state: GameState, ship: Ship, wants: boolean, dt: number) {
   const b = CONFIG.boost;
   if (wants && !state.boostLocked && state.boostStamina > 0) {
     // Bigger ships have more boost time.
@@ -943,32 +947,59 @@ export function damageShip(state: GameState, s: Ship, amount: number) {
 }
 
 /** Turn a homing missile toward its target, or the nearest enemy if its target is gone. */
+/**
+ * A missile's flight (times in CONFIG.missiles): it drifts out of the ship,
+ * turns to face its target, then speeds up to top speed while homing in.
+ */
 function steerMissile(state: GameState, b: Bullet, dt: number) {
-  // Missiles launch slowly and speed up to full speed over CONFIG.missiles.rampTime.
   const M = CONFIG.missiles;
   const age = M.life - b.life;
-  const speed = M.startSpeed + (M.speed - M.startSpeed) * Math.min(1, age / M.rampTime);
-  const heading = Math.atan2(b.vy, b.vx);
-  b.vx = Math.cos(heading) * speed;
-  b.vy = Math.sin(heading) * speed;
-  if (!b.target || b.target.dead || b.target.merge) {
-    b.target = null;
-    let bestD = 500 * 500;
-    for (const s of state.ships) {
-      if (s.team === b.team || s.dead || s.merge) continue;
-      const d = distSq(b.x, b.y, s.x, s.y);
-      if (d < bestD) {
-        bestD = d;
-        b.target = s;
-      }
+  if (!b.target || b.target.dead || b.target.merge) b.target = retargetMissile(state, b);
+  const facing = b.facing ?? Math.atan2(b.vy, b.vx);
+  const want = b.target ? Math.atan2(b.target.y - b.y, b.target.x - b.x) : facing;
+  // 1. Drifting straight out of the ship.
+  if (age < M.ejectTime) return;
+  // 2. Still drifting, turning to face the target.
+  if (age < M.ejectTime + M.spinTime) {
+    b.facing = facing + clamp(wrapAngle(want - facing), -M.spinRate * dt, M.spinRate * dt);
+    return;
+  }
+  // 3. Speeding off along where it points, steering toward the target.
+  b.boostFrom ??= Math.hypot(b.vx, b.vy);
+  const t = Math.min(1, (age - M.ejectTime - M.spinTime) / M.rampTime);
+  const speed = b.boostFrom + (M.speed - b.boostFrom) * t;
+  b.facing = facing + clamp(wrapAngle(want - facing), -b.homing * dt, b.homing * dt);
+  b.vx = Math.cos(b.facing) * speed;
+  b.vy = Math.sin(b.facing) * speed;
+}
+
+/**
+ * A new target for a missile whose target is gone (or that had none): an enemy
+ * within lock range and inside the lock arc in front of the missile, the one
+ * with the fewest missiles already on it (then the nearest), so the volley
+ * keeps spreading across as many targets as it can.
+ */
+function retargetMissile(state: GameState, b: Bullet): Ship | null {
+  const range = CONFIG.missiles.lockRange ** 2;
+  const half = (CONFIG.missiles.lockArc * Math.PI) / 360;
+  const facing = b.facing ?? Math.atan2(b.vy, b.vx);
+  const onTarget = new Map<Ship, number>();
+  for (const o of state.bullets) if (o !== b && o.homing > 0 && o.target) onTarget.set(o.target, (onTarget.get(o.target) ?? 0) + 1);
+  let best: Ship | null = null;
+  let bestN = Infinity;
+  let bestD = Infinity;
+  for (const s of state.ships) {
+    if (s.team === b.team || s.dead || s.merge) continue;
+    const d = distSq(b.x, b.y, s.x, s.y);
+    if (d > range || Math.abs(wrapAngle(Math.atan2(s.y - b.y, s.x - b.x) - facing)) > half) continue;
+    const n = onTarget.get(s) ?? 0;
+    if (n < bestN || (n === bestN && d < bestD)) {
+      best = s;
+      bestN = n;
+      bestD = d;
     }
   }
-  if (!b.target) return;
-  const now = Math.atan2(b.vy, b.vx);
-  const want = Math.atan2(b.target.y - b.y, b.target.x - b.x);
-  const turn = clamp(wrapAngle(want - now), -b.homing * dt, b.homing * dt);
-  b.vx = Math.cos(now + turn) * speed;
-  b.vy = Math.sin(now + turn) * speed;
+  return best;
 }
 
 function updateBullets(state: GameState, dt: number) {

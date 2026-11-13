@@ -327,24 +327,39 @@ export const CONFIG = {
     width: 6,
   },
 
-  /** Missiles skill: a cluster of slow homing missiles. */
+  /**
+   * Missiles skill: a volley of homing missiles. They're pushed out of the ship
+   * (all pointing where it points), turn to face their targets, then speed off.
+   * The volley is shared out across every enemy in range, so it only focuses
+   * on one target when nothing else is in range.
+   */
   missiles: {
-    /** Seconds between clusters. */
+    /** Seconds between volleys. */
     cooldown: 3.5,
-    /** Missiles per cluster. */
+    /** Missiles per volley. */
     count: 4,
     /** Damage per missile (tier 1). */
     damage: 2,
-    /** Missile speed at launch: they start slow, then speed up. */
-    startSpeed: 40,
-    /** Missile top speed, reached rampTime seconds after launch. */
+    /** Speed missiles are pushed out of the ship at, in the direction it faces (added to the ship's own speed). */
+    ejectSpeed: 40,
+    /** Seconds they drift straight out before turning. */
+    ejectTime: 0.2,
+    /** Seconds they spend turning to face their target, still drifting. */
+    spinTime: 0.2,
+    /** How fast they turn while doing so (radians per second; 15 = about half a turn in 0.2 s). */
+    spinRate: 15,
+    /** Top speed, reached rampTime seconds after they start speeding off. */
     speed: 500,
-    /** Seconds for a missile to go from startSpeed to speed. */
+    /** Seconds to go from drifting to top speed. */
     rampTime: 0.5,
-    /** How fast missiles turn toward their target (radians per second). */
+    /** How fast they steer toward their target while speeding (radians per second). */
     turnRate: 4,
     /** Seconds a missile lasts. */
     life: 3,
+    /** How far away a target can be (game pixels). */
+    lockRange: 900,
+    /** Width of the cone in front of the ship that targets must be in (degrees). */
+    lockArc: 90,
   },
 
   /** Mines skill: drops a mine behind you that blows up when an enemy comes near. */

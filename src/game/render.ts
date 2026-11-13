@@ -106,7 +106,8 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
 
   for (const b of state.bullets) {
     const sprite = teamSprite(assets, tierSprite(assets, b.sprite, b.tier), b.team);
-    r.drawSprite(sprite, b.x, b.y, Math.atan2(b.vy, b.vx), state.time);
+    // Missiles point where they face (they turn before speeding off); other shots point where they fly.
+    r.drawSprite(sprite, b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx), state.time);
   }
 
   for (const e of state.effects)

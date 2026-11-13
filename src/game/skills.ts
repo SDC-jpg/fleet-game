@@ -103,46 +103,59 @@ function fireLaser(state: GameState, ship: Ship, sk: OwnedSkill) {
 /** How far a ship's laser reaches. */
 export const laserLength = (ship: Ship, sk: OwnedSkill) => CONFIG.laser.length * CONFIG.tiers.rangePerTier ** (ship.tier - 1) * sk.mods.size;
 
-/** Missiles: a fan of homing missiles, aimed at the enemy nearest your cursor. */
+/**
+ * Missiles: a volley pushed out of the ship side by side, all pointing where it
+ * points. They're shared out across every target in range (see missileTargets):
+ * one target gets them all, two get half each, more get one each.
+ */
 function launchMissiles(state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) {
   const M = CONFIG.missiles;
   // "Size" upgrades add missiles.
   const count = Math.max(1, Math.round(M.count * sk.mods.size));
-  const target = nearestEnemyTo(state, ship.team, c.aimX, c.aimY, 300) ?? nearestEnemyTo(state, ship.team, ship.x, ship.y, Infinity);
+  const targets = missileTargets(state, ship, c.aimX, c.aimY);
   const damage = M.damage * powerOf(state, ship) * sk.mods.power;
+  // Side by side across the ship's width.
+  const sideX = -Math.sin(ship.angle);
+  const sideY = Math.cos(ship.angle);
+  const width = ship.stats.radius * 1.6;
   for (let i = 0; i < count; i++) {
-    // Fan out to the sides first, then curve in toward the target.
-    const a = ship.angle + (count === 1 ? 0 : (i / (count - 1) - 0.5) * 2.2);
+    const off = count === 1 ? 0 : (i / (count - 1) - 0.5) * width;
     state.bullets.push({
       team: ship.team,
       sprite: 'projectile.missile',
       tier: ship.tier,
-      x: ship.x,
-      y: ship.y,
-      vx: Math.cos(a) * M.startSpeed,
-      vy: Math.sin(a) * M.startSpeed,
+      x: ship.x + sideX * off,
+      y: ship.y + sideY * off,
+      vx: ship.vx + Math.cos(ship.angle) * M.ejectSpeed,
+      vy: ship.vy + Math.sin(ship.angle) * M.ejectSpeed,
       life: M.life,
       damage,
       radius: 2 * ship.stats.size,
       homing: M.turnRate,
-      target,
+      target: targets.length ? targets[i % targets.length] : null,
+      facing: ship.angle,
     });
   }
   addSound(state, 'sfx.missile', ship, ship.tier);
 }
 
-function nearestEnemyTo(state: GameState, team: string, x: number, y: number, maxDist: number): Ship | null {
-  let best: Ship | null = null;
-  let bestD = maxDist * maxDist;
-  for (const s of state.ships) {
-    if (s.team === team || s.dead || s.merge) continue;
-    const d = distSq(x, y, s.x, s.y);
-    if (d < bestD) {
-      bestD = d;
-      best = s;
-    }
-  }
-  return best;
+/**
+ * Enemies a volley can lock onto: within lockRange, inside the lockArc in
+ * front of the ship, those closest to where you aim first.
+ */
+function missileTargets(state: GameState, ship: Ship, aimX: number, aimY: number): Ship[] {
+  const M = CONFIG.missiles;
+  const half = (M.lockArc * Math.PI) / 360;
+  return state.ships
+    .filter(
+      (s) =>
+        s.team !== ship.team &&
+        !s.dead &&
+        !s.merge &&
+        distSq(s.x, s.y, ship.x, ship.y) <= M.lockRange ** 2 &&
+        Math.abs(wrapAngle(Math.atan2(s.y - ship.y, s.x - ship.x) - ship.angle)) <= half,
+    )
+    .sort((a, b) => distSq(a.x, a.y, aimX, aimY) - distSq(b.x, b.y, aimX, aimY));
 }
 
 /** Mines: one is left behind your ship. */

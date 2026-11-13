@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- Missiles now drop out of your ship side by side, turn to face their targets, then blast off. A volley spreads across every enemy in a wide cone ahead of you (up to 900 away), and only focuses on one enemy when it's the only one in range.
 - The starting zoom now matches your monitor's real resolution: Windows display scaling (125%, 150%) no longer makes the game zoom in too far, and bigger monitors show the same view in sharper pixels.
 - Testing three ways of drawing rotated ships, to reduce the jagged "laddering" when they turn: Grid (as before), Hi-res and RotSprite. Switch with the U key in the game or the Rotation buttons in ShipArt.
 - New thruster placement on the first two ship sizes: the smallest ship has one centre thruster with fewer sparks, and the tier 2 ship has two thrusters drawn over its hull.
