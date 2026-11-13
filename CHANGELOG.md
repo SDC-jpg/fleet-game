@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- ShipArt: thruster particles have an Angle setting, the width of the cone they spray in (360 = every direction).
 - ShipArt: a purple VFX panel shows each thruster's particle settings (image, spawn rate, life, speed, drag) with a preview of the particle image.
 - ShipArt: a Stars button switches the preview background between stars and plain black (remembered).
 - Ships now have separate thruster flames, placed per ship with the new ShipArt tool, and they give off small orange sparks when moving and purple ones when boosting. Some bigger ships have extra thrusters that only light up while boosting.

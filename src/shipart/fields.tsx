@@ -7,12 +7,14 @@ export function NumberField({
   onChange,
   step = 1,
   min,
+  max,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   step?: number;
   min?: number;
+  max?: number;
 }) {
   return (
     <label className="sa-num">
@@ -22,6 +24,7 @@ export function NumberField({
         value={value}
         step={step}
         min={min}
+        max={max}
         onChange={(e) => {
           const v = Number(e.target.value);
           if (e.target.value !== '' && Number.isFinite(v)) onChange(v);

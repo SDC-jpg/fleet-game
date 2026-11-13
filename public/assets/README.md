@@ -64,8 +64,9 @@ http://localhost:5173/shipart.html. The published copy
 - Thruster particles use `vfx.particle.move` and `vfx.particle.boost` in the
   manifest (small flipbooks: a dot shrinking away). Defaults are in
   `CONFIG.particles`; each thruster can change them in ShipArt's purple **VFX**
-  panel (particle image, spawn rate, life, speed, drag, separately for Move and
-  Boost). Any manifest sprite named `vfx.particle.<name>` can be picked there.
+  panel (particle image, spawn rate, life, speed, drag, and angle: the width of
+  the spawn cone, 0 = a straight line, 360 = every direction; separately for
+  Move and Boost). Any manifest sprite named `vfx.particle.<name>` can be picked there.
   "Copy folder path" copies the image's Windows folder for File Explorer.
 - Dash doesn't change thrusters; it adds the dash trail (`vfx.dash`).
 - The old `fighter-*-move.png` and `fighter-*-boost.png` images are no longer

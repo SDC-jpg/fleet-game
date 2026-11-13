@@ -23,7 +23,7 @@ interface Particle {
 export class Particles {
   private list: Particle[] = [];
 
-  /** Spawn about kind.perSecond × dt particles at (x, y), flying toward `angle` (radians), spread out a little. */
+  /** Spawn about kind.perSecond × dt particles at (x, y), flying toward `angle` (radians), spread over the kind's cone. */
   emit(kind: ParticleSettings, x: number, y: number, angle: number, dt: number) {
     let n = kind.perSecond * dt;
     // Fractions become a chance, so low rates still produce the right amount over time.
@@ -31,7 +31,8 @@ export class Particles {
       if (n < 1 && Math.random() >= n) break;
       n--;
       if (this.list.length >= CONFIG.particles.max) return;
-      const a = angle + ((randRange(-1, 1) * kind.spread) / 180) * Math.PI;
+      // Anywhere in a cone kind.angle degrees wide, centred on `angle` (360 = any direction).
+      const a = angle + ((randRange(-0.5, 0.5) * Math.min(360, kind.angle)) / 180) * Math.PI;
       const speed = kind.speed * randRange(0.7, 1.3);
       this.list.push({
         sprite: kind.sprite,

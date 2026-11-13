@@ -13,11 +13,12 @@ const BACKGROUNDS = { black: '#000000', gray: '#808080', white: '#ffffff' } as c
 type Background = keyof typeof BACKGROUNDS;
 
 /** The particle settings that can be edited, in panel order (more can be added here). */
-const FIELDS: { key: Exclude<keyof ParticleSettings, 'sprite'>; label: string; step: number; min: number; hint: string }[] = [
+const FIELDS: { key: Exclude<keyof ParticleSettings, 'sprite'>; label: string; step: number; min: number; max?: number; hint: string }[] = [
   { key: 'perSecond', label: 'Spawn rate', step: 1, min: 0, hint: 'particles per second' },
   { key: 'life', label: 'Life', step: 0.05, min: 0.05, hint: 'seconds' },
   { key: 'speed', label: 'Speed', step: 5, min: 0, hint: 'pixels per second' },
   { key: 'drag', label: 'Drag', step: 0.5, min: 0, hint: '0 = never slows down' },
+  { key: 'angle', label: 'Angle', step: 15, min: 0, max: 360, hint: 'width of the spawn cone in degrees: 0 = a straight line, 360 = every direction' },
 ];
 
 const label = (s: string) => s[0].toUpperCase() + s.slice(1);
@@ -123,7 +124,14 @@ export function VfxPanel({
             </label>
             {FIELDS.map((f) => (
               <div key={f.key} className="sa-row" title={f.hint}>
-                <NumberField label={f.label} value={settings[f.key]} step={f.step} min={f.min} onChange={(v) => set(f.key, Math.max(f.min, v))} />
+                <NumberField
+                  label={f.label}
+                  value={settings[f.key]}
+                  step={f.step}
+                  min={f.min}
+                  max={f.max}
+                  onChange={(v) => set(f.key, Math.min(f.max ?? Infinity, Math.max(f.min, v)))}
+                />
                 <span className="sa-note sa-default">{own[f.key] === undefined ? 'default' : ''}</span>
               </div>
             ))}

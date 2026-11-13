@@ -51,8 +51,8 @@ export interface ParticleSettings {
   perSecond: number;
   /** Starting speed (game pixels per second). */
   speed: number;
-  /** Spread either side of straight back, in degrees. */
-  spread: number;
+  /** Width of the cone particles fly out in, in degrees, centred on straight back (0 = a line, 360 = every direction). */
+  angle: number;
   /** Seconds each particle lasts. */
   life: number;
   /** How quickly particles slow down (0 = never; 3 = lose most of their speed in about a second). */
