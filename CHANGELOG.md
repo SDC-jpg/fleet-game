@@ -6,8 +6,9 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-12
 
-- Elite enemies: every 5 waves a strong enemy with an orange ring arrives. It uses skills like yours (watch for the dashed line before its laser fires) and always drops a wreck, an item, or both, with better odds of rare items.
+- Elite enemies: from wave 10, every 5 waves a strong enemy with an orange ring arrives. It uses skills like yours (watch for the dashed line before its laser fires) and always drops a wreck, an item, or both, with better odds of rare items.
 - Freeze from an elite only stops your ships shooting; they can still move.
+- The control help lines moved to a thin bar at the very top of the screen.
 - **Equipment!** Destroyed enemies sometimes drop items (bigger enemies more often). Fly over them to pick them up. Each item boosts your whole fleet: damage, fire rate, health, speed, boost time, boost speed or skill recharge. Rarer items give bigger boosts.
 - Press **Esc** to pause and manage your equipment. You get 3 slots per ship tier you reach.
 - **Skill upgrades:** level-up cards can now rank up a skill you have (up to rank 5), improving its damage, fire rate or size. Upgrade cards come in four rarities: Common, Uncommon, Rare (gold) and Epic (purple). Rarer cards give bigger bonuses.

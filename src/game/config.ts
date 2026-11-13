@@ -502,10 +502,12 @@ export const CONFIG = {
    * false to turn elites off completely.
    */
   elite: {
-    /** true = elites appear; false = no elites at all. */
+    /** true = elites appear; false = no elites at all. (Test key O switches them for your browser only.) */
     enabled: true,
-    /** An elite comes every this-many waves (5 = waves 5, 10, 15...). If that wave brings an enemy fleet, the elite waits one wave. */
+    /** An elite comes every this-many waves (5 = waves 10, 15, 20... from firstWave). If that wave brings an enemy fleet, the elite waits one wave. */
     everyNthWave: 5,
+    /** No elite before this wave (10 = the wave-5 one is skipped). */
+    firstWave: 10,
     /** Elite tier = biggest tier in an enemy fleet of that wave, plus this. */
     extraTiers: 0,
     /** Elite health compared to a normal enemy of its tier. */

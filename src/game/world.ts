@@ -280,6 +280,8 @@ export interface GameState {
   found: { item: Item; time: number } | null;
   beams: Beam[];
   mines: Mine[];
+  /** Whether elites come this run (CONFIG.elite.enabled, or the test key O). */
+  elitesEnabled: boolean;
   /** Elites spawned so far this run (each new one gets more skills). */
   elitesSpawned: number;
   /** An elite is waiting to come (its wave brought an enemy fleet, so it comes next wave). */
@@ -402,6 +404,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     found: null,
     beams: [],
     mines: [],
+    elitesEnabled: CONFIG.elite.enabled,
     elitesSpawned: 0,
     eliteDue: false,
     eliteAlertTime: -Infinity,
@@ -1208,10 +1211,11 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   const fleetWave = state.wave >= first && (state.wave - first) % CONFIG.enemyFleetEveryNthWave === 0;
 
   // Every few waves an elite comes. If this wave already brings a fleet, it waits for the next one.
-  if (CONFIG.elite.enabled && state.wave % CONFIG.elite.everyNthWave === 0) state.eliteDue = true;
+  const E = CONFIG.elite;
+  if (state.elitesEnabled && state.wave >= E.firstWave && state.wave % E.everyNthWave === 0) state.eliteDue = true;
   if (state.eliteDue && !fleetWave) {
     state.eliteDue = false;
-    if (CONFIG.elite.enabled) spawnElite(state, center, spawnDistance);
+    if (state.elitesEnabled) spawnElite(state, center, spawnDistance);
   }
 
   if (fleetWave) {

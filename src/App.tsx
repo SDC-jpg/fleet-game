@@ -42,6 +42,18 @@ export default function App() {
       {!hud && !error && <div className="panel center">Loading…</div>}
 
       {hud && (
+        <div className="top-bar">
+          <div>WASD move · Shift boost · Space dash · mouse aim · click fire · right-click defend · Esc pause & equipment · fly into wrecks to recruit</div>
+          {TEST_KEYS_ENABLED && (
+            <div>
+              Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
+              screen · X end run · L level up · J all skills · I drop items · E spawn elite · O elites {hud.elitesEnabled ? '(ON)' : '(off)'}
+            </div>
+          )}
+        </div>
+      )}
+
+      {hud && (
         <div className="hud">
           <div>
             Fleet: {hud.fleetSize} <span className="hint">({hud.fleetMix})</span>
@@ -70,14 +82,6 @@ export default function App() {
           >
             {hud.soundOn ? '🔊 Sound on' : '🔇 Sound off'} (M)
           </button>
-          <div className="hint">WASD move · Shift boost · Space dash · mouse aim · click fire · right-click defend · Esc pause & equipment · fly into wrecks to
-            recruit</div>
-          {TEST_KEYS_ENABLED && (
-            <div className="hint">
-              Test keys: = / - add/remove ship · ] add 16 ships · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy
-              enemies on screen · X end run · L level up · J all skills · I drop items · E elite
-            </div>
-          )}
           {hud.assetProblems.length > 0 && (
             <div className="warn">
               Art / sound problems:

@@ -13,9 +13,22 @@ body {
   image-rendering: pixelated;
 }
 
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 2px 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(232, 236, 244, 0.6);
+  background: rgba(8, 10, 22, 0.6);
+  pointer-events: none;
+}
+
 .hud {
   position: fixed;
-  top: 12px;
+  top: 44px;
   left: 12px;
   font-size: 14px;
   line-height: 1.5;
@@ -353,7 +366,7 @@ body {
 /* "Found: ..." message after picking up an item */
 .elite-toast {
   position: fixed;
-  top: 52px;
+  top: 82px;
   left: 50%;
   transform: translateX(-50%);
   padding: 6px 14px;
@@ -368,7 +381,7 @@ body {
 
 .found-toast {
   position: fixed;
-  top: 14px;
+  top: 44px;
   left: 50%;
   transform: translateX(-50%);
   padding: 6px 14px;

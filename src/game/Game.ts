@@ -35,6 +35,26 @@ import {
  */
 export const TEST_KEYS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_TEST_KEYS === 'true';
 
+/** Browser storage key for the elite test switch. */
+const ELITES_SETTING = 'fleet-game.elites';
+
+/** Read a remembered setting from this browser (null if none, or if storage is blocked). */
+function loadSetting(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function saveSetting(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage blocked (e.g. private window): the switch still works for this visit.
+  }
+}
+
 /** Numbers shown on screen by React. */
 export interface HudInfo {
   /** Fleet value: what all your ships are worth in tier-1 ships. */
@@ -67,6 +87,8 @@ export interface HudInfo {
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
   invincible: boolean;
+  /** Whether elites come this run (test key O). */
+  elitesEnabled: boolean;
   soundOn: boolean;
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
@@ -131,6 +153,9 @@ export class Game {
 
   private newState() {
     const state = createGame((name, tier) => spriteDuration(this.assets.get(tierSprite(this.assets, name, tier))));
+    // The elite test switch (key O) is remembered in this browser between runs and visits.
+    const stored = TEST_KEYS_ENABLED ? loadSetting(ELITES_SETTING) : null;
+    if (stored !== null) state.elitesEnabled = stored === 'on';
     this.renderer.setZoom(state.zoom, true);
     return state;
   }
@@ -301,6 +326,10 @@ export class Game {
       if (f) for (let n = 0; n < 3; n++) s.loot.push({ item: rollItem(s), x: f.x + 60 + n * 25, y: f.y - 40, vx: 0, vy: 0, life: 40 });
     }
     if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
+    if (i.wasPressed('KeyO')) {
+      s.elitesEnabled = !s.elitesEnabled;
+      saveSetting(ELITES_SETTING, s.elitesEnabled ? 'on' : 'off');
+    }
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
@@ -367,6 +396,7 @@ export class Game {
       stats: { ...st.stats },
       history: st.history,
       invincible: st.invincible,
+      elitesEnabled: st.elitesEnabled,
       soundOn: this.sounds.enabled,
       fps: this.fps,
       assetProblems: [...this.assets.problems, ...this.sounds.problems],
