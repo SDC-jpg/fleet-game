@@ -1,6 +1,6 @@
 // Equipment: items dropped by destroyed enemies. Each gives your whole fleet
 // one bonus (damage, fire rate, health...). You equip them on the pause screen
-// (Esc), in slots unlocked by the biggest tier you've reached this run.
+// (Esc), in slots unlocked by the biggest tier you've reached (3 per tier).
 // Like world.ts, nothing is drawn here.
 
 import { distSq, randRange } from '../engine/math';
@@ -34,8 +34,23 @@ export const noBonus = (): FleetBonus => ({ damage: 1, fireRate: 1, health: 1, s
 const STATS = Object.keys(ITEM_STATS) as ItemStat[];
 const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic'];
 
-/** Equipment slots you have: 3 per tier of the biggest ship you've had this run. */
-export const slotCount = (state: GameState) => CONFIG.items.slotsPerTier * state.maxTier;
+/** The tier a slot belongs to (slots 0–2 = tier 1, 3–5 = tier 2...). */
+export const slotTier = (slot: number) => Math.floor(slot / CONFIG.items.slotsPerTier) + 1;
+
+/** Whether a slot is unlocked (its tier has been reached). */
+export const slotUnlocked = (state: GameState, slot: number) => slotTier(slot) <= state.unlockedTier;
+
+/** Unlock the slots of the biggest tier you've reached (up to CONFIG.items.maxSlotTier). */
+export function unlockSlots(state: GameState) {
+  const tier = Math.min(state.maxTier, CONFIG.items.maxSlotTier);
+  if (tier > state.unlockedTier) state.unlockedTier = tier;
+}
+
+/** The slot an item is in, or -1 if it's not equipped. */
+export const slotOf = (state: GameState, id: number) => state.slots.indexOf(id);
+
+/** The first empty unlocked slot, or -1 if there's none. */
+const freeSlot = (state: GameState) => state.slots.findIndex((id, i) => id === null && slotUnlocked(state, i));
 
 /** Normal rarity odds (the same as cards). */
 const normalWeights = (): Record<Rarity, number> => {
@@ -98,24 +113,34 @@ export function updateLoot(state: GameState, dt: number) {
       l.life = 0;
       addSound(state, 'sfx.loot', l, 1, 1, true);
       // Fill an empty slot straight away, so a new item helps without a trip to the menu.
-      if (state.equipped.length < slotCount(state)) equip(state, l.item.id);
+      equip(state, l.item.id);
     }
   }
   state.loot = state.loot.filter((l) => l.life > 0);
 }
 
-/** Put an item from your inventory into a free slot. Returns false if there's no free slot. */
-export function equip(state: GameState, id: number) {
-  if (state.equipped.includes(id) || state.equipped.length >= slotCount(state)) return false;
+/**
+ * Put an item into a slot. With no slot given, the first empty unlocked one.
+ * If the slot holds another item, the two swap: the other one goes where this
+ * one was (another slot, or the inventory). Returns false if nothing changed.
+ */
+export function equip(state: GameState, id: number, slot = freeSlot(state)) {
+  if (slot < 0 || slot >= state.slots.length || !slotUnlocked(state, slot)) return false;
   if (!state.items.some((it) => it.id === id)) return false;
-  state.equipped.push(id);
+  const from = slotOf(state, id);
+  if (from === slot) return false;
+  const other = state.slots[slot];
+  state.slots[slot] = id;
+  if (from >= 0) state.slots[from] = other;
   updateBonuses(state);
   return true;
 }
 
 /** Take an item out of its slot (it stays in your inventory). */
 export function unequip(state: GameState, id: number) {
-  state.equipped = state.equipped.filter((e) => e !== id);
+  const slot = slotOf(state, id);
+  if (slot < 0) return;
+  state.slots[slot] = null;
   updateBonuses(state);
 }
 
@@ -127,10 +152,11 @@ export function updateBonuses(state: GameState) {
   const b = noBonus();
   b.damage += state.cardBonus.damage;
   b.fireRate += state.cardBonus.fireRate;
-  for (const id of state.equipped) {
+  state.slots.forEach((id, slot) => {
+    if (id === null || !slotUnlocked(state, slot)) return;
     const it = state.items.find((i) => i.id === id);
     if (it) b[it.stat] += it.amount;
-  }
+  });
   state.bonus = b;
   for (const s of state.playerFleet.members) {
     const share = s.hp / s.stats.maxHp;

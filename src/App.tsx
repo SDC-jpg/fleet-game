@@ -85,11 +85,11 @@ export default function App() {
         </div>
       )}
 
-      {hud && !hud.gameOver && <BottomHud hud={hud} game={gameRef.current} />}
+      {hud && !hud.gameOver && !hud.paused && <BottomHud hud={hud} game={gameRef.current} />}
       {hud?.cards && !hud.gameOver && <CardScreen hud={hud} game={gameRef.current} />}
 
       {hud?.paused && <EquipmentScreen hud={hud} game={gameRef.current} />}
-      {hud && !hud.gameOver && <FoundToast hud={hud} />}
+      {hud && !hud.gameOver && !hud.paused && <FoundToast hud={hud} />}
       {hud?.eliteAlert && !hud.gameOver && <div className="elite-toast">Elite incoming!</div>}
 
       {hud?.gameOver && (

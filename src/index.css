@@ -306,15 +306,20 @@ body {
 
 /* Equipment (pause) screen: a fixed size so it doesn't jump around. */
 .equipment {
-  width: min(860px, 94vw);
-  height: min(560px, 88vh);
+  width: min(700px, 96vw);
+  height: min(660px, calc(100vh - 48px));
+  margin-top: 18px;
+  padding: 12px 20px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  align-items: center;
   text-align: left;
   background: rgba(8, 10, 22, 0.95);
+  user-select: none;
 }
 .equipment-head {
+  align-self: stretch;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -324,70 +329,156 @@ body {
 }
 .equipment-head .note {
   flex: 1;
+  margin: 0;
+}
+.equipment-head button {
+  margin: 0;
 }
 .equipment .note {
   opacity: 0.6;
   font-size: 12px;
-  margin-top: 6px;
-}
-.equipment-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  gap: 20px;
-  margin-top: 10px;
-}
-.equipment-col {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
 }
 .equipment h2 {
   font-size: 14px;
   color: #9fd3ff;
-  margin: 8px 0 6px;
+  margin: 0 0 6px;
 }
-.item-list {
+
+/* The ring of slot groups, with the fleet bonuses in the middle. */
+.ring {
+  position: relative;
+  flex: none;
+  margin-top: 6px;
+}
+.slot-group {
+  position: absolute;
   display: flex;
-  flex-direction: column;
   gap: 4px;
 }
-.item-list.scroll {
+.slot-group .group-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  text-align: center;
+  font-size: 10px;
+  opacity: 0.6;
+}
+.slot-group.locked .group-label {
+  opacity: 0.3;
+}
+.ring-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 270px;
+  height: 160px;
+  transform: translate(-50%, -50%);
+  padding: 10px 14px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  background: rgba(20, 24, 44, 0.8);
+  border: 1px solid #2c3a66;
+}
+.ring-center h2 {
+  color: #ffb070;
+}
+.ring-center .slots-used {
+  margin-top: 6px;
+}
+
+/* Item squares: slots and inventory. */
+.tile {
+  width: 36px;
+  height: 36px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 38, 70, 0.8);
+  border: 2px solid #2c3a66;
+}
+.tile.filled {
+  cursor: grab;
+}
+.tile.empty {
+  background: rgba(20, 24, 44, 0.6);
+  border-style: dashed;
+  border-color: #3a4a7a;
+}
+.tile.locked {
+  background: rgba(60, 62, 72, 0.35);
+  border-color: rgba(90, 94, 110, 0.4);
+}
+.equipment.dragging .tile.empty {
+  border-color: #9fd3ff;
+}
+.drag-ghost {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  cursor: grabbing;
+  opacity: 0.9;
+}
+.item-tip {
+  position: fixed;
+  z-index: 20;
+  max-width: 240px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  background: rgba(8, 10, 22, 0.95);
+  border: 1px solid #3a4160;
+  pointer-events: none;
+}
+
+/* Inventory: filter and sort buttons, then a grid of items. */
+.inventory {
+  align-self: stretch;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+.inventory-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-bottom: 6px;
+}
+.inventory-bar h2 {
+  margin: 0;
+}
+.chips {
+  display: flex;
+  gap: 4px;
+}
+.equipment .chips button {
+  margin: 0;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: rgba(30, 38, 70, 0.7);
+  border: 1px solid #2c3a66;
+}
+.equipment .chips button.on {
+  background: #2c5a9e;
+  border-color: #9fd3ff;
+}
+.inventory-grid {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 4px;
-}
-.equipment .item {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  padding: 4px 8px;
-  text-align: left;
-  font: inherit;
-  font-size: 13px;
-  color: inherit;
-  background: rgba(30, 38, 70, 0.7);
-  border: 2px solid #2c3a66;
-  cursor: pointer;
-}
-.equipment .item:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-.equipment .item .item-bonus {
-  opacity: 0.8;
-}
-.equipment .empty-slot {
-  height: 40px;
-  opacity: 0.4;
-  border-style: dashed;
-  cursor: default;
-}
-.equipment .totals {
-  font-size: 13px;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(20, 24, 44, 0.5);
+  border: 1px solid #2c3a66;
 }
 
 /* "Found: ..." message after picking up an item */

@@ -7,10 +7,10 @@ import { PixelRenderer } from '../engine/renderer';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
 import { renderGame, tierSprite } from './render';
-import { CONFIG, ITEM_STATS, SKILLS, type ItemStat, type SkillId } from './config';
+import { CONFIG, ITEM_STATS, SKILLS, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
-import { describeItem, equip, rollItem, slotCount, unequip, type Item } from './equipment';
+import { describeItem, equip, rollItem, slotOf, slotTier, slotUnlocked, unequip, type Item } from './equipment';
 import { cooldownOf } from './skills';
 import {
   controlledShip,
@@ -105,18 +105,30 @@ export interface ItemInfo {
   icon: string;
   color: string;
   equipped: boolean;
+  rarity: Rarity;
+  /** 0 = Common ... 3 = Epic, for sorting. */
+  rarityRank: number;
+  stat: ItemStat;
+  /** Its bonus (0.08 = +8%), for sorting. */
+  amount: number;
+}
+
+/** One equipment slot, as shown on screen. */
+export interface SlotInfo {
+  item: ItemInfo | null;
+  /** The tier that unlocks it. */
+  tier: number;
+  locked: boolean;
 }
 
 /** What the equipment screen shows. */
 export interface EquipmentInfo {
-  slots: number;
-  equipped: ItemInfo[];
-  /** Items not equipped, best rarity first. */
+  /** Every slot, 3 per tier from tier 1 up. */
+  slots: SlotInfo[];
+  /** Items not equipped (the screen sorts and filters them). */
   inventory: ItemInfo[];
   /** Your fleet's total bonuses from cards and equipment, e.g. "+12% damage". */
   totals: string[];
-  /** Slots you get from your next tier, and which tier that is. */
-  next: { tier: number; slots: number };
 }
 
 export class Game {
@@ -212,9 +224,9 @@ export class Game {
     ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
   }
 
-  /** Equipment screen: put an inventory item into a free slot. */
-  equipItem(id: number) {
-    equip(this.state, id);
+  /** Equipment screen: put an item into a slot (moving or swapping), or the first free slot if none is given. */
+  equipItem(id: number, slot?: number) {
+    equip(this.state, id, slot);
     this.sendHud();
   }
 
@@ -470,27 +482,31 @@ function fleetMix(state: GameState) {
 const RARITY_RANK = { common: 0, uncommon: 1, rare: 2, epic: 3 };
 
 function itemInfo(state: GameState, it: Item): ItemInfo {
-  return { id: it.id, ...describeItem(it), equipped: state.equipped.includes(it.id) };
+  return {
+    id: it.id,
+    ...describeItem(it),
+    equipped: slotOf(state, it.id) >= 0,
+    rarity: it.rarity,
+    rarityRank: RARITY_RANK[it.rarity],
+    stat: it.stat,
+    amount: it.amount,
+  };
 }
 
 /** Everything the equipment screen needs. */
 function equipmentInfo(state: GameState): EquipmentInfo {
-  const equipped = state.equipped
-    .map((id) => state.items.find((it) => it.id === id))
-    .filter((it): it is Item => !!it)
-    .map((it) => itemInfo(state, it));
-  const inventory = state.items
-    .filter((it) => !state.equipped.includes(it.id))
-    .sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity] || b.amount - a.amount)
-    .map((it) => itemInfo(state, it));
+  const byId = new Map(state.items.map((it) => [it.id, it]));
+  const slots = state.slots.map((id, i) => {
+    const it = id === null ? undefined : byId.get(id);
+    return { item: it ? itemInfo(state, it) : null, tier: slotTier(i), locked: !slotUnlocked(state, i) };
+  });
+  const inventory = state.items.filter((it) => slotOf(state, it.id) < 0).map((it) => itemInfo(state, it));
   const totals = (Object.keys(ITEM_STATS) as ItemStat[])
     .filter((k) => state.bonus[k] > 1.001)
     .map((k) => `+${Math.round((state.bonus[k] - 1) * 100)}% ${ITEM_STATS[k].bonus}`);
   return {
-    slots: slotCount(state),
-    equipped,
+    slots,
     inventory,
     totals,
-    next: { tier: state.maxTier + 1, slots: CONFIG.items.slotsPerTier },
   };
 }

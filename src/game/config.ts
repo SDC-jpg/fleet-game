@@ -297,6 +297,8 @@ export const CONFIG = {
     lifetime: 120,
     /** Equipment slots per tier of your biggest ship so far. */
     slotsPerTier: 3,
+    /** Highest tier that unlocks slots (10 × 3 = 30 slots at most). */
+    maxSlotTier: 10,
     /** Common Targeting Computer: extra damage (0.05 = +5%). */
     damageBonus: 0.05,
     /** Common Autoloader: faster firing. */

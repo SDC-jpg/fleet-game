@@ -5,7 +5,7 @@ import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../en
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyFleetValue } from './curves';
 import { drawCards, gainXp } from './progress';
-import { dropItem, maybeDropItem, noBonus, updateLoot, type FleetBonus, type Item, type Loot } from './equipment';
+import { dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 
 export type Team = 'player' | 'enemy';
@@ -273,9 +273,15 @@ export interface GameState {
   cardBonus: { damage: number; fireRate: number };
   /** All bonuses for your whole fleet, from cards and equipment (1 = none, 1.1 = +10%). See updateBonuses. */
   bonus: FleetBonus;
-  /** Every item you've found (your inventory), and the ids of the ones equipped. */
+  /** Every item you've found (your inventory, equipped or not). */
   items: Item[];
-  equipped: number[];
+  /**
+   * Equipment slots, in order: 3 per tier (slots 0–2 for tier 1, 3–5 for tier 2...),
+   * up to CONFIG.items.maxSlotTier. Each holds an item id or null (empty).
+   */
+  slots: (number | null)[];
+  /** Highest tier whose slots are unlocked (reached with your biggest ship, up to maxSlotTier). */
+  unlockedTier: number;
   /** Items floating in space, waiting to be picked up. */
   loot: Loot[];
   /** The last item picked up, and when (for a short message on screen). */
@@ -402,7 +408,8 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     cardBonus: { damage: 0, fireRate: 0 },
     bonus: noBonus(),
     items: [],
-    equipped: [],
+    slots: Array(CONFIG.items.slotsPerTier * CONFIG.items.maxSlotTier).fill(null),
+    unlockedTier: 1,
     loot: [],
     found: null,
     beams: [],
@@ -595,6 +602,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   const fleet = state.playerFleet;
   state.maxFleetSize = Math.max(state.maxFleetSize, fleetValue(fleet));
   for (const s of fleet.members) state.maxTier = Math.max(state.maxTier, s.tier);
+  unlockSlots(state);
   // Zoom follows the biggest fleet/tier you've had, so it doesn't jump back and forth in a fight.
   let zoom = Infinity;
   for (const step of CONFIG.zoomSteps) {
