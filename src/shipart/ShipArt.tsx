@@ -20,6 +20,8 @@ import {
 } from '../game/shipLayout';
 import type { Team } from '../game/world';
 import { Preview, mountState, type PreviewState } from './Preview';
+import { NumberField } from './fields';
+import { VfxPanel } from './VfxPanel';
 
 /** Editing and saving only work with the dev server (npm run dev). */
 const READ_ONLY = !import.meta.env.DEV;
@@ -79,6 +81,15 @@ export function ShipArt() {
   const [status, setStatus] = useState('');
   /** What the arrow keys move: the selected mount, or its VFX point. */
   const [nudge, setNudge] = useState<'mount' | 'vfx'>('mount');
+  /** The project folder on Windows, from the dev server (for "Copy folder path"). */
+  const [windowsRoot, setWindowsRoot] = useState<string | null>(null);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    fetch('/__shipart/info')
+      .then((r) => r.json())
+      .then((info) => setWindowsRoot(info.windowsRoot ?? null))
+      .catch(() => {});
+  }, []);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -425,6 +436,17 @@ export function ShipArt() {
         </div>
       </main>
 
+      {assets && (
+        <VfxPanel
+          assets={assets}
+          mount={mount}
+          previewState={state}
+          readOnly={READ_ONLY}
+          windowsRoot={windowsRoot}
+          onChange={(fn) => changeMount(fn)}
+        />
+      )}
+
       <aside className="sa-right">
         <fieldset disabled={READ_ONLY}>
           <h2>Mounts</h2>
@@ -507,22 +529,6 @@ export function ShipArt() {
                 <input type="checkbox" checked={mount.behind} onChange={(e) => changeMount((m) => (m.behind = e.target.checked))} /> Behind the ship
               </label>
 
-              <div className="sa-sub">VFX point (from the mount's centre)</div>
-              <div className="sa-row">
-                <NumberField label="x" value={mount.vfxX} onChange={(v) => changeMount((m) => (m.vfxX = v))} />
-                <NumberField label="y" value={mount.vfxY} onChange={(v) => changeMount((m) => (m.vfxY = v))} />
-              </div>
-              <button
-                onClick={() =>
-                  changeMount((m) => {
-                    m.vfxX = 0;
-                    m.vfxY = 0;
-                  })
-                }
-              >
-                Reset VFX point to centre
-              </button>
-
               {shownImage && shownSettings && (
                 <>
                   <div className="sa-sub">Animation of {baseName(shownImage)}</div>
@@ -566,36 +572,5 @@ export function ShipArt() {
         </fieldset>
       </aside>
     </div>
-  );
-}
-
-/** A small labelled number box. */
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-  min,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  step?: number;
-  min?: number;
-}) {
-  return (
-    <label className="sa-num">
-      {label}
-      <input
-        type="number"
-        value={value}
-        step={step}
-        min={min}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          if (e.target.value !== '' && Number.isFinite(v)) onChange(v);
-        }}
-      />
-    </label>
   );
 }

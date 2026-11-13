@@ -2,10 +2,13 @@
 // While `npm run dev` runs it adds two addresses the tool talks to:
 //   GET  /__shipart/files  every .png in public/assets (so new art shows up in the tool by itself)
 //   POST /__shipart/save   writes the layouts the tool sends to public/assets/ships.json
+//   GET  /__shipart/info   the project folder's Windows path, if it's shared from Windows into
+//                          the container (so ShipArt can offer "Copy folder path"). Worked out
+//                          while running, never written to a file: it contains the user's name.
 // When building for publishing, it writes the same file list to assets/art-files.json,
 // so the online (view-only) ShipArt knows which images exist.
 
-import { readdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import type { Plugin } from 'vite';
 
@@ -23,14 +26,46 @@ function listArt(dir: string): string[] {
   return out.sort();
 }
 
+/**
+ * The Windows folder `dir` is shared from (e.g. C:\Users\…\GameTestClaude), read from the
+ * container's list of mounted folders, or null if it isn't a shared Windows folder.
+ */
+function windowsPathOf(dir: string): string | null {
+  try {
+    for (const line of readFileSync('/proc/self/mountinfo', 'utf8').split('\n')) {
+      // Fields: id, parent, dev, root, mount point, ... " - " type, source, options.
+      const [left, right] = line.split(' - ');
+      if (!right) continue;
+      const f = left.split(' ');
+      const root = f[3];
+      const mountPoint = f[4];
+      if (!dir.startsWith(mountPoint) || mountPoint === '/') continue;
+      // The source is the drive, with "\" written as "\134" (e.g. "C:\134").
+      const drive = /^([A-Za-z]:)/.exec(right.split(' ')[1] ?? '')?.[1];
+      if (!drive) continue;
+      const rest = (root + dir.slice(mountPoint.length)).split('/').filter(Boolean).join('\\');
+      return `${drive}\\${rest}`;
+    }
+  } catch {
+    // Not Linux, or no access: no Windows path.
+  }
+  return null;
+}
+
 export function shipArtPlugin(): Plugin {
   let assetsDir = '';
+  let root = '';
   return {
     name: 'shipart',
     configResolved(config) {
+      root = config.root;
       assetsDir = resolve(config.root, 'public/assets');
     },
     configureServer(server) {
+      server.middlewares.use('/__shipart/info', (_req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ windowsRoot: windowsPathOf(root) }));
+      });
       server.middlewares.use('/__shipart/files', (_req, res) => {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ files: listArt(assetsDir) }));

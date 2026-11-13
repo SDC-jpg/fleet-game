@@ -62,8 +62,11 @@ http://localhost:5173/shipart.html. The published copy
 - **Save** writes `ships.json` in this folder; the game reads it. Draw parts
   facing **right** like the ships (a flame's nozzle end on the right).
 - Thruster particles use `vfx.particle.move` and `vfx.particle.boost` in the
-  manifest (small flipbooks: a dot shrinking away). Amounts and speeds are in
-  `CONFIG.particles`.
+  manifest (small flipbooks: a dot shrinking away). Defaults are in
+  `CONFIG.particles`; each thruster can change them in ShipArt's purple **VFX**
+  panel (particle image, spawn rate, life, speed, drag, separately for Move and
+  Boost). Any manifest sprite named `vfx.particle.<name>` can be picked there.
+  "Copy folder path" copies the image's Windows folder for File Explorer.
 - Dash doesn't change thrusters; it adds the dash trail (`vfx.dash`).
 - The old `fighter-*-move.png` and `fighter-*-boost.png` images are no longer
   used by the game, but they're still in `ships/` and can be picked as a

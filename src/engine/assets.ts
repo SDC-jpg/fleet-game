@@ -60,6 +60,8 @@ function makeMissingSprite(): Sprite {
 
 export class Assets {
   private sprites = new Map<string, Sprite>();
+  /** The (first) image file of each sprite, e.g. "vfx/particle-move.png". */
+  private files = new Map<string, string>();
   private missing = makeMissingSprite();
   /** Human-readable list of anything that failed to load. Shown on screen. */
   problems: string[] = [];
@@ -85,6 +87,7 @@ export class Assets {
       this.problems.push(`${name}: no "file" or "files" in manifest`);
       return;
     }
+    this.files.set(name, paths[0]);
     const images = await Promise.all(paths.map(loadImage));
     const frames: Frame[] = [];
     images.forEach((img, i) => {
@@ -129,6 +132,11 @@ export class Assets {
     await this.loadSprite(name, { file, frameWidth: Math.floor(img.width / frames), frames, fps: settings.fps, loop: settings.loop });
     // Recoloured copies were made from the old version.
     for (const key of this.recolorCache.keys()) if (key.startsWith(name + '|')) this.recolorCache.delete(key);
+  }
+
+  /** The image file a sprite comes from (relative to the assets folder), if known. */
+  fileOf(name: string) {
+    return this.files.get(name);
   }
 
   /** Names of every loaded sprite. */

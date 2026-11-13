@@ -406,10 +406,13 @@ export const CONFIG = {
   particles: {
     /** Most particles on screen at once (keeps big fleets fast). */
     max: 1500,
-    /** While moving: sprite, particles per second per thruster, speed, spread (degrees each side), seconds they last. */
-    move: { sprite: 'vfx.particle.move', perSecond: 10, speed: 35, spread: 15, life: 0.35 },
-    /** While boosting (more, faster particles). */
-    boost: { sprite: 'vfx.particle.boost', perSecond: 22, speed: 60, spread: 20, life: 0.4 },
+    /**
+     * Defaults while moving: sprite, particles per second per thruster, speed, spread (degrees each side),
+     * seconds they last, drag (how quickly they slow down: 0 = never). Each thruster can change these in ShipArt.
+     */
+    move: { sprite: 'vfx.particle.move', perSecond: 10, speed: 35, spread: 15, life: 0.35, drag: 0 },
+    /** Defaults while boosting (more, faster particles). */
+    boost: { sprite: 'vfx.particle.boost', perSecond: 22, speed: 60, spread: 20, life: 0.4, drag: 0 },
   },
 
   /** Space dash: the whole fleet gets a burst of speed that fades out. */

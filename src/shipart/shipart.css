@@ -3,7 +3,7 @@
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-columns: 220px 1fr 290px;
+  grid-template-columns: 220px 1fr 260px 290px;
   grid-template-rows: auto 1fr;
   font-size: 12px;
   background: #0a0c18;
@@ -165,4 +165,45 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* VFX panel: tinted purple so effect settings stand apart from placement. */
+.sa-vfx {
+  overflow-y: auto;
+  padding: 0 12px 16px;
+  background: rgba(80, 40, 120, 0.22);
+  border-left: 1px solid #6a3fa0;
+}
+.sa-vfx h2 {
+  color: #d9a8ff;
+}
+.sa-vfx .sa-sub {
+  border-bottom-color: #6a3fa0;
+}
+.sa-vfx button.on {
+  background: #6a3fa0;
+  border-color: #d9a8ff;
+}
+.sa-vfx .sa-num input {
+  width: 64px;
+}
+.sa-vfx .sa-num {
+  flex: 1;
+  justify-content: space-between;
+}
+.sa-particle {
+  display: block;
+  width: 100%;
+  margin: 4px 0;
+  border: 1px solid #6a3fa0;
+  image-rendering: pixelated;
+}
+.sa-file {
+  word-break: break-all;
+  margin: 4px 0;
+}
+/* Same width whether it says "default" or not, so the inputs stay lined up. */
+.sa-vfx .sa-row > .sa-default {
+  width: 48px;
+  flex: none;
 }

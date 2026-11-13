@@ -7,10 +7,7 @@ import type { PixelRenderer } from '../engine/renderer';
 import type { Assets } from '../engine/assets';
 import { randRange } from '../engine/math';
 import { CONFIG } from './config';
-import { mountWorldAngle, shipPointToWorld, type ShipLayout, type ShipState } from './shipLayout';
-
-/** The particle settings for one kind (see CONFIG.particles). */
-type ParticleKind = { sprite: string; perSecond: number; speed: number; spread: number; life: number };
+import { mountWorldAngle, particleSettings, shipPointToWorld, type ParticleSettings, type ShipLayout, type ShipState } from './shipLayout';
 
 interface Particle {
   sprite: string;
@@ -20,13 +17,14 @@ interface Particle {
   vy: number;
   age: number;
   life: number;
+  drag: number;
 }
 
 export class Particles {
   private list: Particle[] = [];
 
   /** Spawn about kind.perSecond × dt particles at (x, y), flying toward `angle` (radians), spread out a little. */
-  emit(kind: ParticleKind, x: number, y: number, angle: number, dt: number) {
+  emit(kind: ParticleSettings, x: number, y: number, angle: number, dt: number) {
     let n = kind.perSecond * dt;
     // Fractions become a chance, so low rates still produce the right amount over time.
     while (n > 0) {
@@ -43,6 +41,7 @@ export class Particles {
         vy: Math.sin(a) * speed,
         age: 0,
         life: kind.life * randRange(0.8, 1.2),
+        drag: kind.drag,
       });
     }
   }
@@ -53,17 +52,22 @@ export class Particles {
    */
   emitThrusters(layout: ShipLayout | undefined, state: ShipState, x: number, y: number, angle: number, dt: number) {
     if (!layout || state === 'idle') return;
-    const kind = CONFIG.particles[state];
     for (const m of layout.mounts) {
       if (m.category !== 'thruster' || !m.images[state]) continue;
       const p = shipPointToWorld(m.x + m.vfxX, m.y + m.vfxY, x, y, angle);
-      this.emit(kind, p.x, p.y, mountWorldAngle(m, angle) + Math.PI, dt);
+      this.emit(particleSettings(m, state), p.x, p.y, mountWorldAngle(m, angle) + Math.PI, dt);
     }
   }
 
   update(dt: number) {
     for (const p of this.list) {
       p.age += dt;
+      // Drag slows particles down smoothly (the same at any frame rate).
+      if (p.drag > 0) {
+        const k = Math.exp(-p.drag * dt);
+        p.vx *= k;
+        p.vy *= k;
+      }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
     }

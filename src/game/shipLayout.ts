@@ -10,6 +10,7 @@
 // +x is forward (ships face right in their art), +y is down.
 
 import { ASSET_ROOT, type Assets } from '../engine/assets';
+import { CONFIG } from './config';
 
 /** States a ship can be drawn in. Mounts and base images can differ per state. */
 export const SHIP_STATES = ['idle', 'move', 'boost'] as const;
@@ -34,7 +35,35 @@ export interface Mount {
   vfxY: number;
   /** Image file for each state it shows in (e.g. "parts/thruster-boost-1.png"). Missing = hidden in that state. */
   images: Partial<Record<ShipState, string>>;
+  /** This mount's particle settings per state, where they differ from CONFIG.particles. */
+  vfx?: Partial<Record<ParticleState, Partial<ParticleSettings>>>;
 }
+
+/** States that give off particles. */
+export type ParticleState = Exclude<ShipState, 'idle'>;
+export const PARTICLE_STATES: ParticleState[] = ['move', 'boost'];
+
+/** How a VFX source spawns particles (defaults in CONFIG.particles). */
+export interface ParticleSettings {
+  /** The particle's look: a sprite name from the manifest (e.g. "vfx.particle.boost"). */
+  sprite: string;
+  /** Particles per second. */
+  perSecond: number;
+  /** Starting speed (game pixels per second). */
+  speed: number;
+  /** Spread either side of straight back, in degrees. */
+  spread: number;
+  /** Seconds each particle lasts. */
+  life: number;
+  /** How quickly particles slow down (0 = never; 3 = lose most of their speed in about a second). */
+  drag: number;
+}
+
+/** A mount's particle settings for a state: its own values, or the defaults. */
+export const particleSettings = (m: Mount, state: ParticleState): ParticleSettings => ({
+  ...CONFIG.particles[state],
+  ...m.vfx?.[state],
+});
 
 export interface ShipLayout {
   /** Base image file for a state, instead of the ship's normal image. Missing = the normal image. */
