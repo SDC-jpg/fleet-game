@@ -134,16 +134,42 @@ body {
 }
 
 /* XP bar and skills in the HUD */
-.hud .xp-bar {
-  display: inline-block;
-  width: 120px;
+/* Bottom centre: skill bar, level and XP bar, kill counters. */
+.bottom-hud {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  pointer-events: none;
+  text-shadow: 0 1px 2px #000;
+}
+.bottom-hud .xp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.bottom-hud .hint {
+  opacity: 0.6;
+  font-size: 12px;
+}
+.bottom-hud .xp-bar {
+  display: block;
+  width: 25vw;
   height: 6px;
-  margin: 0 8px;
   background: #1a2038;
   border: 1px solid #3a4160;
-  vertical-align: middle;
 }
-.hud .xp-bar span {
+.bottom-hud .kill-counters {
+  opacity: 0.8;
+  font-size: 12px;
+}
+.bottom-hud .xp-bar span {
   display: block;
   height: 100%;
   background: #ffd34a;
@@ -226,10 +252,6 @@ body {
 
 /* Skill bar (bottom centre) */
 .skill-bar {
-  position: fixed;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   gap: 24px;
   pointer-events: none;

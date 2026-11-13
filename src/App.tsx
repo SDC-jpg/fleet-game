@@ -5,7 +5,7 @@ import { CONFIG } from './game/config';
 import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
 import type { HistoryPoint } from './game/world';
 import { CardScreen } from './CardScreen';
-import { SkillBar } from './SkillBar';
+import { BottomHud } from './BottomHud';
 import { EquipmentScreen, FoundToast } from './EquipmentScreen';
 
 const formatTime = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -62,15 +62,6 @@ export default function App() {
           <div>Wave: {hud.wave}</div>
           <div>Time: {formatTime(hud.time)}</div>
           <div>Dash (Space): {hud.dashCooldown > 0 ? `${Math.ceil(hud.dashCooldown)} s` : 'ready'}</div>
-          <div className="level">
-            Level {hud.level}
-            <span className="xp-bar">
-              <span style={{ width: `${Math.min(100, (hud.xp / hud.xpNext) * 100)}%` }} />
-            </span>
-            <span className="hint">
-              {Math.floor(hud.xp)} / {hud.xpNext} XP
-            </span>
-          </div>
           <div>FPS: {hud.fps}</div>
           {hud.autoFire && <div className="auto-fire">Auto-fire ON (Q)</div>}
           <button
@@ -94,7 +85,7 @@ export default function App() {
         </div>
       )}
 
-      {hud && !hud.gameOver && <SkillBar hud={hud} game={gameRef.current} />}
+      {hud && !hud.gameOver && <BottomHud hud={hud} game={gameRef.current} />}
       {hud?.cards && !hud.gameOver && <CardScreen hud={hud} game={gameRef.current} />}
 
       {hud?.paused && <EquipmentScreen hud={hud} game={gameRef.current} />}

@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- Your level and XP bar moved to the bottom centre, under the skills, with counters for ships destroyed and their total value.
 - Smoother movement on fast screens (120 Hz and up): ships and shots no longer look blurry or doubled while boosting or dashing.
 - Ship tiers are back to the original pace: 16 ships merge into one bigger ship, starting once your fleet is worth 32.
 - Elites are one tier bigger than the normal enemies of their wave.
