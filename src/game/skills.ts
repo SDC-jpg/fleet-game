@@ -3,7 +3,7 @@
 // fleet's damage bonus applies too. Elite enemies use the same skills, decided
 // by simple rules (updateEliteSkills). Like world.ts, nothing is drawn here.
 
-import { distSq, wrapAngle } from '../engine/math';
+import { distSq, randRange, wrapAngle } from '../engine/math';
 import { CONFIG, SKILLS, type SkillId, type SkillStat } from './config';
 import {
   addEffect,
@@ -134,6 +134,7 @@ function launchMissiles(state: GameState, ship: Ship, c: Controls, sk: OwnedSkil
       homing: M.turnRate,
       target: targets.length ? targets[i % targets.length] : null,
       facing: ship.angle,
+      igniteAt: randRange(M.igniteMin, M.igniteMax),
     });
   }
   addSound(state, 'sfx.missile', ship, ship.tier);

@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- Missiles leave the ship with a soft thump, then each one fires up its own little thruster (with a whoosh) before blasting off, and bursts in a small round explosion on impact.
 - Run log: the "Fleet destroyed" screen now lists every run you've played (with its version), with bars to compare best value, time, waves, ships and value destroyed and lost.
 - The "Fleet value over time" graph is wider, marks every 5th wave (labelling a few), and has faint lines every 100 fleet value.
 - The version and its date are shown at the bottom right of the screen.

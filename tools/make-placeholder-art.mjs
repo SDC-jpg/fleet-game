@@ -536,9 +536,68 @@ function missile(tier = 1) {
   const sx = (v) => 1 + v * k, sy = (v) => cy + v * k;
   fillPolygon(img, [[sx(3), sy(-3)], [sx(5), sy(-1)], [sx(5), sy(1)], [sx(3), sy(3)], [sx(1.5), sy(3)], [sx(2.5), sy(0)], [sx(1.5), sy(-3)]], () => hex('#41a6d9'));
   fillPolygon(img, [[sx(3), sy(-1)], [sx(9), sy(-1)], [sx(11), sy(0)], [sx(9), sy(1)], [sx(3), sy(1)]], () => hex('#c9ced8'));
-  fillPolygon(img, [[sx(0), sy(-0.8)], [sx(3), sy(-0.8)], [sx(3), sy(0.8)], [sx(0), sy(0.8)]], () => hex('#ffb347'));
+  // Dark nozzle at the back (the flame is a separate image, shown once the missile fires up).
+  fillPolygon(img, [[sx(1), sy(-0.8)], [sx(3), sy(-0.8)], [sx(3), sy(0.8)], [sx(1), sy(0.8)]], () => hex('#4a4f5c'));
   outline(img, hex('#1a1d26'));
   return img;
+}
+
+// Missile flame, pointing right like the missile, anchored at its right end (the nozzle). 3 flickering frames.
+function missileFlame(tier = 1) {
+  const k = 1.5 ** (tier - 1);
+  const W = Math.round(7 * k), H = Math.max(3, Math.round(3 * k));
+  const F = 3;
+  const sheet = new Img(W * F, H);
+  const cy = (H - 1) / 2;
+  for (let f = 0; f < F; f++) {
+    const len = W * [1, 0.7, 0.85][f];
+    for (let x = 0; x < W; x++)
+      for (let y = 0; y < H; y++) {
+        const fromNozzle = W - 1 - x; // 0 at the nozzle
+        if (fromNozzle >= len) continue;
+        const half = (H / 2) * (1 - fromNozzle / len) + 0.3;
+        if (Math.abs(y - cy) > half) continue;
+        const t = fromNozzle / len;
+        sheet.set(f * W + x, y, hex(t < 0.3 ? '#fff4c2' : t < 0.65 ? '#ffb347' : '#e2522f'));
+      }
+  }
+  return sheet;
+}
+
+// Missile impact: a small round burst (white flash, orange fireball and ring, then grey specks). 6 frames, plays once.
+// Rounder and much smaller than a ship's explosion.
+function missileHitSheet(S = 20) {
+  const F = 6, k = S / 20, c = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    if (f === 0) disc(frame, c, c, 3 * k, hex('#ffffff'));
+    if (f === 1) {
+      disc(frame, c, c, 5 * k, hex('#ffb347'));
+      disc(frame, c, c, 3 * k, hex('#fff4c2'));
+    }
+    if (f >= 2 && f <= 3) {
+      // An orange ring growing outward, with a dimmer centre.
+      const r = (5 + f * 1.5) * k;
+      for (let y = 0; y < S; y++)
+        for (let x = 0; x < S; x++) {
+          const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+          if (Math.abs(d - r) < 1.1 * k) frame.set(x, y, hex(f === 2 ? '#ffb347' : '#e2522f'));
+          else if (d < r - 1.1 * k && f === 2) frame.set(x, y, hex('#7a3a2a'));
+        }
+    }
+    if (f >= 4) {
+      // Grey specks drifting out.
+      const r = (8 + (f - 4) * 1.2) * k;
+      for (let i = 0; i < 8; i++) {
+        if (f === 5 && i % 2) continue;
+        const a = (i / 8) * Math.PI * 2 + 0.3;
+        rect(frame, c + Math.cos(a) * r - 0.5 * k, c + Math.sin(a) * r - 0.5 * k, Math.max(1, k), Math.max(1, k), hex('#8a8f9c'));
+      }
+    }
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
 }
 
 // Mine: a dark round body with four spikes and a light that blinks (sky blue = team colour). 2 looping frames.
@@ -822,6 +881,8 @@ const FILES = {
   'ui/elite-marker.png': () => eliteMarker(56),
   'ui/arrow-elite.png': eliteArrow,
   'projectiles/missile.png': () => missile(1),
+  'vfx/missile-flame.png': () => missileFlame(1),
+  'vfx/missile-hit.png': () => missileHitSheet(20),
   'projectiles/mine.png': () => mine(1),
   'vfx/mine-blast.png': () => mineBlast(112),
   'vfx/shield.png': () => shieldSheet(40),
@@ -854,6 +915,8 @@ for (const tier of [2, 3, 4]) {
   FILES[`vfx/laser-warning-t${tier}.png`] = () => laserWarning(tier);
   FILES[`ui/elite-marker-t${tier}.png`] = () => eliteMarker(even(56 * k));
   FILES[`projectiles/missile-t${tier}.png`] = () => missile(tier);
+  FILES[`vfx/missile-flame-t${tier}.png`] = () => missileFlame(tier);
+  FILES[`vfx/missile-hit-t${tier}.png`] = () => missileHitSheet(even(20 * k));
   FILES[`projectiles/mine-t${tier}.png`] = () => mine(tier);
   FILES[`vfx/mine-blast-t${tier}.png`] = () => mineBlast(even(112 * k));
   FILES[`vfx/shield-t${tier}.png`] = () => shieldSheet(even(40 * k));

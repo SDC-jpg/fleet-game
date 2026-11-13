@@ -139,6 +139,9 @@ export interface Bullet {
   facing?: number;
   /** Missiles: its speed when it started speeding off. */
   boostFrom?: number;
+  /** Missiles: seconds after launch when it fires up (lights its thruster), and whether it has. */
+  igniteAt?: number;
+  lit?: boolean;
 }
 
 export interface Wreck {
@@ -954,6 +957,11 @@ export function damageShip(state: GameState, s: Ship, amount: number) {
 function steerMissile(state: GameState, b: Bullet, dt: number) {
   const M = CONFIG.missiles;
   const age = M.life - b.life;
+  // Fire up: light the thruster (drawn in render.ts), with its own small sound.
+  if (!b.lit && b.igniteAt !== undefined && age >= b.igniteAt) {
+    b.lit = true;
+    addSound(state, 'sfx.missile-ignite', b, b.tier);
+  }
   if (!b.target || b.target.dead || b.target.merge) b.target = retargetMissile(state, b);
   const facing = b.facing ?? Math.atan2(b.vy, b.vx);
   const want = b.target ? Math.atan2(b.target.y - b.y, b.target.x - b.x) : facing;
@@ -1015,8 +1023,14 @@ function updateBullets(state: GameState, dt: number) {
       if (distSq(b.x, b.y, s.x, s.y) > r * r) continue;
       damageShip(state, s, b.damage);
       b.life = 0;
-      addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
-      addSound(state, 'sfx.hit', b, b.tier);
+      if (b.homing > 0) {
+        // Missiles burst in a small round explosion of their own.
+        addEffect(state, 'vfx.missile-hit', b.x, b.y, Math.random() * Math.PI * 2, b.tier);
+        addSound(state, 'sfx.missile-hit', b, b.tier);
+      } else {
+        addEffect(state, 'vfx.hit', b.x, b.y, 0, b.tier);
+        addSound(state, 'sfx.hit', b, b.tier);
+      }
       break;
     }
   }

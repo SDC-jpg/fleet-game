@@ -106,6 +106,12 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
 
   for (const b of state.bullets) {
     const sprite = teamSprite(assets, tierSprite(assets, b.sprite, b.tier), b.team);
+    // A missile that has fired up has a small flame just behind it (the flame's art is anchored at its front).
+    if (b.lit) {
+      const a = b.facing ?? Math.atan2(b.vy, b.vx);
+      const back = sprite.anchorX;
+      r.drawSprite(assets.get(tierSprite(assets, 'vfx.missile-flame', b.tier)), b.x - Math.cos(a) * back, b.y - Math.sin(a) * back, a, state.time);
+    }
     // Missiles point where they face (they turn before speeding off); other shots point where they fly.
     r.drawSprite(sprite, b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx), state.time);
   }

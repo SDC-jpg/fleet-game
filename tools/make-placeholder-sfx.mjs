@@ -187,15 +187,35 @@ function laser() {
   return render(0.32, (t, k) => (a(sweep(1800, 400, k)) * 0.7 + b(sweep(1810, 405, k)) * 0.3) * decay(t, 8));
 }
 
-/** Missiles: a low thump and a hissing launch. */
+/** Missile launch: a muffled "thump", like a missile pushed out of a tube. */
 function missile() {
   const r = rng(41);
   const lp = lowpass();
   const thump = oscillator('sine');
-  return render(0.4, (t, k) => {
-    const hiss = lp(r() * 2 - 1, sweep(3000, 600, k)) * decay(t, 6, 0.01);
-    return hiss + thump(sweep(140, 50, Math.min(1, k * 4))) * Math.exp(-t * 18) * 0.9;
+  return render(0.2, (t, k) => {
+    const puff = lp(r() * 2 - 1, 500) * decay(t, 30, 0.002) * 0.6;
+    return thump(sweep(130, 45, k)) * decay(t, 22, 0.002) + puff;
   });
+}
+
+/** Missile firing up: a quick rising whoosh with a little crackle. */
+function missileIgnite() {
+  const r = rng(43);
+  const lp = lowpass();
+  let held = 0;
+  return render(0.22, (t, k) => {
+    if (Math.floor(t * RATE) % 4 === 0) held = r() * 2 - 1;
+    const whoosh = lp(held, sweep(500, 5000, Math.min(1, k * 2)));
+    return whoosh * Math.min(1, t / 0.03) * Math.exp(-Math.max(0, t - 0.05) * 14);
+  });
+}
+
+/** Missile impact: a small, short pop (much lighter than a ship exploding). */
+function missileHit() {
+  const r = rng(47);
+  const lp = lowpass();
+  const pop = oscillator('sine');
+  return render(0.22, (t, k) => lp(r() * 2 - 1, sweep(4500, 700, k)) * decay(t, 18, 0.001) + pop(sweep(240, 80, k)) * Math.exp(-t * 25) * 0.7);
 }
 
 /** Mine dropped: a short metallic clunk-beep. */
@@ -314,6 +334,8 @@ const FILES = {
   'dash.wav': dash,
   'laser.wav': laser,
   'missile.wav': missile,
+  'missile-ignite.wav': missileIgnite,
+  'missile-hit.wav': missileHit,
   'mine.wav': mineDrop,
   'mine-blast.wav': mineBlast,
   'shield.wav': shield,
