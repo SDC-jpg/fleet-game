@@ -2,10 +2,11 @@
 // No drawing happens here, only updating numbers.
 
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
+import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyFleetValue } from './curves';
 import { drawCards, gainXp } from './progress';
-import { dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot } from './equipment';
+import { dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 
 export type Team = 'player' | 'enemy';
@@ -277,12 +278,16 @@ export interface GameState {
   pendingLevels: number;
   /** Seconds since a level-up started waiting for its cards (they appear after CONFIG.levels.cardDelay). */
   cardDelay: number;
+  /** Game time before which level-up cards wait (the explosion of the kill that levelled you up is still playing). */
+  cardWaitUntil: number;
   /** The level-up cards on offer (the game is paused while there are some). */
   cards: Card[] | null;
   /** Skills you've picked, in the order you got them. */
   skills: OwnedSkill[];
   /** Extra damage and fire rate from bonus cards (0.1 = +10%). */
   cardBonus: { damage: number; fireRate: number };
+  /** Skill upgrades from equipped Mythic items' card bonuses (added to your skills' own; see modsOf). */
+  skillBonus: Partial<Record<SkillId, Partial<Record<SkillStat, number>>>>;
   /** All bonuses for your whole fleet, from cards and equipment (1 = none, 1.1 = +10%). See updateBonuses. */
   bonus: FleetBonus;
   /** Every item you've found (your inventory, equipped or not). */
@@ -299,6 +304,12 @@ export interface GameState {
   /** Items floating in space, waiting to be picked up. */
   loot: Loot[];
   /** The last item picked up, and when (for a short message on screen). */
+  /** Items picked up in every run so far (saved): enough of them brings the Merge Module. */
+  looted: number;
+  /** You have the Merge Module (saved): merge 3 items into a better one on the equipment screen. */
+  mergeModule: boolean;
+  /** A quality-of-life drop just picked up (the game opens its screen, then clears this). */
+  unlocked: QolDrop | null;
   found: { item: Item; time: number } | null;
   beams: Beam[];
   mines: Mine[];
@@ -417,9 +428,11 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     xp: 0,
     pendingLevels: 0,
     cardDelay: 0,
+    cardWaitUntil: 0,
     cards: null,
     skills: [],
     cardBonus: { damage: 0, fireRate: 0 },
+    skillBonus: {},
     bonus: noBonus(),
     items: [],
     slots: Array(CONFIG.items.slotsPerTier * CONFIG.items.maxSlotTier).fill(null),
@@ -427,6 +440,9 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     equipmentChanged: false,
     loot: [],
     found: null,
+    looted: 0,
+    mergeModule: false,
+    unlocked: null,
     beams: [],
     mines: [],
     elitesEnabled: CONFIG.elite.enabled,
@@ -608,7 +624,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   // A level-up shows its cards after a short delay, so the kill that caused it can play out first.
   if (!state.cards && state.pendingLevels > 0) {
     state.cardDelay += dt;
-    if (state.cardDelay >= CONFIG.levels.cardDelay) {
+    if (state.cardDelay >= CONFIG.levels.cardDelay && state.time >= state.cardWaitUntil) {
       state.cardDelay = 0;
       state.cards = drawCards(state);
     }
@@ -1054,7 +1070,11 @@ function removeDeadShips(state: GameState) {
     if (s.team === 'enemy') {
       state.stats.kills++;
       state.stats.killValue += tierValue(s.tier);
+      const levels = state.pendingLevels;
       gainXp(state, tierValue(s.tier) * CONFIG.levels.xpPerValue * (s.elite ? CONFIG.elite.xpMultiplier : 1));
+      // Levelled up: the cards wait until this kill's explosion has finished playing.
+      if (state.pendingLevels > levels)
+        state.cardWaitUntil = Math.max(state.cardWaitUntil, state.time + state.effectDuration('vfx.explosion', s.tier));
       if (!s.elite) maybeDropItem(state, s);
     } else {
       state.stats.losses++;
@@ -1068,7 +1088,7 @@ function removeDeadShips(state: GameState) {
     if (s.elite) {
       // An elite always drops a wreck, a (better) item, or both.
       const drop = eliteDrop();
-      if (drop !== 'wreck') dropItem(state, s, eliteRarityWeights());
+      if (drop !== 'wreck') dropItem(state, s, rarityWeights('elite'));
       wreckChance = firstKill || drop !== 'item' ? 1 : 0;
       // Its wreck never lets you jump too far ahead of your biggest ship.
       wreckTier = Math.min(s.tier, state.maxTier + CONFIG.elite.wreckMaxTiersAbove);
@@ -1106,11 +1126,6 @@ function eliteDrop(): 'wreck' | 'item' | 'both' {
   return 'both';
 }
 
-/** Rarity odds for an elite's item (better than normal drops). */
-const eliteRarityWeights = (): Record<Rarity, number> => {
-  const E = CONFIG.elite;
-  return { common: E.commonWeight, uncommon: E.uncommonWeight, rare: E.rareWeight, epic: E.epicWeight };
-};
 
 /** When a leader dies, the closest of the biggest surviving ships takes command. */
 function pickNewLeader(fleet: Fleet, old: Ship): Ship | null {

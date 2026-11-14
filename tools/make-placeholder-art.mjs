@@ -864,6 +864,94 @@ function lootCrate(color) {
   return sheet;
 }
 
+// A pastel colour around the colour wheel (hue in degrees), as [r, g, b, 255].
+function pastel(h) {
+  const l = 0.8, sat = 0.85;
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    return Math.round(255 * (l - sat * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1))));
+  };
+  return [f(0), f(8), f(4), 255];
+}
+
+// Mythic loot crate: like the others, but its glow and bands cycle through pastel colours. 8 looping frames.
+function lootCrateHolo() {
+  const S = 20, F = 8;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    const c = pastel((f * 360) / F);
+    const glow = 7 + [0, 1, 2, 1][f % 4];
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2);
+        if (Math.abs(d - glow) < 0.8) frame.set(x, y, pastel(((f * 360) / F + Math.atan2(y - S / 2, x - S / 2) * 57.3) % 360 + 360));
+      }
+    rect(frame, 6, 6, 8, 8, hex('#8a6a3c'));
+    rect(frame, 6, 9, 8, 2, c);
+    rect(frame, 9, 6, 2, 8, c);
+    outline(frame, hex('#14171f'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
+// Merge Module drop: a small green circuit board with gold pins and a white pulsing ring. 4 looping frames.
+function mergeModuleLoot() {
+  const S = 24, F = 4;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    const glow = 9 + [0, 1, 2, 1][f];
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2);
+        if (Math.abs(d - glow) < 0.8) frame.set(x, y, hex('#f4f8ff'));
+      }
+    rect(frame, 7, 7, 10, 10, hex('#2f8a4a'));
+    for (let i = 0; i < 3; i++) {
+      rect(frame, 8 + i * 3, 5, 1, 2, hex('#e6c25a'));
+      rect(frame, 8 + i * 3, 17, 1, 2, hex('#e6c25a'));
+      rect(frame, 5, 8 + i * 3, 2, 1, hex('#e6c25a'));
+      rect(frame, 17, 8 + i * 3, 2, 1, hex('#e6c25a'));
+    }
+    rect(frame, 10, 10, 4, 4, hex('#14171f'));
+    rect(frame, 11, 11, 2, 2, hex('#9fffc0'));
+    outline(frame, hex('#14171f'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
+// Shimmer sparkle: a small 4-pointed star that grows and fades. 5 frames, played once.
+function shimmerSheet() {
+  const S = 7, F = 5;
+  const sheet = new Img(S * F, S);
+  const sizes = [1, 2, 3, 2, 1];
+  for (let f = 0; f < F; f++) {
+    const n = sizes[f];
+    const c = f === 2 ? hex('#ffffff') : hex('#cfe8ff');
+    for (let i = -n; i <= n; i++) {
+      sheet.set(f * S + 3 + i, 3, c);
+      sheet.set(f * S + 3, 3 + i, c);
+    }
+  }
+  return sheet;
+}
+
+// Game cursor (shown while the cursor is locked): a small white crosshair with a dark outline.
+function cursorCross() {
+  const img = new Img(13, 13);
+  for (let i = 0; i < 13; i++) {
+    if (i >= 5 && i <= 7) continue;
+    img.set(i, 6, hex('#f4f8ff'));
+    img.set(6, i, hex('#f4f8ff'));
+  }
+  img.set(6, 6, hex('#f4f8ff'));
+  outline(img, hex('#14171f'));
+  return img;
+}
+
 const FILES = {
   // One image for both teams; the game recolours its blue parts for enemies.
   'ships/fighter.png': playerFighter,
@@ -880,8 +968,14 @@ const FILES = {
   'ui/arrow-loot.png': () => edgeArrow('#ffe08a', '#2a1d05'),
   'ui/loot-common.png': () => lootCrate('#e8ecf4'),
   'ui/loot-uncommon.png': () => lootCrate('#6fe07a'),
-  'ui/loot-rare.png': () => lootCrate('#ffd34a'),
-  'ui/loot-epic.png': () => lootCrate('#c890ff'),
+  'ui/loot-superior.png': () => lootCrate('#4aa8ff'),
+  'ui/loot-rare.png': () => lootCrate('#c890ff'),
+  'ui/loot-epic.png': () => lootCrate('#ffd34a'),
+  'ui/loot-legendary.png': () => lootCrate('#e0484a'),
+  'ui/loot-mythic.png': lootCrateHolo,
+  'ui/loot-merge-module.png': mergeModuleLoot,
+  'vfx/shimmer.png': shimmerSheet,
+  'ui/cursor.png': cursorCross,
   ...Object.fromEntries(Object.entries(ITEM_ICONS).map(([name, draw]) => [`ui/item-${name}.png`, () => icon16(draw)])),
   'vfx/laser.png': () => laserSegment(1),
   'vfx/particle-move.png': () => particleDot('#ff9a3a'),

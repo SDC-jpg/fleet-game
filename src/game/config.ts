@@ -82,14 +82,14 @@ export const SKILLS = {
     side: 'left',
     icon: 'ui.skill.missiles',
     text: 'A cluster of homing missiles.',
-    stats: { power: 'damage', rate: 'fire rate', size: 'missiles' },
+    stats: { power: 'damage', rate: 'fire rate', count: 'missile' },
   },
   mines: {
     name: 'Mines',
     side: 'left',
     icon: 'ui.skill.mines',
     text: 'Drops a mine that blows up when an enemy comes near.',
-    stats: { power: 'damage', rate: 'drop rate', size: 'blast size' },
+    stats: { power: 'damage', rate: 'drop rate', size: 'blast size', count: 'mine' },
   },
   shield: {
     name: 'Shield',
@@ -110,27 +110,48 @@ export const SKILLS = {
     side: 'right',
     icon: 'ui.skill.freeze',
     text: 'Enemies in a cone in front of you stop moving and shooting for a moment.',
-    stats: { power: 'duration', rate: 'recharge', size: 'cone size' },
+    stats: { power: 'duration', rate: 'recharge', size: 'cone size', reach: 'range' },
   },
 } satisfies Record<
   string,
-  { name: string; side: 'left' | 'right'; icon: string; text: string; stats: Record<SkillStat, string> }
+  {
+    name: string;
+    side: 'left' | 'right';
+    icon: string;
+    text: string;
+    /** The stats its rank-up cards can improve, and what each is called (count: one item, e.g. "missile"). */
+    stats: Partial<Record<SkillStat, string>>;
+  }
 >;
 
 export type SkillId = keyof typeof SKILLS;
 
-/** What a rank-up card improves: power (damage, strength...), rate (shorter cooldown) or size. */
-export type SkillStat = 'power' | 'rate' | 'size';
+/**
+ * What a rank-up card improves: power (damage, strength...), rate (shorter
+ * cooldown), size, count (more missiles or mines, whole numbers) or reach
+ * (Freeze's range).
+ */
+export type SkillStat = 'power' | 'rate' | 'size' | 'count' | 'reach';
 
-/** Rarity of rank-up cards (and later, equipment): name and colour. Odds and bonuses are in CONFIG.rarity. */
+/**
+ * Rarity of cards and equipment, from tier 1 (Common) to 7 (Mythic): name and
+ * colour. Mythic is holographic (its colour cycles through pastels; `color` is
+ * used where it can't). Odds and bonuses are in CONFIG.rarity.
+ */
 export const RARITIES = {
   common: { name: 'Common', color: '#e8ecf4' },
   uncommon: { name: 'Uncommon', color: '#6fe07a' },
-  rare: { name: 'Rare', color: '#ffd34a' },
-  epic: { name: 'Epic', color: '#c890ff' },
-};
+  superior: { name: 'Superior', color: '#4aa8ff' },
+  rare: { name: 'Rare', color: '#c890ff' },
+  epic: { name: 'Epic', color: '#ffd34a' },
+  legendary: { name: 'Legendary', color: '#e0484a' },
+  mythic: { name: 'Mythic', color: '#f4c8ff', holo: true },
+} as Record<string, { name: string; color: string; holo?: boolean }>;
 
-export type Rarity = keyof typeof RARITIES;
+/** Every rarity, from tier 1 (Common) to tier 7 (Mythic). */
+export const RARITY_ORDER = ['common', 'uncommon', 'superior', 'rare', 'epic', 'legendary', 'mythic'] as const;
+
+export type Rarity = (typeof RARITY_ORDER)[number];
 
 /**
  * Equipment: each item gives your whole fleet one bonus. Its size depends on
@@ -234,7 +255,7 @@ export const CONFIG = {
     firstLevelXp: 50,
     /** Each level needs this many times more XP than the last (1 = always the same). */
     growth: 1.15,
-    /** Seconds between reaching a level and the cards appearing (so the kill that did it can play out). */
+    /** Least seconds between reaching a level and the cards appearing. They also wait for the explosion of the kill that did it to finish. */
     cardDelay: 0.5,
   },
 
@@ -259,28 +280,55 @@ export const CONFIG = {
   },
 
   /**
-   * Rarity of rank-up cards: how often each comes up (weights) and how big its
-   * bonus is (0.1 = +10%). Each card's bonus is rolled within ± spread of that.
+   * Rarity of rank-up cards and dropped items (tiers 1–7): how often each comes
+   * up (weights) and how big its bonus is (0.1 = +10%; items scale their own
+   * Common bonus the same way). Each bonus is rolled within ± spread of that.
    */
   rarity: {
-    /** How often Common cards come up, compared to the others. */
+    /** How often Common (tier 1) comes up, compared to the others. */
     commonWeight: 60,
-    /** How often Uncommon cards come up. */
+    /** How often Uncommon (tier 2) comes up. */
     uncommonWeight: 25,
-    /** How often Rare cards come up. */
-    rareWeight: 11,
-    /** How often Epic cards come up. */
-    epicWeight: 4,
+    /** How often Superior (tier 3, was called Rare) comes up. */
+    superiorWeight: 11,
+    /** How often Rare (tier 4, was called Epic) comes up. */
+    rareWeight: 4,
+    /** How often Epic (tier 5) comes up. */
+    epicWeight: 1,
+    /** How often Legendary (tier 6) comes up. */
+    legendaryWeight: 0.25,
+    /** How often Mythic (tier 7) comes up. */
+    mythicWeight: 0.05,
     /** Common bonus. */
     commonBonus: 0.1,
     /** Uncommon bonus. */
     uncommonBonus: 0.15,
+    /** Superior bonus. */
+    superiorBonus: 0.22,
     /** Rare bonus. */
-    rareBonus: 0.22,
+    rareBonus: 0.32,
     /** Epic bonus. */
-    epicBonus: 0.32,
+    epicBonus: 0.46,
+    /** Legendary bonus. */
+    legendaryBonus: 0.66,
+    /** Mythic bonus. */
+    mythicBonus: 0.95,
     /** Random spread around each bonus (0.2 = up to 20% lower or higher). */
     spread: 0.2,
+    /** Quantity cards (more missiles or mines): how many a Common card adds (whole numbers). */
+    commonCount: 1,
+    /** Uncommon quantity card. */
+    uncommonCount: 1,
+    /** Superior quantity card. */
+    superiorCount: 2,
+    /** Rare quantity card. */
+    rareCount: 2,
+    /** Epic quantity card. */
+    epicCount: 3,
+    /** Legendary quantity card. */
+    legendaryCount: 4,
+    /** Mythic quantity card. */
+    mythicCount: 5,
   },
 
   /**
@@ -313,6 +361,18 @@ export const CONFIG = {
     boostSpeedBonus: 0.05,
     /** Common Capacitor: skills recharge faster. */
     skillRateBonus: 0.05,
+    /** Substats (extra Damage or Hitpoints bonuses, rolled one rarity lower) on Legendary items. */
+    legendarySubstats: 1,
+    /** Substats on Mythic items (the same type can come up twice). */
+    mythicSubstats: 2,
+    /** Chance a Mythic item also carries a level-up card's bonus (fleet damage, fire rate, or a skill upgrade). */
+    mythicCardChance: 0.5,
+    /** Merging 3 Mythic items gives a "+N" Mythic: its bonuses × (1 + this × N). */
+    plusBonus: 0.1,
+    /** Items looted (all runs together) before the Merge Module drops from the next enemy destroyed. */
+    mergeModuleAfter: 100,
+    /** How strongly a quality-of-life drop (like the Merge Module) drifts toward you (pixels per second). */
+    qolDriftSpeed: 25,
   },
 
   /** Laser skill: an instant beam that hits every enemy along it. Damage and size grow with your ship's tier. */
@@ -357,7 +417,7 @@ export const CONFIG = {
     /** Seconds to go from drifting to top speed. */
     rampTime: 0.5,
     /** How fast they steer toward their target while speeding (radians per second). */
-    turnRate: 4,
+    turnRate: 2,
     /** Seconds a missile lasts. */
     life: 3,
     /** How far away a target can be (game pixels). */
@@ -378,6 +438,8 @@ export const CONFIG = {
     blastRadius: 55,
     /** Blast damage (tier 1). */
     damage: 8,
+    /** Mines dropped at once (more come from upgrade cards), spread out side by side. */
+    count: 1,
     /** Seconds before an untouched mine fizzles out. */
     life: 6,
   },
@@ -416,6 +478,8 @@ export const CONFIG = {
     length: 220,
     /** Cone half-width in degrees (each side of where you face). */
     angle: 30,
+    /** Each "range" upgrade card makes the cone reach this many times further. */
+    reachPerCard: 1.2,
   },
 
   /**
@@ -575,10 +639,16 @@ export const CONFIG = {
     commonWeight: 20,
     /** Elite item odds: Uncommon. */
     uncommonWeight: 35,
+    /** Elite item odds: Superior. */
+    superiorWeight: 30,
     /** Elite item odds: Rare. */
-    rareWeight: 30,
+    rareWeight: 15,
     /** Elite item odds: Epic. */
-    epicWeight: 15,
+    epicWeight: 5,
+    /** Elite item odds: Legendary. */
+    legendaryWeight: 1.5,
+    /** Elite item odds: Mythic. */
+    mythicWeight: 0.3,
   },
 
   /** Sound settings. Each sound's own volume is in public/assets/manifest.json. */

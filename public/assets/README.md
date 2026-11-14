@@ -159,7 +159,10 @@ Sounds: `sfx.laser`, `sfx.missile` (launch "thump"), `sfx.missile-ignite` (fire-
 | Name | What it is |
 | --- | --- |
 | `ui.item.damage`, `.fire-rate`, `.health`, `.speed`, `.stamina`, `.boost-speed`, `.skill-rate` | Item icons (16 px placeholders), one per bonus type |
-| `ui.loot.common`, `.uncommon`, `.rare`, `.epic` | A dropped item floating in space, loops. Never shrunk |
+| `ui.loot.common`, `.uncommon`, `.superior`, `.rare`, `.epic`, `.legendary`, `.mythic` | A dropped item floating in space, one per rarity (white, green, blue, purple, yellow, red, holographic), loops. Never shrunk |
+| `ui.loot.merge-module` | The Merge Module floating in space (a one-time drop), loops |
+| `vfx.shimmer` | Sparkles around special drops like the Merge Module, played once each |
+| `ui.cursor` | The game's own cursor, shown while "Keep the mouse inside the game" (Settings) is on |
 | `ui.arrow.loot` | Edge arrow pointing to dropped items |
 
 Sound: `sfx.loot` (item picked up).

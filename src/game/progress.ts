@@ -2,10 +2,12 @@
 // the game and offers a few cards (new skills or fleet bonuses).
 // Like world.ts, nothing is drawn here.
 
-import { CONFIG, RARITIES, SKILLS, type Rarity, type SkillId, type SkillStat } from './config';
+import { CONFIG, SKILLS, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { addSound, type Card, type GameState } from './world';
 import { updateBonuses } from './equipment';
+import { RARITY_ORDER, rarityInfo, rollRarity } from './rarity';
+import { addMod, newMods, rankAmount, skillStats, upgradeText } from './upgrades';
 
 /** Add XP. Every level reached waits for a card pick (cards appear shortly after; the game pauses while they're shown). */
 export function gainXp(state: GameState, amount: number) {
@@ -27,24 +29,10 @@ function newSkillOptions(state: GameState): SkillId[] {
   return (Object.keys(SKILLS) as SkillId[]).filter((id) => !owned.includes(id) && room[SKILLS[id].side]);
 }
 
-const STATS: SkillStat[] = ['power', 'rate', 'size'];
-const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'epic'];
-
-/** Roll a rarity (rarer ones come up less often) and its bonus. */
-function rollRarity(): { rarity: Rarity; amount: number } {
-  const R = CONFIG.rarity;
-  const weights = { common: R.commonWeight, uncommon: R.uncommonWeight, rare: R.rareWeight, epic: R.epicWeight };
-  const bonus = { common: R.commonBonus, uncommon: R.uncommonBonus, rare: R.rareBonus, epic: R.epicBonus };
-  let roll = Math.random() * RARITY_ORDER.reduce((sum, k) => sum + weights[k], 0);
-  const rarity = RARITY_ORDER.find((k) => (roll -= weights[k]) < 0) ?? 'common';
-  const amount = bonus[rarity] * (1 + (Math.random() * 2 - 1) * R.spread);
-  return { rarity, amount: Math.round(amount * 100) / 100 };
-}
-
-/** A rank-up card for one of your skills: a random stat, with a rarity-based bonus. */
-function rankCard(skill: SkillId): Card {
-  const stat = STATS[Math.floor(Math.random() * STATS.length)];
-  return { kind: 'rank', skill, stat, ...rollRarity() };
+/** A rank-up card for one of your skills: one of its stats, with a rarity-based bonus. */
+export function rankCard(skill: SkillId, rarity = rollRarity(), stats = skillStats(skill)): Card {
+  const stat = stats[Math.floor(Math.random() * stats.length)];
+  return { kind: 'rank', skill, stat, rarity, amount: rankAmount(stat, rarity) };
 }
 
 /**
@@ -76,12 +64,12 @@ export function pickCard(state: GameState, index: number) {
   const card = state.cards?.[index];
   if (!card) return;
   const C = CONFIG.cards;
-  if (card.kind === 'skill') state.skills.push({ id: card.skill, rank: 1, timer: 0, mods: { power: 1, rate: 1, size: 1 } });
+  if (card.kind === 'skill') state.skills.push({ id: card.skill, rank: 1, timer: 0, mods: newMods() });
   else if (card.kind === 'rank') {
     const sk = state.skills.find((k) => k.id === card.skill);
     if (sk) {
       sk.rank++;
-      sk.mods[card.stat] += card.amount;
+      addMod(sk.mods, card.stat, card.amount);
     }
   } else if (card.kind === 'damage') state.cardBonus.damage += C.damageBonus;
   else if (card.kind === 'fireRate') state.cardBonus.fireRate += C.fireRateBonus;
@@ -95,7 +83,7 @@ export function pickCard(state: GameState, index: number) {
 /** Test helper: get every skill you don't have yet (ignores the weapon/defence limits). */
 export function testGiveAllSkills(state: GameState) {
   for (const id of Object.keys(SKILLS) as SkillId[])
-    if (!state.skills.some((sk) => sk.id === id)) state.skills.push({ id, rank: 1, timer: 0, mods: { power: 1, rate: 1, size: 1 } });
+    if (!state.skills.some((sk) => sk.id === id)) state.skills.push({ id, rank: 1, timer: 0, mods: newMods() });
 }
 
 /** What a card shows. `rarity` is set for rank-up cards (its name and colour). */
@@ -104,7 +92,7 @@ export interface CardInfo {
   text: string;
   icon: string;
   label: string;
-  rarity: { name: string; color: string } | null;
+  rarity: { name: string; color: string; holo?: boolean } | null;
 }
 
 /** What a card shows: title, text, an icon from the manifest, a small label, and its rarity if it has one. */
@@ -120,10 +108,10 @@ export function describeCard(card: Card, state: GameState): CardInfo {
     const rank = (state.skills.find((k) => k.id === card.skill)?.rank ?? 0) + 1;
     return {
       title: `${s.name} rank ${rank}`,
-      text: `+${Math.round(card.amount * 100)}% ${s.stats[card.stat]}`,
+      text: upgradeText(card.skill, card.stat, card.amount),
       icon: s.icon,
       label: `Upgrade · rank ${rank} of ${C.maxRank}`,
-      rarity: RARITIES[card.rarity],
+      rarity: rarityInfo(card.rarity),
     };
   }
   if (card.kind === 'damage')
@@ -131,4 +119,45 @@ export function describeCard(card: Card, state: GameState): CardInfo {
   if (card.kind === 'fireRate')
     return { title: 'Rapid fire', text: `Your whole fleet fires ${Math.round(C.fireRateBonus * 100)}% faster.`, icon: 'ui.card.fire-rate', label: 'Fleet bonus', rarity: null };
   return { title: 'Repairs', text: 'Every ship in your fleet is repaired to full health.', icon: 'ui.card.repair', label: 'Fleet bonus', rarity: null };
+}
+
+/** A group in the card index: one kind of card, with every rarity it can come in (a single card if it has no rarity). */
+export interface CardGroup {
+  title: string;
+  cards: CardInfo[];
+}
+
+/**
+ * Every card the game can offer, for the card index (Settings): new skills,
+ * each skill's upgrades in every rarity (middle values, no rolled spread),
+ * and the fleet bonus cards.
+ */
+export function cardIndex(): { section: string; groups: CardGroup[] }[] {
+  const C = CONFIG.cards;
+  const skills = Object.keys(SKILLS) as SkillId[];
+  // A blank game is enough to describe cards (rank numbers show as rank 2).
+  const blank = { skills: [] } as unknown as GameState;
+  const card = (c: Card) => describeCard(c, blank);
+  return [
+    { section: 'New skills', groups: skills.map((skill) => ({ title: SKILLS[skill].name, cards: [card({ kind: 'skill', skill })] })) },
+    {
+      section: 'Skill upgrades',
+      groups: skills.flatMap((skill) =>
+        skillStats(skill).map((stat) => ({
+          title: `${SKILLS[skill].name}: ${upgradeText(skill, stat, rankAmount(stat, 'common', false)).replace(/^\+[\d%]+ /, '')}`,
+          cards: RARITY_ORDER.map((rarity) => {
+            const info = card({ kind: 'rank', skill, stat, rarity, amount: rankAmount(stat, rarity, false) });
+            return { ...info, title: SKILLS[skill].name, label: `Upgrade · up to rank ${C.maxRank}` };
+          }),
+        })),
+      ),
+    },
+    {
+      section: 'Fleet bonuses',
+      groups: (['damage', 'fireRate', 'repair'] as const).map((kind) => {
+        const info = card({ kind });
+        return { title: info.title, cards: [info] };
+      }),
+    },
+  ];
 }

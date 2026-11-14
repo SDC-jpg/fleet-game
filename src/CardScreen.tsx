@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { Game, HudInfo } from './game/Game';
+import { CardView } from './CardView';
 
 /** One sprite from the manifest, drawn crisply into a small canvas. */
 export function SpriteIcon({ game, name, size }: { game: Game | null; name: string; size: number }) {
@@ -20,26 +21,7 @@ export function CardScreen({ hud, game }: { hud: HudInfo; game: Game | null }) {
       <div className="hint">Choose one (click, or press its number)</div>
       <div className="cards">
         {hud.cards.map((c, i) => (
-          <button
-            key={i}
-            className="card"
-            style={c.rarity ? { borderColor: c.rarity.color, boxShadow: `0 0 14px ${c.rarity.color}55` } : undefined}
-            onClick={(e) => {
-              game?.pickCard(i);
-              e.currentTarget.blur(); // so Space doesn't press it again
-            }}
-          >
-            <span className="number">{i + 1}</span>
-            <SpriteIcon game={game} name={c.icon} size={64} />
-            <span className="label">{c.label}</span>
-            <span className="title">{c.title}</span>
-            {c.rarity && (
-              <span className="rarity" style={{ color: c.rarity.color }}>
-                {c.rarity.name}
-              </span>
-            )}
-            <span className="text">{c.text}</span>
-          </button>
+          <CardView key={i} card={c} game={game} number={i + 1} onPick={() => game?.pickCard(i)} />
         ))}
       </div>
     </div>

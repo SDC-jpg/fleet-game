@@ -1,4 +1,10 @@
 // Keeps track of which keys and mouse buttons are currently held down.
+//
+// Cursor lock (a setting, for several monitors): the browser's pointer lock
+// keeps the mouse inside the game. The real cursor is hidden meanwhile, so the
+// game draws its own at (mouseX, mouseY), which then moves by the mouse's
+// movement and stays inside the canvas. Browsers only allow locking after a
+// click, and Esc always releases it.
 
 export class Input {
   private keys = new Set<string>();
@@ -8,6 +14,13 @@ export class Input {
   mouseX = 0;
   mouseY = 0;
   mouseDown = false;
+  /** Cursor lock is switched on (the lock itself starts with a click on the game). */
+  cursorLock = false;
+  /** Called when the lock ends by itself (Esc, or switching windows), not when released with `unlock`. */
+  onLockLost: (() => void) | null = null;
+  /** When the lock was last lost (performance.now()), so the Esc that ended it isn't also read as a key press. */
+  lockLostAt = -Infinity;
+  private releasing = false;
   private target: HTMLElement;
   private cleanup: (() => void)[] = [];
 
@@ -26,12 +39,29 @@ export class Input {
       this.mouseDown = false;
     });
     this.listen(window, 'mousemove', (e) => {
+      const ev = e as MouseEvent;
       const rect = this.target.getBoundingClientRect();
-      this.mouseX = (e as MouseEvent).clientX - rect.left;
-      this.mouseY = (e as MouseEvent).clientY - rect.top;
+      if (this.locked) {
+        // Locked: the mouse moves our own cursor, kept inside the game.
+        this.mouseX = Math.max(0, Math.min(rect.width - 1, this.mouseX + ev.movementX));
+        this.mouseY = Math.max(0, Math.min(rect.height - 1, this.mouseY + ev.movementY));
+      } else {
+        this.mouseX = ev.clientX - rect.left;
+        this.mouseY = ev.clientY - rect.top;
+      }
+    });
+    this.listen(document, 'pointerlockchange', () => {
+      if (this.locked) return;
+      this.mouseDown = false;
+      if (this.releasing) this.releasing = false;
+      else {
+        this.lockLostAt = performance.now();
+        this.onLockLost?.();
+      }
     });
     this.listen(target, 'mousedown', (e) => {
       const button = (e as MouseEvent).button;
+      if (this.cursorLock && !this.locked) this.lock();
       if (button === 0) this.mouseDown = true;
       // Right-click counts as a press of "MouseRight" (read it with wasPressed).
       if (button === 2) this.presses.set('MouseRight', Math.min((this.presses.get('MouseRight') ?? 0) + 1, 20));
@@ -40,6 +70,30 @@ export class Input {
       if ((e as MouseEvent).button === 0) this.mouseDown = false;
     });
     this.listen(target, 'contextmenu', (e) => e.preventDefault());
+  }
+
+  /** True while the mouse is locked inside the game. */
+  get locked() {
+    return document.pointerLockElement === this.target;
+  }
+
+  /** Lock the mouse inside the game (only works during a click or key press). */
+  lock() {
+    if (!this.cursorLock || this.locked) return;
+    try {
+      const p = this.target.requestPointerLock() as unknown as Promise<void> | undefined;
+      // Newer browsers return a promise that fails if locking isn't allowed right now.
+      p?.catch?.(() => {});
+    } catch {
+      // Not allowed now (no click yet): the next click on the game tries again.
+    }
+  }
+
+  /** Release the mouse (e.g. to use a menu). The game doesn't treat this as Esc. */
+  unlock() {
+    if (!this.locked) return;
+    this.releasing = true;
+    document.exitPointerLock();
   }
 
   private listen(el: EventTarget, type: string, fn: (e: Event) => void) {
@@ -70,6 +124,7 @@ export class Input {
   }
 
   destroy() {
+    this.unlock();
     this.cleanup.forEach((fn) => fn());
   }
 }

@@ -13,7 +13,8 @@ import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { loadEquipment, saveEquipment } from './save';
 import { recordRun, type RunRecord } from './runLog';
-import { describeItem, equip, rollItem, slotOf, slotTier, slotUnlocked, unequip, type Item } from './equipment';
+import { describeItem, equip, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item } from './equipment';
+import { rarityTier, rollRarity } from './rarity';
 import { cooldownOf } from './skills';
 import { Particles } from './particles';
 import type { ArtLayoutsFile } from './artLayout';
@@ -43,6 +44,8 @@ export const TEST_KEYS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_TES
 
 /** Browser storage key for the elite test switch. */
 const ELITES_SETTING = 'fleet-game.elites';
+/** Cursor lock (Settings): keep the mouse inside the game, for several monitors. Remembered in this browser. */
+const CURSOR_LOCK_SETTING = 'fleet-game.cursor-lock';
 
 /** Numbers shown on screen by React. */
 export interface HudInfo {
@@ -87,6 +90,8 @@ export interface HudInfo {
   soundOn: boolean;
   /** Auto-fire (Q) is on. */
   autoFire: boolean;
+  /** Settings: the mouse is kept inside the game. */
+  cursorLock: boolean;
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
   assetProblems: string[];
@@ -97,12 +102,18 @@ export interface ItemInfo {
   id: number;
   name: string;
   bonus: string;
+  /** Substats and card bonus, one line each. */
+  extra: string[];
   icon: string;
   color: string;
+  /** Mythic: its colour cycles (holographic). */
+  holo: boolean;
   equipped: boolean;
   rarity: Rarity;
-  /** 0 = Common ... 3 = Epic, for sorting. */
+  /** 1 = Common ... 7 = Mythic, for sorting. */
   rarityRank: number;
+  /** Merge rank ("+N"), 0 for none. */
+  plus: number;
   stat: ItemStat;
   /** Its bonus (0.08 = +8%), for sorting. */
   amount: number;
@@ -124,6 +135,10 @@ export interface EquipmentInfo {
   inventory: ItemInfo[];
   /** Your fleet's total bonuses from cards and equipment, e.g. "+12% damage". */
   totals: string[];
+  /** You have the Merge Module (its button and drawer show). */
+  mergeModule: boolean;
+  /** Goes up when the merge drawer should open by itself (just after picking up the Merge Module). */
+  openMerge: number;
 }
 
 /** "Monitor 1920×1080 · scaling 125% · 3 px per art pixel". */
@@ -144,6 +159,8 @@ export class Game {
   private fpsFrames = 0;
   private fpsStart = performance.now();
   private paused = false;
+  /** Bumped to make the equipment screen open its merge drawer (after picking up the Merge Module). */
+  private openMerge = 0;
   /** Auto-fire (Q): fires as if left click were held. */
   private autoFire = false;
   /** The run log, filled in when a run ends (null until then). */
@@ -176,6 +193,9 @@ export class Game {
     const rotation = loadSetting(ROTATION_SETTING) as RotationMode | null;
     if (rotation && ROTATION_MODES.includes(rotation)) this.renderer.rotation = rotation;
     this.input = new Input(canvas);
+    this.input.cursorLock = loadSetting(CURSOR_LOCK_SETTING) === 'on';
+    // Esc (or switching windows) ended the cursor lock: pause, like Esc normally does.
+    this.input.onLockLost = () => this.setPaused(true);
     this.state = this.newState();
   }
 
@@ -222,6 +242,16 @@ export class Game {
     if (this.state.gameOver || this.state.cards) paused = false;
     this.paused = paused;
     this.needsDraw = true;
+    // Resuming with the Resume button (a click) can lock the cursor straight away; otherwise the next click on the game does.
+    if (!paused) this.input.lock();
+  }
+
+  /** Settings: keep the mouse inside the game window (remembered in this browser). */
+  setCursorLock(on: boolean) {
+    this.input.cursorLock = on;
+    saveSetting(CURSOR_LOCK_SETTING, on ? 'on' : 'off');
+    if (!on) this.input.unlock();
+    this.sendHud();
   }
 
   /** Draw one sprite from the manifest (first frame) into a small HUD canvas, enlarged crisply. */
@@ -249,6 +279,16 @@ export class Game {
     equip(this.state, id, slot);
     this.saveIfChanged();
     this.sendHud();
+  }
+
+  /** Merge drawer: merge three items into one. Returns the new item, or null if the merge wasn't allowed. */
+  mergeItems(ids: number[]): ItemInfo | null {
+    const item = mergeItems(this.state, ids);
+    if (item) updateBonuses(this.state);
+    this.playQueuedSounds();
+    this.saveIfChanged();
+    this.sendHud();
+    return item ? itemInfo(this.state, item) : null;
   }
 
   /** Equipment screen: take an item out of its slot. */
@@ -291,7 +331,8 @@ export class Game {
     if (this.state.gameOver && i.isDown('KeyR')) this.restart();
     if (i.wasPressed('KeyM')) this.toggleSound();
     if (i.wasPressed('KeyQ')) this.autoFire = !this.autoFire;
-    if (i.wasPressed('Escape')) this.setPaused(!this.paused);
+    // (Not the Esc that just ended a cursor lock: that one already paused.)
+    if (i.wasPressed('Escape') && performance.now() - i.lockLostAt > 300) this.setPaused(!this.paused);
     // Level-up cards: pick with 1, 2 or 3 (or a click).
     const cards = this.state.cards;
     if (cards && !this.paused) {
@@ -299,6 +340,8 @@ export class Game {
       if (n >= 0) this.pickCard(n);
     }
     if (this.paused || this.state.cards) {
+      // Menus and cards need the real cursor.
+      i.unlock();
       // Ignore one-off presses made while the game is stopped.
       i.wasPressed('Space');
       i.wasPressed('MouseRight');
@@ -310,6 +353,14 @@ export class Game {
     updateGame(this.state, this.readControls(), dt, this.spawnDistance());
     this.playQueuedSounds();
     this.saveIfChanged();
+    // Just picked up the Merge Module: pause on the equipment screen with its drawer open
+    // (after any level-up cards on screen have been picked).
+    if (this.state.unlocked === 'merge-module' && !this.state.cards) {
+      this.state.unlocked = null;
+      this.openMerge++;
+      this.setPaused(true);
+      this.sendHud();
+    }
     // The run just ended: add it to the run log (once).
     if (this.state.gameOver && !this.runs) {
       this.runs = recordRun(this.state);
@@ -371,9 +422,15 @@ export class Game {
     if (i.wasPressed('KeyL')) gainXp(s, xpToNextLevel(s.level) - s.xp);
     if (i.wasPressed('KeyJ')) testGiveAllSkills(s);
     if (i.wasPressed('KeyI')) {
-      // Drop 3 random items right next to you.
+      // Drop 3 items of one random rarity right next to you (enough for a merge).
       const f = controlledShip(s);
-      if (f) for (let n = 0; n < 3; n++) s.loot.push({ item: rollItem(s), x: f.x + 60 + n * 25, y: f.y - 40, vx: 0, vy: 0, life: 40 });
+      const rarity = rollRarity({ common: 1, uncommon: 1, superior: 1, rare: 1, epic: 1, legendary: 1, mythic: 1 });
+      if (f) for (let n = 0; n < 3; n++) s.loot.push({ item: rollItem(s, { rarity }), x: f.x + 60 + n * 25, y: f.y - 40, vx: 0, vy: 0, life: 40 });
+    }
+    // Drop the Merge Module next to you (normally it drops after looting CONFIG.items.mergeModuleAfter items).
+    if (i.wasPressed('KeyY')) {
+      const f = controlledShip(s);
+      if (f && !s.loot.some((l) => l.qol)) s.loot.push({ qol: 'merge-module', x: f.x + 120, y: f.y + 60, vx: 0, vy: 0, life: Infinity });
     }
     if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
     if (i.wasPressed('KeyO')) {
@@ -475,6 +532,11 @@ export class Game {
         r.begin(frozen ? 0 : frameDt);
         if (!frozen) this.updateParticles(frameDt);
         renderGame(this.state, r, this.assets, { layouts: this.layouts, particles: this.particles });
+        // While the cursor is locked the real one is hidden: draw the game's own.
+        if (this.input.locked) {
+          const p = r.screenToWorld(this.input.mouseX, this.input.mouseY);
+          r.drawSprite(this.assets.get('ui.cursor'), p.x, p.y, 0, 0, 1, true);
+        }
         r.end();
         this.needsDraw = false;
       }
@@ -519,7 +581,7 @@ export class Game {
         total: cooldownOf(st, sk),
       })),
       cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
-      equipment: this.paused ? equipmentInfo(st) : null,
+      equipment: this.paused ? equipmentInfo(st, this.openMerge) : null,
       found: st.found && st.time - st.found.time < 3 ? itemInfo(st, st.found.item) : null,
       eliteAlert: st.time - st.eliteAlertTime < 3,
       stats: { ...st.stats },
@@ -531,6 +593,7 @@ export class Game {
       runs: this.runs,
       soundOn: this.sounds.enabled,
       autoFire: this.autoFire,
+      cursorLock: this.input.cursorLock,
       fps: this.fps,
       assetProblems: [...this.assets.problems, ...this.sounds.problems],
     });
@@ -547,22 +610,21 @@ function fleetMix(state: GameState) {
     .join(' ');
 }
 
-const RARITY_RANK = { common: 0, uncommon: 1, rare: 2, epic: 3 };
-
 function itemInfo(state: GameState, it: Item): ItemInfo {
   return {
     id: it.id,
     ...describeItem(it),
     equipped: slotOf(state, it.id) >= 0,
     rarity: it.rarity,
-    rarityRank: RARITY_RANK[it.rarity],
+    rarityRank: rarityTier(it.rarity),
+    plus: it.plus ?? 0,
     stat: it.stat,
     amount: it.amount,
   };
 }
 
 /** Everything the equipment screen needs. */
-function equipmentInfo(state: GameState): EquipmentInfo {
+function equipmentInfo(state: GameState, openMerge: number): EquipmentInfo {
   const byId = new Map(state.items.map((it) => [it.id, it]));
   const slots = state.slots.map((id, i) => {
     const it = id === null ? undefined : byId.get(id);
@@ -576,5 +638,7 @@ function equipmentInfo(state: GameState): EquipmentInfo {
     slots,
     inventory,
     totals,
+    mergeModule: state.mergeModule,
+    openMerge,
   };
 }

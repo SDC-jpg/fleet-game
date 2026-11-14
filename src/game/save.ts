@@ -5,6 +5,7 @@
 
 import { CONFIG } from './config';
 import { updateBonuses, type Item } from './equipment';
+import { RARITY_ORDER, type Rarity } from './rarity';
 import type { GameState } from './world';
 
 /** The version number of this build (set by the GitHub publish; "dev" when running locally). */
@@ -23,16 +24,49 @@ const keepsSaveFrom = (build: unknown) =>
 
 const KEY = 'fleet-game.equipment';
 
+/**
+ * The save layout. 1 (no number written): 4 rarities, "rare" = gold, "epic" =
+ * purple. 2: 7 rarities ("superior" was "rare", "rare" was "epic"), loot count, Merge Module.
+ */
+const FORMAT = 2;
+
 interface SavedEquipment {
+  format?: number;
   build: string;
   items: Item[];
   slots: (number | null)[];
   unlockedTier: number;
+  /** Items picked up in every run so far. */
+  looted?: number;
+  mergeModule?: boolean;
+}
+
+/** Old rarity names → their tier in the 7-tier scale (format 1 saves). */
+const FORMAT_1_RARITIES: Record<string, Rarity> = { common: 'common', uncommon: 'uncommon', rare: 'superior', epic: 'rare' };
+
+/** Bring an older save up to date (same items and bonuses, new rarity names). */
+function upgradeSave(data: SavedEquipment): SavedEquipment {
+  if ((data.format ?? 1) >= FORMAT) return data;
+  return {
+    ...data,
+    format: FORMAT,
+    items: data.items.map((it) => ({ ...it, rarity: FORMAT_1_RARITIES[it.rarity] ?? 'common' })),
+    // Older saves didn't count loot: start from what's in the inventory.
+    looted: data.looted ?? data.items.length,
+  };
 }
 
 /** Save your items, which slot each is in, and your unlocked slots. */
 export function saveEquipment(state: GameState) {
-  const data: SavedEquipment = { build: BUILD, items: state.items, slots: state.slots, unlockedTier: state.unlockedTier };
+  const data: SavedEquipment = {
+    format: FORMAT,
+    build: BUILD,
+    items: state.items,
+    slots: state.slots,
+    unlockedTier: state.unlockedTier,
+    looted: state.looted,
+    mergeModule: state.mergeModule,
+  };
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
   } catch {
@@ -46,13 +80,15 @@ export function loadEquipment(state: GameState) {
   try {
     const text = localStorage.getItem(KEY);
     if (!text) return;
-    data = JSON.parse(text);
+    data = upgradeSave(JSON.parse(text));
   } catch {
     return;
   }
   if (!keepsSaveFrom(data.build) || !Array.isArray(data.items) || !Array.isArray(data.slots)) return;
-  state.items = data.items;
-  const ids = new Set(data.items.map((it) => it.id));
+  state.items = data.items.filter((it) => RARITY_ORDER.includes(it.rarity));
+  state.looted = Math.max(0, data.looted ?? 0);
+  state.mergeModule = !!data.mergeModule;
+  const ids = new Set(state.items.map((it) => it.id));
   // Keep the slot layout (ignoring anything that doesn't match an item).
   state.slots = state.slots.map((_, i) => {
     const id = data.slots[i];

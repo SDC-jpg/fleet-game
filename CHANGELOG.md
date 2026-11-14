@@ -4,6 +4,17 @@ Player-facing changes, newest first. When a new version goes live, the lines
 added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
+## 2026-11-14
+
+- Rarities now go from 1 to 7: Common, Uncommon, Superior (blue, was Rare), Rare (purple, was Epic), and new Epic (yellow), Legendary (red) and Mythic (holographic). Your saved items keep their bonuses.
+- Legendary items come with an extra Damage or Hitpoints bonus, Mythic items with two, and some Mythic items also carry a level-up card's bonus.
+- New: the Merge Module. After looting 100 items it drops from the next enemy you destroy. Use it on the pause screen to merge 3 items of the same rarity into a better one; merging Mythic items makes "+1", "+2"... versions with bigger bonuses.
+- Inventory filters are now small colour squares, and one ▲▼ button flips rarest first / rarest last.
+- New Settings tab: "Keep the mouse inside the game" for players with several monitors, and a card index showing every level-up card.
+- Missile and mine upgrade cards now add whole missiles or mines (mines can drop several at once). Freeze can get range upgrades (×1.2 each).
+- Missiles turn more slowly (2 instead of 4).
+- Level-up cards now wait until the explosion of the kill that levelled you up has finished.
+
 ## 2026-11-13
 
 - New ship art for tiers 2–4, with new thrusters (including an animated boost flame) in new spots.

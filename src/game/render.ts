@@ -46,10 +46,12 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     drawLayoutArt(r, assets, extras.layouts.objects[name], name, w.x, w.y, w.angle, 'drifting', 'player', state.time, alpha);
   }
 
-  // Loot: a crate glowing in its rarity's colour (blinks before it disappears).
+  // Loot: a crate glowing in its rarity's colour (blinks before it disappears),
+  // or a quality-of-life drop like the Merge Module (never disappears).
   for (const l of state.loot) {
     const blinking = l.life < CONFIG.wreckBlinkTime && Math.floor(l.life * 6) % 2 === 0;
-    r.drawSprite(assets.get(`ui.loot.${l.item.rarity}`), l.x, l.y, 0, state.time, blinking ? 0.35 : 1, true);
+    const sprite = l.qol ? `ui.loot.${l.qol}` : `ui.loot.${l.item?.rarity}`;
+    r.drawSprite(assets.get(sprite), l.x, l.y, 0, state.time, blinking ? 0.35 : 1, true);
   }
 
   // Mines (team-coloured, looping blink).
@@ -134,7 +136,9 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   const wreckArrow = assets.get('ui.arrow.wreck');
   for (const w of state.wrecks) drawEdgeArrow(r, wreckArrow, w.x, w.y, state.time);
   const lootArrow = assets.get('ui.arrow.loot');
-  for (const l of state.loot) drawEdgeArrow(r, lootArrow, l.x, l.y, state.time);
+  // A quality-of-life drop's arrow pulses gently, so it's noticed.
+  const pulse = 0.6 + 0.4 * Math.sin(state.time * 4);
+  for (const l of state.loot) drawEdgeArrow(r, lootArrow, l.x, l.y, state.time, l.qol ? pulse : 1);
   const enemyArrow = assets.get('ui.arrow.enemy');
   const eliteArrow = assets.get('ui.arrow.elite');
   for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, s.elite ? eliteArrow : enemyArrow, s.x, s.y, state.time);
@@ -211,7 +215,7 @@ export function drawLayoutArt(
 }
 
 /** If (x, y) is off-screen, draw `sprite` at the screen edge, pointing toward it. */
-function drawEdgeArrow(r: PixelRenderer, sprite: Sprite, x: number, y: number, time: number) {
+function drawEdgeArrow(r: PixelRenderer, sprite: Sprite, x: number, y: number, time: number, alpha = 1) {
   const v = r.view;
   if (x >= v.x && x <= v.x + v.w && y >= v.y && y <= v.y + v.h) return;
   // Inset in game pixels, so the arrow stays fully on screen at any zoom.
@@ -222,7 +226,7 @@ function drawEdgeArrow(r: PixelRenderer, sprite: Sprite, x: number, y: number, t
   const dy = y - cy;
   // Shrink the direction until it touches the (slightly inset) screen edge.
   const k = Math.min((v.w / 2 - inset) / Math.abs(dx || 1e-6), (v.h / 2 - inset) / Math.abs(dy || 1e-6));
-  r.drawSprite(sprite, cx + dx * k, cy + dy * k, Math.atan2(dy, dx), time, 1, true);
+  r.drawSprite(sprite, cx + dx * k, cy + dy * k, Math.atan2(dy, dx), time, alpha, true);
 }
 
 /** The animation time that shows a meter sprite's frame for `fraction` (0 = first frame, 1 = last). */

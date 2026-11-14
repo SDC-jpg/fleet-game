@@ -205,7 +205,7 @@ body {
   flex-wrap: wrap;
   justify-content: center;
 }
-.card-screen .card {
+.card {
   position: relative;
   width: 200px;
   min-height: 250px;
@@ -220,34 +220,34 @@ body {
   border: 2px solid #3a4b80;
   cursor: pointer;
 }
-.card-screen .card:hover {
+.card:not(.static):hover {
   border-color: #ffd34a;
   transform: translateY(-4px);
 }
-.card-screen .card .number {
+.card .number {
   position: absolute;
   top: 6px;
   left: 10px;
   opacity: 0.5;
 }
-.card-screen .card .label {
+.card .label {
   font-size: 11px;
   opacity: 0.6;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
-.card-screen .card .title {
+.card .title {
   font-size: 18px;
   color: #ffd34a;
 }
-.card-screen .card .text {
+.card .text {
   font-size: 13px;
   line-height: 1.4;
 }
 .sprite-icon {
   image-rendering: pixelated;
 }
-.card-screen .card .rarity {
+.card .rarity {
   font-size: 12px;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -309,6 +309,7 @@ body {
 
 /* Equipment (pause) screen: a fixed size so it doesn't jump around. */
 .equipment {
+  overflow: visible;
   width: min(700px, 96vw);
   height: min(660px, calc(100vh - 48px));
   margin-top: 18px;
@@ -599,3 +600,225 @@ body {
   opacity: 0.45;
   pointer-events: none;
 }
+
+/* ---------- Rarity colours ---------- */
+/* Mythic is holographic: a smooth, endless cycle through pastel colours. */
+@keyframes holo-text {
+  0%, 100% { color: #ffb3c6; }
+  17% { color: #ffd8a8; }
+  33% { color: #fff4a8; }
+  50% { color: #b8f5c4; }
+  67% { color: #a8dcff; }
+  83% { color: #d8b8ff; }
+}
+@keyframes holo-border {
+  0%, 100% { border-color: #ffb3c6; }
+  17% { border-color: #ffd8a8; }
+  33% { border-color: #fff4a8; }
+  50% { border-color: #b8f5c4; }
+  67% { border-color: #a8dcff; }
+  83% { border-color: #d8b8ff; }
+}
+@keyframes holo-fill {
+  0%, 100% { background-color: #ffb3c6; }
+  17% { background-color: #ffd8a8; }
+  33% { background-color: #fff4a8; }
+  50% { background-color: #b8f5c4; }
+  67% { background-color: #a8dcff; }
+  83% { background-color: #d8b8ff; }
+}
+.holo-text { animation: holo-text 4s linear infinite; }
+.holo-border { animation: holo-border 4s linear infinite; }
+.holo-fill { animation: holo-fill 4s linear infinite; }
+.card.holo-glow { box-shadow: 0 0 16px rgba(220, 200, 255, 0.45); }
+
+/* Upgrade level of a merged Mythic item ("+2"), in the corner of its square. */
+.tile { position: relative; }
+.tile .plus {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 10px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 2px #000;
+  pointer-events: none;
+}
+
+/* ---------- Inventory filter and sort ---------- */
+.equipment .chips button.rarity-chip {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rarity-chip .glyph {
+  width: 10px;
+  height: 10px;
+  outline: 1px solid rgba(0, 0, 0, 0.6);
+}
+.equipment .chips button.sort-toggle {
+  padding: 0 6px;
+  display: flex;
+  gap: 1px;
+  align-items: center;
+}
+.sort-toggle span {
+  opacity: 0.25;
+  font-size: 10px;
+}
+.sort-toggle span.lit {
+  opacity: 1;
+  color: #ffffff;
+}
+.sort-toggle:not(.on) span.lit {
+  opacity: 0.5;
+}
+
+/* ---------- Pause screen tabs ---------- */
+.equipment-head .tabs button {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+/* ---------- Merge Module ---------- */
+/* Placeholder button: looks like the inventory filter buttons until it has its own art. */
+.equipment button.merge-toggle {
+  position: absolute;
+  z-index: 2;
+  margin: 0;
+  padding: 4px 10px;
+  font-size: 11px;
+  background: rgba(30, 38, 70, 0.9);
+  border: 1px solid #2c3a66;
+}
+.equipment button.merge-toggle.on {
+  background: #2c5a9e;
+  border-color: #9fd3ff;
+}
+/* 1-pixel circuit traces (decoration; never catches the mouse). */
+.circuit-lines {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+.circuit-lines .trace {
+  fill: none;
+  stroke: #3f9f6e;
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.circuit-lines .pad {
+  fill: #c9a64a;
+  shape-rendering: crispEdges;
+}
+/* The drawer slides out on the left of the screen, level with the inventory. */
+.merge-drawer {
+  position: absolute;
+  right: calc(100% + 14px);
+  width: 210px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  text-align: center;
+  background: rgba(8, 10, 22, 0.95);
+  border: 1px solid #2c5a9e;
+  animation: drawer-in 0.18s ease-out;
+}
+@keyframes drawer-in {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.merge-drawer .note { display: block; margin-bottom: 8px; }
+.merge-slots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+.merge-result {
+  min-height: 34px;
+  font-size: 12px;
+}
+.panel .merge-drawer button.merge-go {
+  width: 100%;
+  margin-top: 6px;
+}
+.panel .merge-drawer button.merge-go:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.merge-made {
+  margin-top: 10px;
+  font-size: 12px;
+}
+/* Locked while merging: equipped slots darken; items that can't join are dimmed. */
+.tile.merge-locked {
+  filter: brightness(0.35);
+  cursor: not-allowed;
+}
+.tile.dim {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+/* ---------- Settings ---------- */
+.settings {
+  align-self: stretch;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+.settings > .tabs { margin-bottom: 10px; }
+.settings-general .setting {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  cursor: pointer;
+}
+.settings-general .setting .note { display: block; margin-top: 3px; }
+/* Card index: every card, upgrades stacked by rarity (hover one to bring it forward). */
+.card-index {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.card-index section { margin-bottom: 16px; }
+.card-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+}
+.card-group .group-title {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+.card-stack { position: relative; }
+.card-stack .stacked { position: absolute; }
+.card-stack .stacked:hover { z-index: 20 !important; }
+.card-index .card {
+  width: 150px;
+  min-height: 0;
+  height: 210px;
+  padding: 12px 10px;
+  gap: 5px;
+  box-sizing: border-box;
+}
+.card-index .card .title { font-size: 15px; }
+.card-index .card .text { font-size: 12px; }
+.card.static { cursor: default; }
+
+.equipment-head .spacer { flex: 1; }
+.equipment-hint { align-self: stretch; text-align: center; margin-top: 4px; }
+.card-index .card { background: #0e1224; }
