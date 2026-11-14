@@ -10,10 +10,20 @@
 // Locally (npm run dev) it can edit and save. The published copy is view-only.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ASSET_ROOT, Assets, type ManifestEntry } from '../engine/assets';
+import { Assets, type ManifestEntry } from '../engine/assets';
 import { ROTATION_LABELS, ROTATION_MODES, type RotationMode } from '../engine/renderer';
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
-import { emptyLayout, fileSprite, loadArtLayouts, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
+import {
+  emptyLayout,
+  fetchArtFileList,
+  isFrameFolder,
+  loadArtLayouts,
+  loadLayoutImage,
+  partImages,
+  type ArtLayout,
+  type ArtLayoutsFile,
+  type Mount,
+} from '../game/artLayout';
 import { OBJECT_KINDS, SHIP_KIND, kindOf, tierOf, type ArtKind } from '../game/artKinds';
 import { tierSprite } from '../game/render';
 import type { Team } from '../game/world';
@@ -35,8 +45,8 @@ type Patch = Record<string, ManifestEntry>;
 type Snapshot = { data: ArtLayoutsFile; patch: Patch };
 /** "vfx.explosion.t3" → "vfx.explosion". */
 const effectBaseOf = (name: string) => name.replace(/\.t\d+$/, '');
-/** "parts/thruster-boost-1.png" → "thruster-boost-1". */
-const baseName = (file: string) => file.replace(/^.*\//, '').replace(/\.png$/i, '');
+/** "parts/thruster-boost-1.png" → "thruster-boost-1" (a frame folder "parts/thruster-boost-3/" → "thruster-boost-3"). */
+const baseName = (file: string) => file.replace(/\/$/, '').replace(/^.*\//, '').replace(/\.png$/i, '');
 /** "parts/thruster-boost-1.png" → "thruster". */
 const categoryOf = (file: string) => baseName(file).split('-')[0];
 const label = (s: string) => s[0].toUpperCase() + s.slice(1);
@@ -50,11 +60,15 @@ const shortName = (sprite: string) => {
   return (k.id === 'wreck' ? `${sprite.split('.')[1]} tier ` : 'Tier ') + tierOf(sprite);
 };
 
-/** Load every image in the art folder (the list comes from the dev server, or from the published build). */
+/**
+ * Load every image in the art folder (the list comes from the dev server, or
+ * from the published build). Each folder of frames in parts/ loads as one
+ * animated image instead of its separate frames.
+ */
 async function loadArtFiles(assets: Assets, data: ArtLayoutsFile): Promise<string[]> {
-  const url = import.meta.env.DEV ? '/__shipart/files' : ASSET_ROOT + 'art-files.json';
-  const files: string[] = (await (await fetch(url, { cache: 'no-store' })).json()).files;
-  await Promise.all(files.map((f) => assets.loadFile(fileSprite(f), f, data.images[f])));
+  const files = await fetchArtFileList();
+  const images = [...files.filter((f) => !f.startsWith('parts/')), ...partImages(files)];
+  await Promise.all(images.map((f) => loadLayoutImage(assets, f, data.images[f], files)));
   return files;
 }
 
@@ -142,7 +156,9 @@ export function ShipArt() {
   const section = kind.section;
   const layout: ArtLayout = data?.[section][subject] ?? emptyLayout();
   const mount = selected !== null ? layout.mounts[selected] : undefined;
-  const categories = useMemo(() => [...new Set(files.filter((f) => f.startsWith('parts/')).map(categoryOf))], [files]);
+  /** Images mounts can use (a folder of frames counts as one). */
+  const parts = useMemo(() => partImages(files), [files]);
+  const categories = useMemo(() => [...new Set(parts.map(categoryOf))], [parts]);
   const baseFiles = files.filter((f) => f.startsWith(kind.baseFolder));
   const mountState = kind.states.find((s) => s.id === state)?.uses ?? state;
 
@@ -355,8 +371,8 @@ export function ShipArt() {
 
   /** Images a mount of this category can use, the ones named for `state` first ("thruster-boost-…" for boost). */
   const imagesFor = (category: string, state: string) =>
-    files
-      .filter((f) => f.startsWith('parts/') && categoryOf(f) === category)
+    parts
+      .filter((f) => categoryOf(f) === category)
       .sort((a, b) => Number(baseName(b).includes(`-${state}`)) - Number(baseName(a).includes(`-${state}`)) || a.localeCompare(b));
 
   const addMount = (category: string) => {
@@ -405,7 +421,7 @@ export function ShipArt() {
     if (!shownImage || !assets) return;
     const next = { ...(data?.images[shownImage] ?? {}), ...p };
     change((d) => (d.images[shownImage] = next));
-    assets.loadFile(fileSprite(shownImage), shownImage, next);
+    loadLayoutImage(assets, shownImage, next, files);
   };
   const point = selectedPoint ? (layout.points?.[selectedPoint] ?? { x: 0, y: 0 }) : null;
   const pickSubject = (s: string) => {
@@ -737,7 +753,7 @@ export function ShipArt() {
                           {!mount.images[s] && <option value="">Hidden</option>}
                           {options.map((f) => (
                             <option key={f} value={f}>
-                              {baseName(f)}
+                              {baseName(f) + (isFrameFolder(f) ? ' (folder)' : '')}
                             </option>
                           ))}
                         </select>

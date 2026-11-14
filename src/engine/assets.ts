@@ -120,19 +120,34 @@ export class Assets {
 
   /**
    * Load an image file that isn't in the manifest (e.g. a ship part chosen in
-   * the ShipArt tool), as sprite `name`. Its frames sit side by side. Loading
-   * the same name again replaces it (e.g. after changing its frame count).
+   * the ShipArt tool), as sprite `name`. Its frames sit side by side. Or give a
+   * list of files (a folder of frames): one frame per file, all the same size.
+   * Loading the same name again replaces it (e.g. after changing its frame count).
    */
-  async loadFile(name: string, file: string, settings: { frames?: number; fps?: number; loop?: boolean } = {}) {
+  async loadFile(name: string, file: string | string[], settings: { frames?: number; fps?: number; loop?: boolean } = {}) {
     this.problems = this.problems.filter((p) => !p.startsWith(name + ':'));
-    const img = await loadImage(file);
-    if (!img) {
-      this.problems.push(`${name}: could not load ${file}`);
+    const fail = (problem: string) => {
+      this.problems.push(`${name}: ${problem}`);
       this.sprites.delete(name);
-      return;
+    };
+    if (Array.isArray(file)) {
+      const folder = name.replace(/^file:/, '');
+      if (file.length === 0) fail(`no PNG frames in ${folder}`);
+      else {
+        await this.loadSprite(name, { files: file, fps: settings.fps, loop: settings.loop });
+        const frames = this.sprites.get(name)?.frames ?? [];
+        if (frames.some((f) => f.w !== frames[0].w || f.h !== frames[0].h)) {
+          fail(`the frames in ${folder} aren't all the same size`);
+        }
+      }
+    } else {
+      const img = await loadImage(file);
+      if (!img) fail(`could not load ${file}`);
+      else {
+        const frames = Math.max(1, Math.floor(settings.frames ?? 1));
+        await this.loadSprite(name, { file, frameWidth: Math.floor(img.width / frames), frames, fps: settings.fps, loop: settings.loop });
+      }
     }
-    const frames = Math.max(1, Math.floor(settings.frames ?? 1));
-    await this.loadSprite(name, { file, frameWidth: Math.floor(img.width / frames), frames, fps: settings.fps, loop: settings.loop });
     // Recoloured copies were made from the old version.
     for (const key of this.recolorCache.keys()) if (key.startsWith(name + '|')) this.recolorCache.delete(key);
   }

@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ASSET_ROOT, frameAt, type Assets } from '../engine/assets';
-import { particleDefaults, particleSettings, type ArtLayoutsFile, type Mount, type ParticleSettings } from '../game/artLayout';
+import { fileSprite, isFrameFolder, particleDefaults, particleSettings, type ArtLayoutsFile, type Mount, type ParticleSettings } from '../game/artLayout';
 import type { ArtKind } from '../game/artKinds';
 import { FlipbookFields, NumberField } from './fields';
 import type { ImageSettings } from '../game/artLayout';
@@ -126,9 +126,15 @@ export function VfxPanel({
 
         {flipbook && (
           <>
-            <div className="sa-sub">Flipbook: {flipbook.file.replace(/^.*\//, '')}</div>
+            <div className="sa-sub">Flipbook: {flipbook.file.replace(/\/$/, '').replace(/^.*\//, '')}</div>
+            {isFrameFolder(flipbook.file) && (
+              <div className="sa-note">
+                Folder of {assets.has(fileSprite(flipbook.file)) ? assets.get(fileSprite(flipbook.file)).frames.length : 0} frames (one per PNG, in name
+                order). Add or remove files there, then reload.
+              </div>
+            )}
             <FlipbookFields
-              frames={flipbook.settings.frames ?? 1}
+              frames={isFrameFolder(flipbook.file) ? undefined : (flipbook.settings.frames ?? 1)}
               fps={flipbook.settings.fps ?? 12}
               loop={flipbook.settings.loop ?? true}
               onChange={flipbook.onChange}

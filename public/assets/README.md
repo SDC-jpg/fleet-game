@@ -65,8 +65,13 @@ http://localhost:5173/shipart.html. The published copy
   the missile's **Impact** burst, the mine's **Blast**, the gun shot's **Hit** spark.
   The states with the same names play the effect there, with the object faint.
 - **Base image:** each state can also use a different main image.
-- **Animated parts:** put the frames side by side in one file and set
-  Frames, Speed (FPS) and Loop in ShipArt's purple panel.
+- **Animated parts**, two ways (set Speed (FPS) and Loop in ShipArt's purple panel):
+  - **A folder of frames:** a folder in `parts/` named like a part, one PNG per
+    frame, e.g. `parts/thruster-boost-3/thruster-boost-3-001.png`, `-002.png`...
+    It shows in ShipArt as `thruster-boost-3 (folder)`. Frames play in name
+    order (numbers count properly, so 2 comes before 10) and must all be the
+    same size. Add or remove frames, then refresh ShipArt.
+  - **A sheet:** the frames side by side in one file; also set Frames.
 - **Effects** (rollout section): every `vfx.*` image plays in the big preview
   over the stars, with buttons for its tier versions. The purple panel sets its
   Speed (FPS) and Loop, for all tiers or only the one shown; Save writes them

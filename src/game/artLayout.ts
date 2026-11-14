@@ -52,7 +52,10 @@ export interface Mount {
   /** Where particles come from, relative to the mount's centre (in ship pixels, not rotated with the mount). */
   vfxX: number;
   vfxY: number;
-  /** Image file for each state it shows in (e.g. "parts/thruster-boost-1.png"). Missing = hidden in that state. */
+  /**
+   * Image for each state it shows in: a file ("parts/thruster-boost-1.png") or a
+   * folder of frame files ending in "/" ("parts/thruster-boost-3/"). Missing = hidden in that state.
+   */
   images: Record<string, string>;
   /**
    * Particles for each state it gives them off in (missing = none in that state).
@@ -75,9 +78,9 @@ export interface ArtLayout {
   points?: Record<string, Point>;
 }
 
-/** Animation settings for an image file (most are single pictures and need none). */
+/** Animation settings for an image file or frame folder (most are single pictures and need none). */
 export interface ImageSettings {
-  /** Frames side by side in the file. */
+  /** Frames side by side in the file (not used for a folder: there, each file is a frame). */
   frames?: number;
   fps?: number;
   loop?: boolean;
@@ -117,7 +120,40 @@ export const particleSettings = (data: ArtLayoutsFile, m: Mount, state: string):
 /** The sprite name an image file is loaded under (see Assets.loadFile). */
 export const fileSprite = (file: string) => `file:${file}`;
 
-/** Every image file a layouts file uses. */
+/** A folder of frame files, one image made of every PNG in it ("parts/thruster-boost-3/"). */
+export const isFrameFolder = (image: string) => image.endsWith('/');
+
+/** The frame files in a folder, from a list of art files, in name order (numbers counted properly: 2 before 10). */
+export const framesIn = (folder: string, artFiles: string[]) =>
+  artFiles
+    .filter((f) => f.startsWith(folder) && !f.slice(folder.length).includes('/') && /\.png$/i.test(f))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+/**
+ * The images mounts can use: every PNG directly in parts/, plus each folder
+ * inside parts/ as one animated image ("parts/thruster-boost-3/").
+ */
+export function partImages(artFiles: string[]): string[] {
+  const out = new Set<string>();
+  for (const f of artFiles) {
+    if (!f.startsWith('parts/')) continue;
+    const rest = f.slice('parts/'.length);
+    out.add(rest.includes('/') ? `parts/${rest.split('/')[0]}/` : f);
+  }
+  return [...out].sort();
+}
+
+/** Every art file in the project (from the dev server, or the list written into published builds). */
+export async function fetchArtFileList(): Promise<string[]> {
+  const url = import.meta.env.DEV ? '/__shipart/files' : ASSET_ROOT + 'art-files.json';
+  return (await (await fetch(url, { cache: 'no-store' })).json()).files;
+}
+
+/** Load an image file or frame folder as its sprite (see fileSprite), with its animation settings. */
+export const loadLayoutImage = (assets: Assets, image: string, settings: ImageSettings | undefined, artFiles: string[]) =>
+  assets.loadFile(fileSprite(image), isFrameFolder(image) ? framesIn(image, artFiles) : image, settings);
+
+/** Every image file (or frame folder) a layouts file uses. */
 export function layoutFiles(data: ArtLayoutsFile): string[] {
   const files = new Set<string>();
   for (const layout of [...Object.values(data.ships), ...Object.values(data.objects)]) {
@@ -173,6 +209,15 @@ export async function loadArtLayouts(assets: Assets): Promise<ArtLayoutsFile> {
   } catch (e) {
     assets.problems.push(`art.json: ${(e as Error).message}`);
   }
-  await Promise.all(layoutFiles(data).map((f) => assets.loadFile(fileSprite(f), f, data.images[f])));
+  const images = layoutFiles(data);
+  // Frame folders need the list of files to know their frames.
+  let artFiles: string[] = [];
+  if (images.some(isFrameFolder))
+    try {
+      artFiles = await fetchArtFileList();
+    } catch (e) {
+      assets.problems.push(`art file list: ${(e as Error).message}`);
+    }
+  await Promise.all(images.map((f) => loadLayoutImage(assets, f, data.images[f], artFiles)));
   return data;
 }

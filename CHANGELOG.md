@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- ShipArt: an animated part can now be a folder of PNG frames (one file per frame) instead of a single sheet.
 - ShipArt: mines, gun shots, lasers and wrecks can now be previewed and dressed up too (flashes, sparks, smoke emitters, and where their blast or hit appears).
 - ShipArt: an effect's image can be swapped for another PNG, or for a zip of PNG frames, which is unpacked into its own folder.
 - ShipArt: an Effects section plays every effect (explosions, hits, shields...) over the stars, with its speed and looping adjustable.
