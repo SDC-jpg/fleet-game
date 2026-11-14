@@ -35,6 +35,29 @@ import { EffectPanel } from './EffectPanel';
 /** Editing and saving only work with the dev server (npm run dev). */
 const READ_ONLY = !import.meta.env.DEV;
 const ZOOMS = [1, 2, 3, 4, 6, 8];
+
+/** The view, remembered in this browser so a reload comes back to the same place. */
+interface SavedView {
+  subject: string;
+  states: Record<string, string>;
+  zoom: number;
+  spin: boolean;
+  fly: boolean;
+  team: Team;
+  guides: boolean;
+  effectBase: string | null;
+  effectTier: number;
+  selected: number | null;
+  open: Record<string, boolean>;
+}
+const VIEW_SETTING = 'shipart.view';
+const savedView: Partial<SavedView> = (() => {
+  try {
+    return JSON.parse(loadSetting(VIEW_SETTING) ?? '{}') ?? {};
+  } catch {
+    return {};
+  }
+})();
 /** The mount category for particle-only mounts (no image). */
 const EMITTER = 'emitter';
 
@@ -78,17 +101,17 @@ export function ShipArt() {
   const [data, setData] = useState<ArtLayoutsFile | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** The sprite being edited ("ship.fighter", "projectile.missile.t2"...). */
-  const [subject, setSubject] = useState('ship.fighter');
+  const [subject, setSubject] = useState(savedView.subject ?? 'ship.fighter');
   const kind: ArtKind = kindOf(subject) ?? SHIP_KIND;
   /** The preview state, remembered per kind (so switching between ships keeps Move, say). */
-  const [states, setStates] = useState<Record<string, string>>({});
+  const [states, setStates] = useState<Record<string, string>>(savedView.states ?? {});
   const state = states[kind.id] ?? kind.states[0].id;
   const setState = (s: string) => setStates((all) => ({ ...all, [kind.id]: s }));
-  const [zoom, setZoom] = useState(4);
-  const [spin, setSpin] = useState(false);
-  const [fly, setFly] = useState(true);
-  const [team, setTeam] = useState<Team>('player');
-  const [guides, setGuides] = useState(true);
+  const [zoom, setZoom] = useState(ZOOMS.includes(savedView.zoom ?? 0) ? savedView.zoom! : 4);
+  const [spin, setSpin] = useState(savedView.spin ?? false);
+  const [fly, setFly] = useState(savedView.fly ?? true);
+  const [team, setTeam] = useState<Team>(savedView.team ?? 'player');
+  const [guides, setGuides] = useState(savedView.guides ?? true);
   // Stars on or off, remembered in this browser.
   const [stars, setStars] = useState(() => loadSetting('shipart.stars') !== 'off');
   // How rotated ships are drawn; shared with the game (same browser setting).
@@ -96,7 +119,7 @@ export function ShipArt() {
     const r = loadSetting(ROTATION_SETTING) as RotationMode | null;
     return r && ROTATION_MODES.includes(r) ? r : 'grid';
   });
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(savedView.selected ?? null);
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [history, setHistory] = useState<Snapshot[]>([]);
@@ -107,8 +130,8 @@ export function ShipArt() {
   /** Each changed entry as it was when last saved (for undo). */
   const baselineRef = useRef<Patch>({});
   /** The effect being shown (Effects section), by its base name, and which tier version. */
-  const [effectBase, setEffectBase] = useState<string | null>(null);
-  const [effectTier, setEffectTier] = useState(1);
+  const [effectBase, setEffectBase] = useState<string | null>(savedView.effectBase ?? null);
+  const [effectTier, setEffectTier] = useState(savedView.effectTier ?? 1);
   /** Bumped when reloaded art has finished loading, so panels showing its size and frames update. */
   const [, setArtVersion] = useState(0);
   const [dirty, setDirty] = useState(false);
@@ -116,7 +139,7 @@ export function ShipArt() {
   /** What the arrow keys move: the selected mount, or its VFX point. */
   const [nudge, setNudge] = useState<'mount' | 'vfx'>('mount');
   /** Rollout sections that are open, and the filter text. */
-  const [open, setOpen] = useState<Record<string, boolean>>({ ships: true, objects: true });
+  const [open, setOpen] = useState<Record<string, boolean>>(savedView.open ?? { ships: true, objects: true });
   const [filter, setFilter] = useState('');
   /** The project folder on Windows, from the dev server (for "Copy folder path"). */
   const [windowsRoot, setWindowsRoot] = useState<string | null>(null);
@@ -141,11 +164,45 @@ export function ShipArt() {
       const a = await Assets.load();
       const d = await loadArtLayouts(a);
       const f = await loadArtFiles(a, d);
+      // The remembered view may name art or a mount that is gone since.
+      setSubject((sub) => {
+        if (a.has(sub)) return sub;
+        setSelected(null);
+        return 'ship.fighter';
+      });
+      setEffectBase((e) => (e && (a.has(e) || a.has(`${e}.t2`)) ? e : null));
+      setSelected((i) => {
+        const sub = a.has(savedView.subject ?? '') ? savedView.subject! : 'ship.fighter';
+        const k = kindOf(sub);
+        return i !== null && k && i < (d[k.section][sub]?.mounts.length ?? 0) ? i : null;
+      });
       setAssets(a);
       setData(d);
       setFiles(f);
     })().catch((e: Error) => setError(e.message));
   }, []);
+
+  // Remember the view (once the art has loaded, so a startup fallback isn't saved over it too early).
+  useEffect(() => {
+    if (!assets) return;
+    const view: SavedView = { subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open };
+    saveSetting(VIEW_SETTING, JSON.stringify(view));
+  }, [assets, subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open]);
+
+  // Mouse wheel over the preview: zoom in (up) or out (down), one step at a time.
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoom((z) => {
+        const i = ZOOMS.indexOf(z);
+        return ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, i + (e.deltaY < 0 ? 1 : -1)))];
+      });
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [assets]);
 
   /** Every sprite of a kind (one per tier), in tier order. */
   const spritesOf = useCallback(
@@ -305,7 +362,11 @@ export function ShipArt() {
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
+  // A new subject starts with nothing selected (not at startup, where the remembered selection is kept).
+  const shownSubject = useRef(subject);
   useEffect(() => {
+    if (shownSubject.current === subject) return;
+    shownSubject.current = subject;
     setSelected(null);
     setSelectedPoint(null);
   }, [subject]);

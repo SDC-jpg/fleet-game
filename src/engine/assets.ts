@@ -286,7 +286,8 @@ function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
 export function frameAt(sprite: Sprite, time: number): Frame {
   const n = sprite.frames.length;
   if (n === 1 || sprite.fps <= 0) return sprite.frames[0];
-  const i = Math.floor(time * sprite.fps);
+  // (A clock can start a hair below 0; that's the first frame, not frame -1.)
+  const i = Math.max(0, Math.floor(time * sprite.fps));
   return sprite.frames[sprite.loop ? i % n : Math.min(i, n - 1)];
 }
 

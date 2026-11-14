@@ -6,6 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-13
 
+- ShipArt remembers what you were looking at after a reload (object, state, zoom, Fly/Spin and the rest), and the mouse wheel zooms the preview.
 - ShipArt: an animated part can now be a folder of PNG frames (one file per frame) instead of a single sheet.
 - ShipArt: mines, gun shots, lasers and wrecks can now be previewed and dressed up too (flashes, sparks, smoke emitters, and where their blast or hit appears).
 - ShipArt: an effect's image can be swapped for another PNG, or for a zip of PNG frames, which is unpacked into its own folder.
