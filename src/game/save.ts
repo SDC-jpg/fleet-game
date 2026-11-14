@@ -1,6 +1,7 @@
 // Saving your equipment in this browser, so it carries over between games and
-// page reloads. Each save is marked with the game's version (build) number: a
-// new version ignores equipment saved by an older one.
+// page reloads. Each save is marked with the game's version (build) number.
+// Saves from SAVES_KEPT_FROM onward are kept; older ones are ignored, so a
+// version that changes gameplay can start everyone fresh.
 
 import { CONFIG } from './config';
 import { updateBonuses, type Item } from './equipment';
@@ -8,6 +9,17 @@ import type { GameState } from './world';
 
 /** The version number of this build (set by the GitHub publish; "dev" when running locally). */
 export const BUILD: string = import.meta.env.VITE_BUILD || 'dev';
+
+/**
+ * The first build whose saved equipment still loads. Builds that don't touch
+ * gameplay keep it (so players keep their items); when a build changes
+ * gameplay, set this to that build's number so everyone starts fresh.
+ */
+export const SAVES_KEPT_FROM = 20;
+
+/** True if equipment saved by `build` loads in this build ("dev" only loads "dev" saves). */
+const keepsSaveFrom = (build: unknown) =>
+  BUILD === 'dev' ? build === 'dev' : Number(build) >= SAVES_KEPT_FROM && Number(build) <= Number(BUILD);
 
 const KEY = 'fleet-game.equipment';
 
@@ -38,7 +50,7 @@ export function loadEquipment(state: GameState) {
   } catch {
     return;
   }
-  if (data.build !== BUILD || !Array.isArray(data.items) || !Array.isArray(data.slots)) return;
+  if (!keepsSaveFrom(data.build) || !Array.isArray(data.items) || !Array.isArray(data.slots)) return;
   state.items = data.items;
   const ids = new Set(data.items.map((it) => it.id));
   // Keep the slot layout (ignoring anything that doesn't match an item).

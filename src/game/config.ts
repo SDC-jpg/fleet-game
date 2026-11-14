@@ -348,6 +348,7 @@ export const CONFIG = {
     spinTime: 0.2,
     /** Each missile "fires up" (lights its thruster, with a sound) at a random moment between these (seconds after launch). */
     igniteMin: 0.2,
+    /** The latest a missile fires up (seconds after launch). */
     igniteMax: 0.3,
     /** How fast they turn while doing so (radians per second; 15 = about half a turn in 0.2 s). */
     spinRate: 15,
