@@ -90,8 +90,8 @@
           "vfxX": 0,
           "vfxY": 0,
           "images": {
-            "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
           },
           "emit": {
             "move": {},
@@ -110,8 +110,8 @@
           "vfxX": 0,
           "vfxY": 0,
           "images": {
-            "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
           },
           "emit": {
             "move": {},
@@ -130,8 +130,8 @@
           "vfxX": 0,
           "vfxY": 0,
           "images": {
-            "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
           },
           "emit": {
             "move": {},
@@ -145,8 +145,8 @@
       "mounts": [
         {
           "category": "thruster",
-          "x": -58,
-          "y": -15,
+          "x": -79,
+          "y": -18,
           "angle": 0,
           "flipX": false,
           "flipY": false,
@@ -155,8 +155,8 @@
           "vfxX": 0,
           "vfxY": 0,
           "images": {
-            "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
           },
           "emit": {
             "move": {},
@@ -165,8 +165,8 @@
         },
         {
           "category": "thruster",
-          "x": -58,
-          "y": -5,
+          "x": -85,
+          "y": -9,
           "angle": 0,
           "flipX": false,
           "flipY": false,
@@ -175,8 +175,8 @@
           "vfxX": 0,
           "vfxY": 0,
           "images": {
-            "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
+            "move": "parts/thruster-move-3.png",
+            "boost": "parts/thruster-boost-3/"
           },
           "emit": {
             "move": {},
@@ -185,8 +185,8 @@
         },
         {
           "category": "thruster",
-          "x": -58,
-          "y": 5,
+          "x": -85,
+          "y": 9,
           "angle": 0,
           "flipX": false,
           "flipY": false,
@@ -195,8 +195,8 @@
           "vfxX": 0,
           "vfxY": 0,
           "images": {
-            "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
+            "move": "parts/thruster-move-3.png",
+            "boost": "parts/thruster-boost-3/"
           },
           "emit": {
             "move": {},
@@ -205,8 +205,8 @@
         },
         {
           "category": "thruster",
-          "x": -58,
-          "y": 15,
+          "x": -79,
+          "y": 18,
           "angle": 0,
           "flipX": false,
           "flipY": false,
@@ -215,8 +215,8 @@
           "vfxX": 0,
           "vfxY": 0,
           "images": {
-            "move": "parts/thruster-move-1.png",
-            "boost": "parts/thruster-boost-1.png"
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
           },
           "emit": {
             "move": {},
@@ -442,6 +442,9 @@
     "parts/flame-missile-t4.png": {
       "frames": 3,
       "fps": 18
+    },
+    "parts/thruster-boost-3/": {
+      "fps": 14
     }
   }
 }
