@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- Force Wall: you now have 0.24 seconds to draw the wall (was 0.6), so walls are quicker and shorter.
 - Smoother particle trails behind fast things like missiles: the puffs now spread evenly along the path instead of bunching up.
 - Merge Module upgrades: after 300, 900 and 2700 items looted, Merge Mk. II (Load: fills the slots with your lowest-rarity items), Mk. III (QuickMerge in one click, with a ⚙ to choose which rarities it may use) and Mk. IV (AutoMerge every 12 seconds) drop.
 - Missiles with nothing to lock onto now turn toward where your ship was facing when you fired (and still lock on if a target shows up).

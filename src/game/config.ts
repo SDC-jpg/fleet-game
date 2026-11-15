@@ -851,7 +851,7 @@ export const CONFIG = {
     /** Seconds between walls (counted from when the wall is finished). */
     cooldown: 6,
     /** Seconds you can draw (drawing time cards add more). */
-    drawTime: 0.6,
+    drawTime: 0.24,
     /** Most wall length you may draw per second of drawing time (tier 1). Letting go early ends the wall where it is. */
     lengthPerSecond: 800,
     /** Seconds the finished wall lasts. */
