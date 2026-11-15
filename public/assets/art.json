@@ -232,7 +232,7 @@
       "mounts": [
         {
           "category": "flame",
-          "x": -10,
+          "x": -5,
           "y": 0,
           "angle": 0,
           "flipX": false,
@@ -247,7 +247,91 @@
         },
         {
           "category": "emitter",
-          "x": -14,
+          "x": -7,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {},
+          "emit": {
+            "fired": {}
+          }
+        }
+      ],
+      "points": {
+        "impact": {
+          "x": 3,
+          "y": 0
+        }
+      }
+    },
+    "projectile.missile.t2": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "flame",
+          "x": -8,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "fired": "parts/flame-missile-t2.png"
+          }
+        },
+        {
+          "category": "emitter",
+          "x": -10,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {},
+          "emit": {
+            "fired": {}
+          }
+        }
+      ],
+      "points": {
+        "impact": {
+          "x": 4,
+          "y": 0
+        }
+      }
+    },
+    "projectile.missile.t3": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "flame",
+          "x": -11,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "fired": "parts/flame-missile-t3.png"
+          }
+        },
+        {
+          "category": "emitter",
+          "x": -15,
           "y": 0,
           "angle": 0,
           "flipX": false,
@@ -269,96 +353,12 @@
         }
       }
     },
-    "projectile.missile.t2": {
-      "base": {},
-      "mounts": [
-        {
-          "category": "flame",
-          "x": -15,
-          "y": 0,
-          "angle": 0,
-          "flipX": false,
-          "flipY": false,
-          "scale": 1,
-          "behind": true,
-          "vfxX": 0,
-          "vfxY": 0,
-          "images": {
-            "fired": "parts/flame-missile-t2.png"
-          }
-        },
-        {
-          "category": "emitter",
-          "x": -21,
-          "y": 0,
-          "angle": 0,
-          "flipX": false,
-          "flipY": false,
-          "scale": 1,
-          "behind": true,
-          "vfxX": 0,
-          "vfxY": 0,
-          "images": {},
-          "emit": {
-            "fired": {}
-          }
-        }
-      ],
-      "points": {
-        "impact": {
-          "x": 9,
-          "y": 0
-        }
-      }
-    },
-    "projectile.missile.t3": {
-      "base": {},
-      "mounts": [
-        {
-          "category": "flame",
-          "x": -22,
-          "y": 0,
-          "angle": 0,
-          "flipX": false,
-          "flipY": false,
-          "scale": 1,
-          "behind": true,
-          "vfxX": 0,
-          "vfxY": 0,
-          "images": {
-            "fired": "parts/flame-missile-t3.png"
-          }
-        },
-        {
-          "category": "emitter",
-          "x": -30,
-          "y": 0,
-          "angle": 0,
-          "flipX": false,
-          "flipY": false,
-          "scale": 1,
-          "behind": true,
-          "vfxX": 0,
-          "vfxY": 0,
-          "images": {},
-          "emit": {
-            "fired": {}
-          }
-        }
-      ],
-      "points": {
-        "impact": {
-          "x": 13,
-          "y": 0
-        }
-      }
-    },
     "projectile.missile.t4": {
       "base": {},
       "mounts": [
         {
           "category": "flame",
-          "x": -33,
+          "x": -16,
           "y": 0,
           "angle": 0,
           "flipX": false,
@@ -373,7 +373,7 @@
         },
         {
           "category": "emitter",
-          "x": -45,
+          "x": -22,
           "y": 0,
           "angle": 0,
           "flipX": false,
@@ -390,7 +390,7 @@
       ],
       "points": {
         "impact": {
-          "x": 20,
+          "x": 10,
           "y": 0
         }
       }

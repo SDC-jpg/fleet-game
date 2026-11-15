@@ -172,8 +172,9 @@ function fireLaser(state: GameState, ship: Ship, sk: OwnedSkill) {
 export const laserLength = (ship: Ship, sk: OwnedSkill, mods = sk.mods) => CONFIG.laser.length * CONFIG.tiers.rangePerTier ** (ship.tier - 1) * mods.size;
 
 /**
- * Missiles: a volley pushed out of the ship side by side, all pointing where it
- * points. They're shared out across every target in range (see missileTargets):
+ * Missiles: a volley pushed out of the ship in a fan, up to
+ * CONFIG.missiles.launchSpread either side of where it points (as if from tubes
+ * around the ship); each then turns toward its target and speeds off. They're shared out across every target in range (see missileTargets):
  * one target gets them all, two get half each, more get one each.
  */
 function launchMissiles(state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) {
@@ -183,26 +184,25 @@ function launchMissiles(state: GameState, ship: Ship, c: Controls, sk: OwnedSkil
   const count = Math.max(1, M.count + Math.round(mods.count));
   const targets = missileTargets(state, ship, c.aimX, c.aimY);
   const damage = M.damage * powerOf(state, ship) * mods.power;
-  // Side by side across the ship's width.
-  const sideX = -Math.sin(ship.angle);
-  const sideY = Math.cos(ship.angle);
-  const width = ship.stats.radius * 1.6;
+  const spread = (M.launchSpread * Math.PI) / 180;
   for (let i = 0; i < count; i++) {
-    const off = count === 1 ? 0 : (i / (count - 1) - 0.5) * width;
+    // Spread evenly across the fan (with a little jitter), each leaving from the ship's edge on its side.
+    const a = ship.angle + (count === 1 ? 0 : (i / (count - 1) - 0.5) * 2 * spread) + randRange(-0.08, 0.08);
+    const edge = ship.stats.radius * 0.7;
     state.bullets.push({
       team: ship.team,
       sprite: 'projectile.missile',
       tier: ship.tier,
-      x: ship.x + sideX * off,
-      y: ship.y + sideY * off,
-      vx: ship.vx + Math.cos(ship.angle) * M.ejectSpeed,
-      vy: ship.vy + Math.sin(ship.angle) * M.ejectSpeed,
+      x: ship.x + Math.cos(a) * edge,
+      y: ship.y + Math.sin(a) * edge,
+      vx: ship.vx + Math.cos(a) * M.ejectSpeed,
+      vy: ship.vy + Math.sin(a) * M.ejectSpeed,
       life: M.life,
       damage,
       radius: 2 * ship.stats.size,
       homing: M.turnRate,
       target: targets.length ? targets[i % targets.length] : null,
-      facing: ship.angle,
+      facing: a,
       igniteAt: randRange(M.igniteMin, M.igniteMax),
     });
   }

@@ -528,8 +528,9 @@ function particleDot(color) {
 }
 
 // Missile: grey body, sky blue fins (team colour), orange flame. Faces right.
+// Drawn at half the size it was until 2026-11-15 (on the same pixel grid: fewer, not smaller, pixels).
 function missile(tier = 1) {
-  const k = 1.5 ** (tier - 1);
+  const k = 0.5 * 1.5 ** (tier - 1);
   const W = Math.round(12 * k) + 2, H = Math.round(7 * k) + 2;
   const img = new Img(W, H);
   const cy = H / 2;
@@ -553,8 +554,8 @@ function trailDot() {
 
 // Missile flame (a ship part, placed in ShipArt), pointing right like the missile, nozzle at its right end. 3 flickering frames.
 function missileFlame(tier = 1) {
-  const k = 1.5 ** (tier - 1);
-  const W = Math.round(7 * k), H = Math.max(3, Math.round(3 * k));
+  const k = 0.5 * 1.5 ** (tier - 1);
+  const W = Math.max(3, Math.round(7 * k)), H = Math.max(2, Math.round(3 * k));
   const F = 3;
   const sheet = new Img(W * F, H);
   const cy = (H - 1) / 2;

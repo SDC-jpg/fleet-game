@@ -530,28 +530,36 @@ export const CONFIG = {
     count: 4,
     /** Damage per missile (tier 1). */
     damage: 2,
-    /** Speed missiles are pushed out of the ship at, in the direction it faces (added to the ship's own speed). */
+    /** Speed missiles are pushed out of the ship at, along their launch direction (added to the ship's own speed). */
     ejectSpeed: 40,
+    /** Launch directions spread up to this far either side of where the ship faces (degrees), as if from tubes around the ship. */
+    launchSpread: 70,
     /** Seconds they drift straight out before turning. */
-    ejectTime: 0.2,
+    ejectTime: 0.3,
     /** Seconds they spend turning to face their target, still drifting. */
-    spinTime: 0.2,
+    spinTime: 0.3,
     /** Each missile "fires up" (lights its thruster, with a sound) at a random moment between these (seconds after launch). */
-    igniteMin: 0.2,
+    igniteMin: 0.3,
     /** The latest a missile fires up (seconds after launch). */
-    igniteMax: 0.3,
-    /** How fast they turn while doing so (radians per second; 15 = about half a turn in 0.2 s). */
-    spinRate: 15,
+    igniteMax: 0.6,
+    /** How fast they turn while doing so (radians per second; 20 = about a full turn in 0.3 s). */
+    spinRate: 20,
     /** Top speed, reached rampTime seconds after they start speeding off. */
-    speed: 500,
+    speed: 1000,
     /** Seconds to go from drifting to top speed. */
-    rampTime: 0.5,
+    rampTime: 0.6,
     /** How fast they steer toward their target while speeding (radians per second). */
     turnRate: 2,
-    /** Seconds a missile lasts. */
-    life: 3,
+    /** Fuel: seconds after launch that a missile keeps flying and steering. Then it goes dead and tumbles. */
+    life: 2,
+    /** Seconds a dead missile (out of fuel) tumbles on, harmless, bouncing off ships, before it disappears. */
+    tumbleTime: 3,
+    /** Fastest a dead missile spins (radians per second; each picks a random spin up to this, either way). */
+    tumbleSpin: 8,
+    /** How quickly a dead missile slows down (share of its speed lost per second; 0 = it keeps going). */
+    tumbleDrag: 0.5,
     /** How far away a target can be (game pixels). */
-    lockRange: 900,
+    lockRange: 1200,
     /** Width of the cone in front of the ship that targets must be in (degrees). */
     lockArc: 90,
   },

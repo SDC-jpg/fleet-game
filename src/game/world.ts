@@ -176,6 +176,10 @@ export interface Bullet {
   /** Missiles: seconds after launch when it fires up (lights its thruster), and whether it has. */
   igniteAt?: number;
   lit?: boolean;
+  /** Missiles: out of fuel. It tumbles, harmless, until its life runs out (CONFIG.missiles.tumbleTime). */
+  spent?: boolean;
+  /** A spent missile's spin (radians per second). */
+  spin?: number;
 }
 
 export interface Wreck {
@@ -1128,6 +1132,14 @@ export function damageShip(state: GameState, s: Ship, amount: number) {
  */
 function steerMissile(state: GameState, b: Bullet, dt: number) {
   const M = CONFIG.missiles;
+  // Out of fuel: no more thrust or steering, it just tumbles and slows down.
+  if (b.spent) {
+    b.facing = (b.facing ?? 0) + (b.spin ?? 0) * dt;
+    const keep = Math.max(0, 1 - M.tumbleDrag * dt);
+    b.vx *= keep;
+    b.vy *= keep;
+    return;
+  }
   const age = M.life - b.life;
   // Fire up: light the thruster (drawn in render.ts), with its own small sound.
   if (!b.lit && b.igniteAt !== undefined && age >= b.igniteAt) {
@@ -1189,6 +1201,18 @@ function updateBullets(state: GameState, dt: number) {
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     b.life -= dt;
+    // A missile whose fuel ran out goes dead: no flame or trail, tumbling, harmless.
+    if (b.homing > 0 && !b.spent && b.life <= 0) {
+      b.spent = true;
+      b.lit = false;
+      b.target = null;
+      b.life = CONFIG.missiles.tumbleTime;
+      b.spin = randRange(-1, 1) * CONFIG.missiles.tumbleSpin;
+    }
+    if (b.spent) {
+      bounceOffShips(state, b);
+      continue;
+    }
     for (const s of state.ships) {
       // Merging ships can't be hit: shots pass through.
       if (s.team === b.team || s.dead || s.merge) continue;
@@ -1212,6 +1236,29 @@ function updateBullets(state: GameState, dt: number) {
     }
   }
   state.bullets = state.bullets.filter((b) => b.life > 0);
+}
+
+/** A dead missile bounces off any ship it touches (either side), doing no damage. */
+function bounceOffShips(state: GameState, b: Bullet) {
+  for (const s of state.ships) {
+    if (s.dead || s.absorbed) continue;
+    const r = s.stats.radius + b.radius;
+    const dx = b.x - s.x;
+    const dy = b.y - s.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= r * r) continue;
+    const d = Math.sqrt(d2) || 1;
+    const nx = dx / d;
+    const ny = dy / d;
+    // Back out to the ship's edge, and bounce off it (relative to the ship's own movement).
+    b.x = s.x + nx * r;
+    b.y = s.y + ny * r;
+    const into = (b.vx - s.vx) * nx + (b.vy - s.vy) * ny;
+    if (into < 0) {
+      b.vx -= 2 * into * nx;
+      b.vy -= 2 * into * ny;
+    }
+  }
 }
 
 function removeDeadShips(state: GameState) {
