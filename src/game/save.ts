@@ -16,7 +16,7 @@ export const BUILD: string = import.meta.env.VITE_BUILD || 'dev';
  * gameplay keep it (so players keep their items); when a build changes
  * gameplay, set this to that build's number so everyone starts fresh.
  */
-export const SAVES_KEPT_FROM = 25;
+export const SAVES_KEPT_FROM = 20;
 
 /** True if equipment saved by `build` loads in this build ("dev" only loads "dev" saves). */
 const keepsSaveFrom = (build: unknown) =>
