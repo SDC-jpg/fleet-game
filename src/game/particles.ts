@@ -26,21 +26,21 @@ export class Particles {
 
   /**
    * Spawn about kind.perSecond × dt particles at (x, y), flying toward `angle` (radians), spread over the kind's cone.
-   * The emitter moved at (vx, vy) during this step: each particle is born at a random moment within the step,
-   * so it starts where the emitter was then and has already aged a little. Fast emitters (missiles) then leave
-   * an even trail instead of clumps one step apart, and higher spawn rates fill it in.
+   * The emitter moved at (vx, vy) during this step: the particles are born at evenly spaced moments within the
+   * step, each where the emitter was then and already aged a little. A fast emitter (a missile) leaves an evenly
+   * spaced trail, and a higher spawn rate packs it tighter.
    */
   emit(kind: ParticleSettings, x: number, y: number, angle: number, dt: number, vx = 0, vy = 0) {
-    let n = kind.perSecond * dt;
-    // Fractions become a chance, so low rates still produce the right amount over time.
-    while (n > 0) {
-      if (n < 1 && Math.random() >= n) break;
-      n--;
+    const n = kind.perSecond * dt;
+    // Whole particles, plus a chance for the fraction, so low rates still produce the right amount over time.
+    const count = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0);
+    for (let i = 0; i < count; i++) {
       if (this.list.length >= CONFIG.particles.max) return;
       // Anywhere in a cone kind.angle degrees wide, centred on `angle` (360 = any direction).
       const a = angle + ((randRange(-0.5, 0.5) * Math.min(360, kind.angle)) / 180) * Math.PI;
       const speed = kind.speed * randRange(0.7, 1.3);
-      const back = Math.random() * dt;
+      // Evenly spaced through the step (the first one born latest, nearest the emitter).
+      const back = ((i + 0.5) / count) * dt;
       const pvx = Math.cos(a) * speed;
       const pvy = Math.sin(a) * speed;
       this.list.push({
