@@ -191,7 +191,7 @@ The batches are ordered by how much new engine work they need:
 
 **Hijack** (`hijack`)
 - **Behavior:** a pulse ring expands from the ship to a radius of 400 px over 0.4 s.
-  - Enemies it reaches are hijacked, nearest first, until their total fleet value reaches the budget. Ships that would go over the budget are skipped. The budget is a quarter of your own fleet's value (2026-11-15; fleet value cards raise it), at least one tier-1 ship.
+  - Enemies it reaches are hijacked, nearest first, until their total fleet value reaches the budget. Ships that would go over the budget are skipped. The budget is a sixth of your own fleet's value (2026-11-15; fleet value cards raise it), at least one tier-1 ship.
   - For 5 s, hijacked ships fight on your side: they shoot enemies, enemies shoot them, and they fly toward the nearest enemy.
   - They don't join your fleet and can't merge.
   - Kills they make count as yours (XP, drops).

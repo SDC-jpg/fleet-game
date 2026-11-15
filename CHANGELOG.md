@@ -5,7 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
-- Skill tuning: Wrecksplosion and Tractor Beam are switched off for now; Force Wall ends where you stop drawing; Hijack takes over about a quarter of your own fleet's value; Gravity Well is half the size and fainter; Gatling Laser bolts are yellow.
+- Skill tuning: Wrecksplosion and Tractor Beam are switched off for now; Force Wall ends where you stop drawing; Hijack takes over about a sixth of your own fleet's value; Gravity Well is half the size and fainter; Gatling Laser bolts are yellow.
 
 ## 2026-11-14
 - Five more skills: Wrecksplosion and Tractor Beam (left click; they use up wrecks but hit twice as hard), Force Wall (hold right click to draw a wall), Cloaking and Hijack (right click). Elites can use them too, in fair versions: they never use your wrecks.
