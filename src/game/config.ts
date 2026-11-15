@@ -878,8 +878,8 @@ export const CONFIG = {
   hijack: {
     /** Seconds between pulses. */
     cooldown: 8,
-    /** Fleet value it can take over, as a share of your own fleet's value (1/6 = a sixth; fleet value cards raise it). Always at least one tier-1 ship's worth. */
-    fleetShare: 1 / 6,
+    /** Fleet value it can take over, as a share of your own fleet's value (1/12 = a twelfth; fleet value cards raise it). Always at least one tier-1 ship's worth. */
+    fleetShare: 1 / 12,
     /** How far the pulse reaches (tier 1; grows with ship size). */
     radius: 400,
     /** Seconds the pulse takes to reach its edge. */
