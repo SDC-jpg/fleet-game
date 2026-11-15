@@ -81,13 +81,17 @@ export function VfxPanel({
   /** Every mount of this category, on every ship and object. */
   const allOfCategory = () => [...Object.values(data.ships), ...Object.values(data.objects)].flatMap((l) => l.mounts.filter((m) => m.category === mount.category));
   /** Make this mount's settings the defaults for its category, and clear every such mount's own values, so they all match. */
-  const applyToAll = () =>
+  const applyToAll = () => {
+    // The mounts it changes: every one of this category that gives off particles in this state.
+    const count = allOfCategory().filter((m) => m.emit?.[state]).length;
+    if (!window.confirm(`Override settings for ${count} mount${count === 1 ? '' : 's'}?`)) return;
     onChangeData((d) => {
       d.particleDefaults[mount.category] ??= {};
       d.particleDefaults[mount.category][state] = { ...settings };
       for (const l of [...Object.values(d.ships), ...Object.values(d.objects)])
         for (const m of l.mounts) if (m.category === mount.category && m.emit?.[state]) m.emit[state] = {};
     });
+  };
 
   const set = <K extends keyof ParticleSettings>(key: K, value: ParticleSettings[K]) => {
     if (editDefaults)
@@ -181,7 +185,7 @@ export function VfxPanel({
             This mount
           </button>
           <button className={editDefaults ? 'on' : ''} onClick={() => setEditDefaults(true)} title={`The starting values for every ${category} mount (each mount can change them)`}>
-            Defaults for all {category}
+            Make default for all {category}
           </button>
         </div>
         {!editDefaults && !emits && <div className="sa-note">Off in this state. Tick the box above to give off particles.</div>}
