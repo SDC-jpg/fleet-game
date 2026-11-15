@@ -203,7 +203,7 @@ function launchMissiles(state: GameState, ship: Ship, c: Controls, sk: OwnedSkil
       homing: M.turnRate,
       target: targets.length ? targets[i % targets.length] : null,
       facing: a,
-      owner: ship,
+      launchAngle: ship.angle,
       igniteAt: randRange(M.igniteMin, M.igniteMax),
     });
   }
