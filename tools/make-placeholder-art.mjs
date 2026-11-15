@@ -739,11 +739,11 @@ function frozenShell(S = 40) {
 // Sky blue parts are the team colour (recoloured red for elites). Tier-1 size;
 // the game scales them up for bigger ships and size cards.
 
-// Gatling bolt: a thin streak, white tip, sky blue tail. Faces right.
+// Gatling bolt: a thin streak, pale tip, yellow tail (yellow so it stands out; not team-coloured). Faces right.
 function gatlingBolt() {
   const img = new Img(12, 4);
-  rect(img, 1, 1, 7, 2, hex('#41a6d9'));
-  rect(img, 8, 1, 3, 2, hex('#ffffff'));
+  rect(img, 1, 1, 7, 2, hex('#ffd34a'));
+  rect(img, 8, 1, 3, 2, hex('#fff6c8'));
   return img;
 }
 
@@ -1086,7 +1086,7 @@ const SKILL_ICONS = {
   gatling: (img) => {
     rect(img, 1, 5, 5, 6, hex('#8a93a6'));
     for (const y of [5, 8, 11]) rect(img, 6, y - 1, 3, 1, hex('#c9ced8'));
-    for (const [x, y] of [[10, 4], [12, 7], [10, 10]]) rect(img, x, y, 4, 1, hex('#7ecff2'));
+    for (const [x, y] of [[10, 4], [12, 7], [10, 10]]) rect(img, x, y, 4, 1, hex('#ffd34a'));
   },
   crescent: (img) => {
     for (let y = 0; y < 16; y++)

@@ -1,6 +1,6 @@
 # New skills: specification
 
-Status (2026-11-14): all three batches built. 14 new skills to add to the 6 that already exist. Numbers below are the starting values in `config.ts`.
+Status (2026-11-15): all three batches built. Wrecksplosion and Tractor Beam are switched off (`enabled: false`) at the user's request (2026-11-15). 14 new skills to add to the 6 that already exist. Numbers below are the starting values in `config.ts`.
 
 ## Background: how skills work today
 
@@ -71,7 +71,7 @@ The batches are ordered by how much new engine work they need:
 ### Left Click
 
 **Gatling Laser** (`gatling`)
-- **Behavior:** fires a volley of 6 thin laser bolts, one every 0.06 s, toward the cursor with ±4° random spread.
+- **Behavior:** fires a volley of 6 thin yellow laser bolts (yellow for every team, so they stand out), one every 0.06 s, toward the cursor with ±4° random spread.
   - Bolts fly at 1200 px/s for 450 px.
   - Each bolt does 0.7 damage and stops at the first ship it hits.
   - Cooldown 1.2 s, so it is almost continuous while held.
@@ -161,7 +161,7 @@ The batches are ordered by how much new engine work they need:
 **Force Wall** (`forceWall`)
 - **Behavior:**
   - **Drawing:** while right click is held, a shimmering wall is drawn along the cursor's path. Drawing time is 0.6 s, and the length budget is 800 px per second of drawing time (480 px at rank 1).
-  - **Early release:** if you let go before the time runs out, the wall finishes itself. It continues from its end along a circle centred on the ship (radius = the end's distance from the ship), in the direction it was being drawn, until the length budget is used.
+  - **Early release:** letting go ends the wall where it is (no autocomplete, removed 2026-11-15). A click without drawing makes no wall.
   - **Lifetime:** the wall lasts 4 s.
   - **Blocking:** enemy ships can't cross it and slide along it. Enemy shots, missiles and moving skill effects (crescents, beams, ion balls, thrown scrap) that hit it are destroyed. Instant beams (Laser) and arcs are not blocked. Your ships and shots pass through.
   - **Cooldown:** 6 s, starting when the wall is finished.
@@ -170,6 +170,7 @@ The batches are ordered by how much new engine work they need:
 
 **Gravity Well** (`gravityWell`)
 - **Behavior:** a well opens at the cursor for 2.5 s, with a radius of 250 px.
+  - Radius 125 px (halved 2026-11-15); its swirl is drawn at 70% opacity.
   - Enemies inside are pulled toward its centre. The pull is strongest at the centre and fades to nothing at the edge, up to 300 px/s at the centre.
   - Pulled ships can still turn and shoot.
   - The radius shows as a faint swirling ring.
@@ -190,7 +191,7 @@ The batches are ordered by how much new engine work they need:
 
 **Hijack** (`hijack`)
 - **Behavior:** a pulse ring expands from the ship to a radius of 400 px over 0.4 s.
-  - Enemies it reaches are hijacked, nearest first, until their total fleet value reaches the budget. Ships that would go over the budget are skipped. The budget is 6 at rank 1, in tier-1 ships (T2 = 16).
+  - Enemies it reaches are hijacked, nearest first, until their total fleet value reaches the budget. Ships that would go over the budget are skipped. The budget is a quarter of your own fleet's value (2026-11-15; fleet value cards raise it), at least one tier-1 ship.
   - For 5 s, hijacked ships fight on your side: they shoot enemies, enemies shoot them, and they fly toward the nearest enemy.
   - They don't join your fleet and can't merge.
   - Kills they make count as yours (XP, drops).

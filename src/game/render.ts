@@ -199,7 +199,7 @@ function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets, ex
       case 'well': {
         // The swirl is drawn to the well's radius, fading in and out.
         const sprite = teamSprite(assets, 'vfx.gravity-well', o.team);
-        const alpha = clamp(Math.min(o.age, o.life - o.age) / 0.25, 0, 1);
+        const alpha = clamp(Math.min(o.age, o.life - o.age) / 0.25, 0, 1) * CONFIG.gravityWell.alpha;
         r.drawSprite(sprite, o.x, o.y, o.age * 2, state.time, alpha, false, o.radius / (sprite.frames[0].w / 2));
         break;
       }

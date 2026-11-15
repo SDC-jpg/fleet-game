@@ -13,6 +13,7 @@ import {
   addEffect,
   addSound,
   damageShip,
+  fleetValue,
   hijackShip,
   statsFor,
   tierValue,
@@ -598,8 +599,8 @@ export function hijackPulse(state: GameState, ship: Ship, sk: OwnedSkill) {
     scale: ship.stats.size,
     owner: ship,
     hit: new Set(),
-    // Grows with your ship's tier like skill damage (an elite's takes much less).
-    value: H.value * CONFIG.tiers.powerPerTier ** (ship.tier - 1) * mods.power * (elite ? CONFIG.elite.hijackValue : 1),
+    // A share of your fleet's value (at least one tier-1 ship's worth); an elite's takes much less.
+    value: Math.max(1, H.fleetShare * fleetValue(state.playerFleet) * mods.power * (elite ? CONFIG.elite.hijackValue : 1)),
     duration: H.duration * (elite ? CONFIG.elite.hijackDuration : 1),
     left: elite ? CONFIG.elite.hijackMaxShips : Infinity,
   });
@@ -997,7 +998,7 @@ function updateWall(state: GameState, o: SkillObj, dt: number, c: Controls) {
   blockAtWall(state, o, dt);
 }
 
-/** Let go early: the wall finishes itself along a circle around the ship, the way it was being drawn. */
+/** Drawing is over (let go, or out of time or length): the wall stays as drawn for CONFIG.forceWall.life seconds. */
 function finishWall(state: GameState, o: SkillObj) {
   const F = CONFIG.forceWall;
   const pts = o.points!;
@@ -1005,20 +1006,8 @@ function finishWall(state: GameState, o: SkillObj) {
   o.drawing = false;
   o.life = o.age + F.life;
   if (ship && o.skill) o.skill.timer = cooldownOf(state, o.skill);
-  if (!ship || (o.budget ?? 0) < F.step) return;
-  const last = pts[pts.length - 1];
-  const prev = pts[pts.length - 2] ?? { x: ship.x, y: ship.y };
-  const r = Math.max(Math.hypot(last.x - ship.x, last.y - ship.y), 60 * ship.stats.size);
-  // Which way round: the way the last bit of wall was going (counter-clockwise if it wasn't moving).
-  const cross = (last.x - ship.x) * (last.y - prev.y) - (last.y - ship.y) * (last.x - prev.x);
-  const dir = cross < 0 ? -1 : 1;
-  let a = Math.atan2(last.y - ship.y, last.x - ship.x);
-  const stepA = F.step / r;
-  while ((o.budget ?? 0) >= F.step) {
-    a += stepA * dir;
-    pts.push({ x: ship.x + Math.cos(a) * r, y: ship.y + Math.sin(a) * r });
-    o.budget = (o.budget ?? 0) - F.step;
-  }
+  // A click without drawing leaves no wall (a single point blocks nothing anyway).
+  if (pts.length < 2) o.life = 0;
 }
 
 /** Enemy ships can't cross a wall (they slide along it); enemy shots and moving skill effects that reach it are stopped. */

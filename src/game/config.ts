@@ -195,7 +195,7 @@ export const SKILLS = {
   // Batch 3. Left click:
   wrecksplosion: {
     name: 'Wrecksplosion',
-    enabled: true,
+    enabled: false,
     side: 'left',
     icon: 'ui.skill.wrecksplosion',
     text: 'Every wreck near the cursor blows up, hurting enemies around it. Uses up those wrecks, but hits hard.',
@@ -203,7 +203,7 @@ export const SKILLS = {
   },
   tractorBeam: {
     name: 'Tractor Beam',
-    enabled: true,
+    enabled: false,
     side: 'left',
     icon: 'ui.skill.tractor-beam',
     text: 'Grabs a nearby wreck and hurls it at the enemy nearest the cursor. Uses up the wreck, but hits hard.',
@@ -761,7 +761,9 @@ export const CONFIG = {
     /** Seconds a well lasts. */
     duration: 2.5,
     /** Radius (tier 1; radius cards make it bigger). */
-    radius: 250,
+    radius: 125,
+    /** How visible its swirl is (1 = fully, 0.7 = 30% see-through). */
+    alpha: 0.7,
     /** Pull speed at the very middle (falls to nothing at the edge). Pull cards make it stronger. */
     pull: 300,
   },
@@ -828,7 +830,7 @@ export const CONFIG = {
     cooldown: 6,
     /** Seconds you can draw (drawing time cards add more). */
     drawTime: 0.6,
-    /** Wall length you may draw per second of drawing time (tier 1). Letting go early, the wall finishes itself along a circle around your ship. */
+    /** Most wall length you may draw per second of drawing time (tier 1). Letting go early ends the wall where it is. */
     lengthPerSecond: 800,
     /** Seconds the finished wall lasts. */
     life: 4,
@@ -854,8 +856,8 @@ export const CONFIG = {
   hijack: {
     /** Seconds between pulses. */
     cooldown: 8,
-    /** Fleet value (in tier-1 ships) it can take over, with a tier-1 ship. Grows ×12 per tier of your ship, like skill damage. */
-    value: 6,
+    /** Fleet value it can take over, as a share of your own fleet's value (0.25 = a quarter; fleet value cards raise it). Always at least one tier-1 ship's worth. */
+    fleetShare: 0.25,
     /** How far the pulse reaches (tier 1; grows with ship size). */
     radius: 400,
     /** Seconds the pulse takes to reach its edge. */
