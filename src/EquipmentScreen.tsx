@@ -223,7 +223,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
         <span className="spacer" />
         <button
           onClick={(e) => {
-            game?.setPaused(false);
+            game?.setPaused(false, true);
             e.currentTarget.blur();
           }}
         >

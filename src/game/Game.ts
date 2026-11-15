@@ -214,7 +214,10 @@ export class Game {
     this.input = new Input(canvas);
     this.input.cursorLock = loadSetting(CURSOR_LOCK_SETTING) === 'on';
     // Esc (or switching windows) ended the cursor lock: pause, like Esc normally does.
-    this.input.onLockLost = () => this.setPaused(true);
+    // But not just after resuming: that's the browser dropping a lock it had only just given back.
+    this.input.onLockLost = () => {
+      if (performance.now() - this.resumedAt > 500) this.setPaused(true);
+    };
     this.state = this.newState();
   }
 
@@ -255,14 +258,23 @@ export class Game {
     this.paused = false;
   }
 
-  /** Pause or resume (Esc, the Resume button, or automatically when the window loses focus). */
-  setPaused(paused: boolean) {
+  /** When the game was last resumed (performance.now()). */
+  private resumedAt = -Infinity;
+
+  /**
+   * Pause or resume (Esc, the Resume button, or automatically when the window
+   * loses focus). `byClick`: resumed with a click (the Resume button), which
+   * may lock the cursor straight away. Resuming with Esc doesn't: the browser
+   * would take that same Esc as "release the mouse" and the game would pause
+   * again. The next click on the game locks it then.
+   */
+  setPaused(paused: boolean, byClick = false) {
     // Level-up cards already stop the game.
     if (this.state.gameOver || this.state.cards) paused = false;
+    if (this.paused && !paused) this.resumedAt = performance.now();
     this.paused = paused;
     this.needsDraw = true;
-    // Resuming with the Resume button (a click) can lock the cursor straight away; otherwise the next click on the game does.
-    if (!paused) this.input.lock();
+    if (!paused && byClick) this.input.lock();
   }
 
   /** Settings: keep the mouse inside the game window (remembered in this browser). */
