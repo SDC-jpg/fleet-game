@@ -78,6 +78,17 @@ export function VfxPanel({
   const file = assets.fileOf(settings.sprite);
   const category = label(mount.category);
 
+  /** Every mount of this category, on every ship and object. */
+  const allOfCategory = () => [...Object.values(data.ships), ...Object.values(data.objects)].flatMap((l) => l.mounts.filter((m) => m.category === mount.category));
+  /** Make this mount's settings the defaults for its category, and clear every such mount's own values, so they all match. */
+  const applyToAll = () =>
+    onChangeData((d) => {
+      d.particleDefaults[mount.category] ??= {};
+      d.particleDefaults[mount.category][state] = { ...settings };
+      for (const l of [...Object.values(d.ships), ...Object.values(d.objects)])
+        for (const m of l.mounts) if (m.category === mount.category && m.emit?.[state]) m.emit[state] = {};
+    });
+
   const set = <K extends keyof ParticleSettings>(key: K, value: ParticleSettings[K]) => {
     if (editDefaults)
       onChangeData((d) => {
@@ -207,6 +218,14 @@ export function VfxPanel({
                 title={`Use the defaults for all ${category} mounts`}
               >
                 Reset to defaults
+              </button>
+            )}
+            {!editDefaults && (
+              <button
+                onClick={applyToAll}
+                title={`Copy these ${label(state)} settings to all ${allOfCategory().length} ${category} mounts on every ship and object (and make them the defaults). Mounts that are off in ${label(state)} stay off. Undo puts them back.`}
+              >
+                Apply to all {category} mounts
               </button>
             )}
           </>
