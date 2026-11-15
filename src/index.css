@@ -734,6 +734,15 @@ body {
   background: #2c5a9e;
   border-color: #9fd3ff;
 }
+/* AutoMerge on: dark, with the same filling shading as the drawer's AutoMerge button. */
+.equipment button.merge-toggle.auto {
+  overflow: hidden;
+  background: #141a30;
+  border-color: #9fd3ff;
+}
+.merge-toggle .label {
+  position: relative;
+}
 /* 1-pixel circuit traces (decoration; never catches the mouse). */
 .circuit-lines {
   position: absolute;
@@ -798,7 +807,7 @@ body {
   background: #141a30;
   border-color: #9fd3ff;
 }
-.merge-go .auto-fill {
+.auto-fill {
   position: absolute;
   left: 0;
   top: 0;

@@ -290,6 +290,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
               ref={buttonRef}
               name={eq.mergeName}
               open={mergeOpen}
+              autoProgress={autoOn ? eq.autoProgress : null}
               onToggle={toggleMerge}
               // Flush left, level with the tier-6 slots (hidden until measured).
               style={
