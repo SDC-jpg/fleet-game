@@ -201,7 +201,6 @@ export class Preview {
     // A state that shows a point's effect (Impact, Blast, Hit): the object faint, no particles.
     const pointId = st.kind.states.find((s) => s.id === st.state)?.point ?? (hidden ? 'impact' : undefined);
     this.particles.update(dt);
-    const v = this.speed();
     if (!pointId) this.particles.emitMounts(st.data, this.layout, state, this.x, this.y, this.angle, dt, Math.cos(this.angle) * v, Math.sin(this.angle) * v);
     this.particles.draw(r, this.assets);
     // Wrecks sit on their marker ring, like in the game.
