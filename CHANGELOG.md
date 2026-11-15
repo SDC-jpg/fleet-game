@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- New particle settings: missiles leave a fuller, longer smoke trail, and thrusters puff less while cruising.
 - Gatling Laser: each bolt now fires where your ship is facing at that moment, so turning sweeps the volley.
 - Hijack: takes over half as much as before (a twelfth of your fleet's value instead of a sixth), still always at least one ship.
 - Force Wall: you now have 0.24 seconds to draw the wall (was 0.6), so walls are quicker and shorter.

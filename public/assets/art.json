@@ -20,9 +20,7 @@
             "boost": "parts/thruster-boost-1.png"
           },
           "emit": {
-            "move": {
-              "perSecond": 5
-            },
+            "move": {},
             "boost": {
               "perSecond": 10
             }
@@ -400,7 +398,7 @@
     "thruster": {
       "move": {
         "sprite": "vfx.particle.move",
-        "perSecond": 10,
+        "perSecond": 4,
         "speed": 35,
         "angle": 30,
         "life": 0.35,
@@ -418,10 +416,10 @@
     "emitter": {
       "fired": {
         "sprite": "vfx.particle.trail",
-        "perSecond": 40,
-        "speed": 10,
-        "angle": 40,
-        "life": 0.4,
+        "perSecond": 100,
+        "speed": 215,
+        "angle": 5,
+        "life": 0.6,
         "drag": 2
       }
     }
