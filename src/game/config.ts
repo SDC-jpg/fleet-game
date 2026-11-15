@@ -651,10 +651,14 @@ export const CONFIG = {
     firstWave: 10,
     /** Elite tier = biggest tier in an enemy fleet of that wave, plus this. */
     extraTiers: 1,
-    /** Elite health compared to a normal enemy of its tier. */
-    healthMultiplier: 4,
-    /** XP for destroying an elite, compared to a normal enemy of its tier. */
+    /** Elite health = this × that wave's enemy fleet value × a tier-1 enemy's health, so it grows smoothly with the waves (not in 12× jumps with its tier). */
+    healthPerFleetValue: 8,
+    /** Random change to each elite's health, either way (0.2 = up to 20% weaker or tougher). */
+    healthRandom: 0.2,
+    /** XP for destroying an elite, compared to a normal enemy of its tier (before the cap below). */
     xpMultiplier: 3,
+    /** An elite never gives more XP than this many times what your current level needs (1.5 = at most 2 level-ups). */
+    xpMaxLevels: 1.5,
     /** Skills the first elite has; each later elite has one more, up to maxSkills. */
     firstSkills: 1,
     /** Most skills an elite can have. */

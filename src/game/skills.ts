@@ -231,7 +231,7 @@ function updateMines(state: GameState, dt: number) {
 function raiseShield(state: GameState, ship: Ship, sk: OwnedSkill) {
   const S = CONFIG.shield;
   // Shields match the ship's health: yours get the player health bonus, an elite's its extra health.
-  const hpMul = ship.team === 'player' ? CONFIG.playerHpMultiplier : ship.elite ? CONFIG.elite.healthMultiplier : 1;
+  const hpMul = ship.team === 'player' ? CONFIG.playerHpMultiplier : ship.elite ? ship.elite.healthScale : 1;
   const mods = modsOf(state, ship, sk);
   const amount = S.amount * powerOf(state, ship) * hpMul * mods.power;
   const radius = S.radius * ship.stats.size * mods.size;

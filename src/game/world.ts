@@ -4,7 +4,7 @@
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
-import { enemyFleetValue } from './curves';
+import { enemyFleetValue, xpToNextLevel } from './curves';
 import { drawCards, gainXp } from './progress';
 import { dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
@@ -72,6 +72,8 @@ export interface EliteInfo {
   skills: OwnedSkill[];
   /** Seconds left of the laser warning line (0 = not charging). The laser fires when it reaches 0. */
   laserCharge: number;
+  /** Its health compared to a normal ship of its tier (its Shield skill matches it). */
+  healthScale: number;
 }
 
 /** 15 ships flying into a 16th (the core), which then becomes one tier bigger. */
@@ -1111,7 +1113,9 @@ function removeDeadShips(state: GameState) {
       state.stats.kills++;
       state.stats.killValue += tierValue(s.tier);
       const levels = state.pendingLevels;
-      gainXp(state, tierValue(s.tier) * CONFIG.levels.xpPerValue * (s.elite ? CONFIG.elite.xpMultiplier : 1));
+      const xp = tierValue(s.tier) * CONFIG.levels.xpPerValue;
+      // An elite gives more, but never more than CONFIG.elite.xpMaxLevels levels' worth.
+      gainXp(state, s.elite ? Math.min(xp * CONFIG.elite.xpMultiplier, CONFIG.elite.xpMaxLevels * xpToNextLevel(state.level)) : xp);
       // Levelled up: the cards wait until this kill's explosion has finished playing.
       if (state.pendingLevels > levels)
         state.cardWaitUntil = Math.max(state.cardWaitUntil, state.time + state.effectDuration('vfx.explosion', s.tier));
@@ -1418,9 +1422,13 @@ function spawnElite(state: GameState, near: Ship, distance: number) {
   const a = Math.random() * Math.PI * 2;
   const fleet = newFleet('enemy');
   const ship = addShip(state, 'enemy', 'fighter', top + E.extraTiers, fleet, 0, 0, a + Math.PI);
-  ship.stats.maxHp = Math.round(ship.stats.maxHp * E.healthMultiplier);
+  // Health follows the wave's enemy fleet value (smooth), with some randomness.
+  const normal = ship.stats.maxHp;
+  const tier1 = statsFor('fighter', 'enemy', 1).maxHp;
+  const random = randRange(1 - E.healthRandom, 1 + E.healthRandom);
+  ship.stats.maxHp = Math.max(1, Math.round(tier1 * E.healthPerFleetValue * enemyFleetValue(state.wave) * random));
   ship.hp = ship.stats.maxHp;
-  ship.elite = { skills: makeEliteSkills(state.elitesSpawned), laserCharge: 0 };
+  ship.elite = { skills: makeEliteSkills(state.elitesSpawned), laserCharge: 0, healthScale: ship.stats.maxHp / normal };
   ship.x = near.x + Math.cos(a) * (distance + ship.stats.radius);
   ship.y = near.y + Math.sin(a) * (distance + ship.stats.radius);
   fleet.leader = ship;

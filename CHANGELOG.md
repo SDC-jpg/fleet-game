@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-14
+- Elites are fairer: their toughness now grows steadily with the waves (with some variety) instead of jumping hugely at waves 20 and 106, and one elite gives at most about 2 level-ups.
 - Settings → General has a "Clear saved progress" button (asks first) that deletes your items, slots and Merge Module to start over. Your run log stays.
 - Swarm waves: sometimes, instead of an elite, a big swarm of small ships sweeps in from one side in V formations, curving around you (with a "Swarm incoming!" warning and klaxon).
 - The first 10 waves bring about 30% more lone enemies, so the early game gets going faster.
