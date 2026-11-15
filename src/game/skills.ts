@@ -12,11 +12,16 @@ import {
   fireGatling,
   fireIonCloud,
   firePlasmaLance,
+  cloak,
   fireSplitBeam,
+  forceWall,
+  hijackPulse,
   launchPods,
   openGravityWell,
   sendScramble,
+  tractorBeam,
   updateSkillObjects,
+  wrecksplosion,
 } from './moreSkills';
 import { addMod, newMods, type SkillMods } from './upgrades';
 import {
@@ -50,6 +55,11 @@ const COOLDOWNS: Record<SkillId, () => number> = {
   laserPods: () => CONFIG.laserPods.cooldown,
   gravityWell: () => CONFIG.gravityWell.cooldown,
   scramble: () => CONFIG.scramble.cooldown,
+  wrecksplosion: () => CONFIG.wrecksplosion.cooldown,
+  tractorBeam: () => CONFIG.tractorBeam.cooldown,
+  forceWall: () => CONFIG.forceWall.cooldown,
+  cloak: () => CONFIG.cloak.cooldown,
+  hijack: () => CONFIG.hijack.cooldown,
 };
 
 /**
@@ -81,7 +91,7 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
   for (const b of state.beams) b.age += dt;
   state.beams = state.beams.filter((b) => b.age < BEAM_SHOW_TIME);
   updateMines(state, dt);
-  updateSkillObjects(state, dt);
+  updateSkillObjects(state, dt, c);
 
   for (const sk of state.skills) sk.timer = Math.max(0, sk.timer - dt);
   const ship = controlledShip(state);
@@ -126,6 +136,11 @@ const USE: Record<SkillId, Use> = {
   laserPods: (state, ship, _c, sk) => launchPods(state, ship, sk),
   gravityWell: openGravityWell,
   scramble: (state, ship, _c, sk) => sendScramble(state, ship, sk),
+  wrecksplosion,
+  tractorBeam,
+  forceWall,
+  cloak: (state, ship, _c, sk) => cloak(state, ship, sk),
+  hijack: (state, ship, _c, sk) => hijackPulse(state, ship, sk),
 };
 
 /** Laser: everything along the beam in front of you takes damage at once. */
@@ -207,6 +222,7 @@ function missileTargets(state: GameState, ship: Ship, aimX: number, aimY: number
         s.team !== ship.team &&
         !s.dead &&
         !s.merge &&
+        !s.ghost &&
         distSq(s.x, s.y, ship.x, ship.y) <= M.lockRange ** 2 &&
         Math.abs(wrapAngle(Math.atan2(s.y - ship.y, s.x - ship.x) - ship.angle)) <= half,
     )

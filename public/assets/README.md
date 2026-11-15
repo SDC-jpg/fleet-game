@@ -154,6 +154,36 @@ width) are drawn enlarged, so they look a little blockier; that's expected.
 Sounds: `sfx.laser`, `sfx.missile` (launch "thump"), `sfx.missile-ignite` (fire-up), `sfx.missile-hit`, `sfx.mine` (dropped), `sfx.mine-blast`,
 `sfx.shield`, `sfx.repulse`, `sfx.freeze`, `sfx.levelup`, `sfx.card` (card picked).
 
+### Newer skills
+
+Each newer skill has an icon `ui.skill.<name>` (16 px placeholders): `gatling`,
+`crescent`, `arc-impulse`, `ion-cloud`, `plasma-lance`, `split-beam`, `laser-pods`,
+`gravity-well`, `scramble`, `wrecksplosion`, `tractor-beam`, `force-wall`, `cloak`,
+`hijack`. Their art is made for a tier-1 ship; the game scales it up for bigger
+ships and size upgrades (no `.t2`… versions needed). Sky blue = team colour
+(red for elites), except the golden crescent.
+
+| Name | What it is |
+| --- | --- |
+| `projectile.gatling` | Gatling Laser bolt, faces right |
+| `vfx.crescent` | Crescent Strike blade (40 px = its hit size); the game spins it |
+| `vfx.arc`, `vfx.arc-hit` | Arc Impulse: one **segment** of the arc (repeated between two ships, plays once), and the spark where it strikes |
+| `vfx.ion-ball`, `vfx.ion-pop` | Ion Cloud: a ball (loops), and its burst (72 px = its blast size, plays once) |
+| `vfx.plasma-lance`, `vfx.plasma-hit` | Plasma Lance: one **segment** of the blade (repeated along it, loops), and the flash where it cuts |
+| `vfx.split-beam`, `vfx.split-burst` | Splitting Beam: one segment of its streak, and the flash where it splits |
+| `vfx.pod`, `projectile.pod-shot` | Laser Pods: a pod (faces right, loops) and its laser shot |
+| `vfx.gravity-well` | Gravity Well swirl, loops; 256 px = a 128 px radius (scaled to the well's radius) |
+| `vfx.scramble-wave`, `vfx.scrambled` | Scramble: the wave (a tall band facing right, loops), and the marker over a scrambled ship |
+| `vfx.wreck-blast`, `vfx.wreck-radius` | Wrecksplosion: a wreck's blast (184 px = its blast size, plays once), and the ring showing its reach around the cursor (also an elite's scrap-charge warning) |
+| `vfx.tractor-beam` | Tractor Beam: one segment of the beam (repeated, loops). The thrown wreck uses the wreck art |
+| `vfx.force-wall`, `vfx.force-wall-hit` | Force Wall: one segment of the wall (repeated along it, loops), and the ripple where a shot is stopped |
+| `vfx.cloak` | Sparkle ring when a fleet cloaks (also when a ship is hijacked). Cloaked ships themselves are drawn by the game (see-through) |
+| `vfx.hijack-pulse` | Hijack ring (256 px = a 128 px radius, grown as it spreads) |
+
+Sounds: `sfx.gatling` (each bolt), `sfx.crescent`, `sfx.arc`, `sfx.ion-cloud`, `sfx.ion-pop`, `sfx.plasma-lance`, `sfx.split-beam`,
+`sfx.pods`, `sfx.pod-shot`, `sfx.gravity-well`, `sfx.scramble`, `sfx.wrecksplosion`, `sfx.tractor-beam`, `sfx.force-wall`,
+`sfx.force-wall-hit`, `sfx.cloak`, `sfx.hijack`.
+
 ## Equipment
 
 | Name | What it is |

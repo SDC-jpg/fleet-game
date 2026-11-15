@@ -1,6 +1,6 @@
 # New skills: specification
 
-Status (2026-11-14): batches 1 and 2 built (Gatling Laser, Crescent Strike, Arc Impulse, Ion Cloud, Plasma Lance; Splitting Beam, Laser Pods, Gravity Well, Scramble). 14 new skills to add to the 6 that already exist. Numbers below are the starting values in `config.ts`.
+Status (2026-11-14): all three batches built. 14 new skills to add to the 6 that already exist. Numbers below are the starting values in `config.ts`.
 
 ## Background: how skills work today
 
@@ -36,7 +36,10 @@ Every new skill follows the same rules as the existing six (Laser, Missiles, Min
   - Gravity Well pulls your ships at half strength.
   - Scramble lasts half as long.
   - Gravity Well and Scramble (anyone's) never affect the ship you fly, so you always keep control.
-  - The limits for batch 3 are listed with each skill below.
+  - Elites never use wrecks (they're your recruits). An elite's Wrecksplosion is a scrap charge at your ship: a ring warns for 0.8 s, then it blows up at half the wreck damage and 60% of the radius. Its Tractor Beam throws a lump of scrap from its side, at half damage.
+  - An elite's Force Wall is a straight wall built at once between it and you, 60% as long and lasting 60% as long.
+  - An elite's Cloaking lasts 60% as long, and you still see it faintly (its arrow and marker stay).
+  - An elite's Hijack takes over a quarter of the fleet value yours would, at most 3 of your ships, never the one you fly, for 60% of the time; they rejoin your fleet afterwards. Destroying one of them gives XP and maybe a wreck, like any enemy.
 - **Wreck skills hit harder** (the user's note). Wrecksplosion and Tractor Beam use up wrecks you could have recruited, so they do about twice the damage of other skills, and more for bigger wrecks.
 - **Targeting:**
   - "Closest to the cursor" means the enemy nearest the cursor position in the world.
@@ -130,7 +133,7 @@ The batches are ordered by how much new engine work they need:
   - If there's no wreck in range, the skill stays ready.
   - Cooldown 3.5 s.
 - **Upgrades:** count (+beams, so more wrecks thrown per cast, each at its own target if possible; the main upgrade), power (damage), rate (cooldown).
-- **Art:** `vfx.tractor-beam` (tiled beam), `vfx.wreck-impact`.
+- **Art:** `vfx.tractor-beam` (tiled beam). The impact uses the normal explosion.
 
 **Ion Cloud** (`ionCloud`)
 - **Behavior:** fires a cloud of 8 small glowing balls toward the cursor.
@@ -160,7 +163,7 @@ The batches are ordered by how much new engine work they need:
   - **Drawing:** while right click is held, a shimmering wall is drawn along the cursor's path. Drawing time is 0.6 s, and the length budget is 800 px per second of drawing time (480 px at rank 1).
   - **Early release:** if you let go before the time runs out, the wall finishes itself. It continues from its end along a circle centred on the ship (radius = the end's distance from the ship), in the direction it was being drawn, until the length budget is used.
   - **Lifetime:** the wall lasts 4 s.
-  - **Blocking:** enemy ships can't cross it and slide along it. Enemy shots and enemy skill effects that hit it are destroyed. Your ships and shots pass through.
+  - **Blocking:** enemy ships can't cross it and slide along it. Enemy shots, missiles and moving skill effects (crescents, beams, ion balls, thrown scrap) that hit it are destroyed. Instant beams (Laser) and arcs are not blocked. Your ships and shots pass through.
   - **Cooldown:** 6 s, starting when the wall is finished.
 - **Upgrades:** power (drawing time, and so the length budget; the main upgrade), rate (cooldown).
 - **Art:** `vfx.force-wall` (shimmering segment, tiled along the path), `vfx.force-wall-hit` (ripple where a shot is stopped).

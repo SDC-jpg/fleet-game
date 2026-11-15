@@ -192,6 +192,48 @@ export const SKILLS = {
     text: 'A wave of disruption in front of you: enemies it hits turn and fly at random for a while.',
     stats: { power: 'duration', rate: 'recharge', size: 'wave width' },
   },
+  // Batch 3. Left click:
+  wrecksplosion: {
+    name: 'Wrecksplosion',
+    enabled: true,
+    side: 'left',
+    icon: 'ui.skill.wrecksplosion',
+    text: 'Every wreck near the cursor blows up, hurting enemies around it. Uses up those wrecks, but hits hard.',
+    stats: { power: 'damage', rate: 'fire rate' },
+  },
+  tractorBeam: {
+    name: 'Tractor Beam',
+    enabled: true,
+    side: 'left',
+    icon: 'ui.skill.tractor-beam',
+    text: 'Grabs a nearby wreck and hurls it at the enemy nearest the cursor. Uses up the wreck, but hits hard.',
+    stats: { count: 'beam', power: 'damage', rate: 'fire rate' },
+  },
+  // Right click:
+  forceWall: {
+    name: 'Force Wall',
+    enabled: true,
+    side: 'right',
+    icon: 'ui.skill.force-wall',
+    text: 'Hold right click to draw a wall with the cursor. Enemies and their shots can\'t cross it.',
+    stats: { power: 'drawing time', rate: 'recharge' },
+  },
+  cloak: {
+    name: 'Cloaking',
+    enabled: true,
+    side: 'right',
+    icon: 'ui.skill.cloak',
+    text: 'Your fleet turns invisible for a moment. Enemies keep shooting where you were.',
+    stats: { power: 'duration', rate: 'recharge' },
+  },
+  hijack: {
+    name: 'Hijack',
+    enabled: true,
+    side: 'right',
+    icon: 'ui.skill.hijack',
+    text: 'A pulse turns nearby enemies (up to a total fleet value) against their allies for a while.',
+    stats: { power: 'fleet value', rate: 'recharge' },
+  },
 } satisfies Record<
   string,
   {
@@ -742,6 +784,86 @@ export const CONFIG = {
     scrambledSpeed: 0.6,
   },
 
+  /** Wrecksplosion skill: every wreck near the cursor blows up. It hits about twice as hard as other skills, as it uses up recruits. */
+  wrecksplosion: {
+    /** Seconds between uses (it stays ready while there's no wreck in reach). */
+    cooldown: 4,
+    /** Wrecks within this distance of the cursor blow up (tier 1; grows with ship size). */
+    radius: 300,
+    /** Blast radius of a tier-1 wreck (×1.5 per wreck tier above 1). */
+    blastRadius: 90,
+    /** Blast damage of a tier-1 wreck (×1.5 per wreck tier above 1, and grows with your ship's tier). */
+    damage: 16,
+    /** Each wreck tier above 1 multiplies blast size and damage by this. */
+    perWreckTier: 1.5,
+  },
+
+  /** Tractor Beam skill: hurls nearby wrecks at enemies. It hits about twice as hard as other skills, as it uses up recruits. */
+  tractorBeam: {
+    /** Seconds between uses (it stays ready while there's no wreck in reach). */
+    cooldown: 3.5,
+    /** How far from your ship it can grab a wreck (tier 1; grows with ship size). */
+    grabRange: 350,
+    /** Wrecks thrown per use (beam cards add more). */
+    beams: 1,
+    /** Seconds the beam holds the wreck while it speeds up. */
+    beamTime: 0.3,
+    /** Top speed of a thrown wreck. */
+    speed: 900,
+    /** How fast a thrown wreck turns toward its target (radians per second). */
+    turnRate: 3,
+    /** Seconds a thrown wreck flies before it breaks up. */
+    life: 2.5,
+    /** Damage to the enemy hit by a tier-1 wreck (×perWreckTier per wreck tier above 1, and grows with your ship's tier). */
+    damage: 20,
+    /** Enemies near the one hit take this share of the damage (0.5 = half). */
+    splash: 0.5,
+    /** Splash radius (tier 1). */
+    splashRadius: 50,
+  },
+
+  /** Force Wall skill (right click, hold): draw a wall with the cursor that enemies and their shots can't cross. */
+  forceWall: {
+    /** Seconds between walls (counted from when the wall is finished). */
+    cooldown: 6,
+    /** Seconds you can draw (drawing time cards add more). */
+    drawTime: 0.6,
+    /** Wall length you may draw per second of drawing time (tier 1). Letting go early, the wall finishes itself along a circle around your ship. */
+    lengthPerSecond: 800,
+    /** Seconds the finished wall lasts. */
+    life: 4,
+    /** Wall thickness for blocking (tier 1). */
+    thickness: 6,
+    /** Points along the wall are at least this far apart (smaller = smoother). */
+    step: 10,
+  },
+
+  /** Cloaking skill (right click): your fleet turns invisible; enemies keep aiming where your ships were. */
+  cloak: {
+    /** Seconds between cloaks. */
+    cooldown: 9,
+    /** Seconds the cloak lasts. */
+    duration: 3,
+    /** How far (game pixels) the starfield seen through a cloaked ship is shifted. */
+    refraction: 2,
+    /** How visible your own cloaked ships stay to you (0 = not at all, 1 = fully). */
+    ownAlpha: 0.3,
+  },
+
+  /** Hijack skill (right click): a pulse turns nearby enemies against their allies for a while. */
+  hijack: {
+    /** Seconds between pulses. */
+    cooldown: 8,
+    /** Fleet value (in tier-1 ships) it can take over, with a tier-1 ship. Grows ×12 per tier of your ship, like skill damage. */
+    value: 6,
+    /** How far the pulse reaches (tier 1; grows with ship size). */
+    radius: 400,
+    /** Seconds the pulse takes to reach its edge. */
+    pulseTime: 0.4,
+    /** Seconds hijacked ships fight on your side. */
+    duration: 5,
+  },
+
   /**
    * Particles (thrusters, missile trails...). Every emitter's settings, and the
    * defaults per kind of mount, are edited in ShipArt and saved in art.json.
@@ -949,6 +1071,24 @@ export const CONFIG = {
     wellPull: 0.5,
     /** Fairness: an elite's Scramble lasts this long compared to yours (the ship you fly is never scrambled). */
     scrambleDuration: 0.5,
+    /** Fairness: elites never use wrecks (they're your recruits). An elite's Wrecksplosion is a scrap charge at your ship, with a warning ring for this many seconds first. */
+    scrapWarning: 0.8,
+    /** Fairness: an elite's scrap (Wrecksplosion charge, Tractor Beam lump) does this share of the wreck skills' damage (they hit double to make up for using wrecks; elites use none). */
+    scrapDamage: 0.5,
+    /** Fairness: an elite's scrap charge blast radius compared to a wreck's. */
+    scrapRadius: 0.6,
+    /** Fairness: an elite's Force Wall lasts this long compared to yours, and is this much shorter. */
+    wallScale: 0.6,
+    /** Fairness: an elite's Cloaking lasts this long compared to yours, and you still see it faintly (its arrow stays). */
+    cloakDuration: 0.6,
+    /** Fairness: how visible a cloaked elite stays to you. */
+    cloakAlpha: 0.35,
+    /** Fairness: an elite's Hijack takes over this share of the fleet value yours would (never the ship you fly). */
+    hijackValue: 0.25,
+    /** Fairness: most of your ships an elite's Hijack takes over at once. */
+    hijackMaxShips: 3,
+    /** Fairness: your hijacked ships return to you after this share of the normal time. */
+    hijackDuration: 0.6,
     /** Drop odds: weight for "a wreck only". */
     dropWreckWeight: 40,
     /** Drop odds: weight for "an item only". */

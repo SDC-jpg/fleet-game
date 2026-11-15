@@ -14,6 +14,8 @@ export class Input {
   mouseX = 0;
   mouseY = 0;
   mouseDown = false;
+  /** Right mouse button held. */
+  rightDown = false;
   /** Cursor lock is switched on (the lock itself starts with a click on the game). */
   cursorLock = false;
   /** Called when the lock ends by itself (Esc, or switching windows), not when released with `unlock`. */
@@ -37,6 +39,7 @@ export class Input {
     this.listen(window, 'blur', () => {
       this.keys.clear();
       this.mouseDown = false;
+      this.rightDown = false;
     });
     this.listen(window, 'mousemove', (e) => {
       const ev = e as MouseEvent;
@@ -53,6 +56,7 @@ export class Input {
     this.listen(document, 'pointerlockchange', () => {
       if (this.locked) return;
       this.mouseDown = false;
+      this.rightDown = false;
       if (this.releasing) this.releasing = false;
       else {
         this.lockLostAt = performance.now();
@@ -64,10 +68,14 @@ export class Input {
       if (this.cursorLock && !this.locked) this.lock();
       if (button === 0) this.mouseDown = true;
       // Right-click counts as a press of "MouseRight" (read it with wasPressed).
-      if (button === 2) this.presses.set('MouseRight', Math.min((this.presses.get('MouseRight') ?? 0) + 1, 20));
+      if (button === 2) {
+        this.presses.set('MouseRight', Math.min((this.presses.get('MouseRight') ?? 0) + 1, 20));
+        this.rightDown = true;
+      }
     });
     this.listen(window, 'mouseup', (e) => {
       if ((e as MouseEvent).button === 0) this.mouseDown = false;
+      if ((e as MouseEvent).button === 2) this.rightDown = false;
     });
     this.listen(target, 'contextmenu', (e) => e.preventDefault());
   }

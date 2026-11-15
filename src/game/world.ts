@@ -64,6 +64,15 @@ export interface Ship {
   /** Scrambled: the random direction it's turning toward, and seconds until it picks another. */
   scrambleAngle: number;
   scrambleTimer: number;
+  /** Seconds left hijacked (Hijack skill): it fights for the other side meanwhile. */
+  hijacked: number;
+  /** The team it belonged to before it was hijacked (null = not hijacked). */
+  hijackedFrom: Team | null;
+  /**
+   * While its fleet is cloaked: a still copy of it where it was last seen.
+   * Enemies aim at this instead (see findNearestEnemy). null = not hidden.
+   */
+  ghost: Ship | null;
   /** Damage a Shield (skill) will still absorb, and seconds until it fades. */
   shield: number;
   shieldTime: number;
@@ -107,6 +116,8 @@ export interface Fleet {
   dashY: number;
   /** Set for a chevron of a swarm wave: it flies its own curving path (see updateEnemyLeader). */
   swarm: SwarmInfo | null;
+  /** Seconds left cloaked (Cloaking skill): enemies can't see its ships, only where they were. */
+  cloak: number;
 }
 
 /** A swarm chevron's path and shape. */
@@ -140,6 +151,7 @@ const newFleet = (team: Team): Fleet => ({
   dashX: 0,
   dashY: 0,
   swarm: null,
+  cloak: 0,
 });
 
 export interface Bullet {
@@ -381,6 +393,8 @@ export interface Controls {
   dash: boolean;
   /** Right click pressed this step: use your defence skills. */
   defend: boolean;
+  /** Right click held (Force Wall draws while it's held). */
+  defendHeld?: boolean;
 }
 
 export const typeOf = (ship: Ship): ShipType => SHIP_TYPES[ship.type];
@@ -529,6 +543,9 @@ function addShip(
     scrambled: 0,
     scrambleAngle: 0,
     scrambleTimer: 0,
+    hijacked: 0,
+    hijackedFrom: null,
+    ghost: null,
     shield: 0,
     shieldTime: 0,
     elite: null,
@@ -630,6 +647,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   updateSkills(state, controls, dt);
   updateEliteSkills(state, dt);
   updateScrambled(state, dt);
+  updateHijacked(state, dt);
   updateMerges(state, dt);
   separateShips(state, dt);
 
@@ -795,8 +813,10 @@ export interface FireArc {
 export function findNearestEnemy(state: GameState, ship: Ship, maxDist: number, arc?: FireArc): Ship | null {
   let best: Ship | null = null;
   let bestD = maxDist * maxDist;
-  for (const other of state.ships) {
-    if (other.team === ship.team || other.dead || other.merge) continue;
+  for (const real of state.ships) {
+    if (real.team === ship.team || real.dead || real.merge) continue;
+    // A cloaked ship can't be seen: aim at where it was last seen instead.
+    const other = real.ghost ?? real;
     const d = distSq(ship.x, ship.y, other.x, other.y);
     if (d >= bestD) continue;
     if (arc && Math.abs(wrapAngle(Math.atan2(other.y - ship.y, other.x - ship.x) - arc.center)) > arc.half) continue;
@@ -938,6 +958,51 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
   }
   aimAndShoot(state, ship, dt, Math.atan2(dy, dx));
   ship.thrust = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED ? 'move' : 'idle';
+}
+
+/**
+ * Hijack a ship for `duration` seconds: it leaves its fleet and fights alone for
+ * the other side (it flies at and shoots its old allies), then switches back.
+ */
+export function hijackShip(state: GameState, s: Ship, duration: number) {
+  if (s.hijacked > 0 || s.merge || s.dead) return;
+  const from = s.team;
+  leaveFleet(state, s);
+  // On its own, it flies and fights like a lone enemy fighter does (updateEnemyLeader).
+  const solo = newFleet('enemy');
+  solo.leader = s;
+  solo.members.push(s);
+  s.fleet = solo;
+  state.enemyFleets.push(solo);
+  s.team = from === 'player' ? 'enemy' : 'player';
+  s.hijackedFrom = from;
+  s.hijacked = duration;
+  s.ghost = null;
+}
+
+/** Take a ship out of its fleet (a new leader takes over if it was leading). */
+function leaveFleet(state: GameState, s: Ship) {
+  const fleet = s.fleet;
+  fleet.members = fleet.members.filter((m) => m !== s);
+  if (fleet.leader === s) fleet.leader = pickNewLeader(fleet, s);
+  if (fleet === state.playerFleet && fleet.leader) addSound(state, 'sfx.command', s, 1, 1, true);
+}
+
+/** Hijacked ships count down; when it ends they switch back (yours rejoin your fleet). */
+function updateHijacked(state: GameState, dt: number) {
+  for (const s of state.ships) {
+    if (s.hijacked <= 0 || s.dead) continue;
+    s.hijacked -= dt;
+    if (s.hijacked > 0) continue;
+    s.hijacked = 0;
+    s.team = s.hijackedFrom ?? s.team;
+    if (s.hijackedFrom === 'player' && !state.gameOver) {
+      leaveFleet(state, s);
+      s.fleet = state.playerFleet;
+      state.playerFleet.members.push(s);
+    }
+    s.hijackedFrom = null;
+  }
 }
 
 /**
@@ -1104,7 +1169,8 @@ function retargetMissile(state: GameState, b: Bullet): Ship | null {
   let bestN = Infinity;
   let bestD = Infinity;
   for (const s of state.ships) {
-    if (s.team === b.team || s.dead || s.merge) continue;
+    // Missiles can't lock onto cloaked ships.
+    if (s.team === b.team || s.dead || s.merge || s.ghost) continue;
     const d = distSq(b.x, b.y, s.x, s.y);
     if (d > range || Math.abs(wrapAngle(Math.atan2(s.y - b.y, s.x - b.x) - facing)) > half) continue;
     const n = onTarget.get(s) ?? 0;
@@ -1153,7 +1219,9 @@ function removeDeadShips(state: GameState) {
     if (!s.dead) continue;
     addEffect(state, 'vfx.explosion', s.x, s.y, Math.random() * Math.PI * 2, s.tier);
     addSound(state, 'sfx.explosion', s, s.tier);
-    if (s.team === 'enemy') {
+    // A hijacked ship still counts for the side it came from (yours: a loss; an enemy: XP and drops).
+    const wasEnemy = (s.hijackedFrom ?? s.team) === 'enemy';
+    if (wasEnemy) {
       state.stats.kills++;
       state.stats.killValue += tierValue(s.tier);
       const levels = state.pendingLevels;
@@ -1170,7 +1238,7 @@ function removeDeadShips(state: GameState) {
     }
     // Bigger enemies leave wrecks less often.
     // Your first kill of a run always leaves one.
-    const firstKill = s.team === 'enemy' && state.stats.kills === 1 && CONFIG.firstKillWreck;
+    const firstKill = wasEnemy && state.stats.kills === 1 && CONFIG.firstKillWreck;
     let wreckChance = firstKill ? 1 : CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
     let wreckTier = s.tier;
     if (s.elite) {
@@ -1181,7 +1249,7 @@ function removeDeadShips(state: GameState) {
       // Its wreck never lets you jump too far ahead of your biggest ship.
       wreckTier = Math.min(s.tier, state.maxTier + CONFIG.elite.wreckMaxTiersAbove);
     }
-    if (s.team === 'enemy' && Math.random() < wreckChance) {
+    if (wasEnemy && Math.random() < wreckChance) {
       state.wrecks.push({
         type: s.type,
         tier: wreckTier,

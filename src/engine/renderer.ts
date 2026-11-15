@@ -165,6 +165,43 @@ export class PixelRenderer {
     ctx.globalAlpha = 1;
   }
 
+  /** Scratch canvas for drawRefracted. */
+  private refractCanvas = document.createElement('canvas');
+
+  /**
+   * Draw a sprite as if it were glass: inside its silhouette, whatever is
+   * already drawn behind it shows through, shifted `shift` game pixels (the
+   * Cloaking skill). Draw the faint sprite itself on top for an outline.
+   */
+  drawRefracted(sprite: Sprite, x: number, y: number, angle: number, time = 0, shift = 2) {
+    const f = frameAt(sprite, time);
+    const ws = this.worldScale;
+    const size = Math.ceil(Math.hypot(f.w, f.h) * ws) + 4;
+    const c = this.refractCanvas;
+    if (c.width < size || c.height < size) {
+      c.width = Math.max(c.width, size);
+      c.height = Math.max(c.height, size);
+    }
+    const r = c.getContext('2d')!;
+    r.imageSmoothingEnabled = false;
+    const half = Math.round(size / 2);
+    const sx = Math.round((x - this.originX) * ws) - half;
+    const sy = Math.round((y - this.originY) * ws) - half;
+    r.setTransform(1, 0, 0, 1, 0, 0);
+    r.globalCompositeOperation = 'source-over';
+    r.clearRect(0, 0, size, size);
+    // What's behind, shifted, then cut to the sprite's shape.
+    const d = Math.round(shift * ws);
+    r.drawImage(this.buffer, sx + d, sy + Math.round(d / 2), size, size, 0, 0, size, size);
+    r.globalCompositeOperation = 'destination-in';
+    r.setTransform(ws, 0, 0, ws, half, half);
+    if (angle !== 0) r.rotate(angle);
+    r.drawImage(f.image, f.sx, f.sy, f.w, f.h, -sprite.anchorX, -sprite.anchorY, f.w, f.h);
+    r.setTransform(1, 0, 0, 1, 0, 0);
+    r.globalCompositeOperation = 'source-over';
+    this.ctx.drawImage(c, 0, 0, size, size, sx, sy, size, size);
+  }
+
   /**
    * Draw a ship-like sprite turned to `angle`. In 'rotsprite' mode it uses a
    * RotSprite copy for the nearest angle step; otherwise it's drawSprite.

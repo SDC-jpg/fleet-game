@@ -335,6 +335,7 @@ export class Game {
       boost: i.isDown('ShiftLeft', 'ShiftRight'),
       dash: i.wasPressed('Space'),
       defend: i.wasPressed('MouseRight'),
+      defendHeld: i.rightDown,
     };
   }
 

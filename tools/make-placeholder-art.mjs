@@ -950,6 +950,91 @@ function scrambledSheet() {
   return sheet;
 }
 
+// Ring (Wrecksplosion reach, an elite's scrap charge warning): a thin dashed sky blue
+// circle (128 px = radius 64; the game scales it). 4 frames, plays once (fading).
+function ringSheet(S = 128) {
+  const F = 4, c = S / 2, R = c - 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++)
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+        const a = Math.atan2(y + 0.5 - c, x + 0.5 - c);
+        if (Math.abs(d - R) < 1 && Math.floor((a + Math.PI) * 24) % 2 === 0) sheet.set(f * S + x, y, hex(f < 2 ? '#7ecff2' : '#41a6d9', 255 - f * 50));
+      }
+  return sheet;
+}
+
+// Tractor beam segment: pale dashed rungs between sky blue rails, repeated along the beam. 2 frames, looping.
+function tractorSegment() {
+  const W = 8, H = 8, F = 2;
+  const sheet = new Img(W * F, H);
+  for (let f = 0; f < F; f++)
+    for (let x = 0; x < W; x++) {
+      sheet.set(f * W + x, 1, hex('#41a6d9'));
+      sheet.set(f * W + x, 6, hex('#41a6d9'));
+      if ((x + f * 4) % 8 < 2) for (let y = 2; y < 6; y++) sheet.set(f * W + x, y, hex('#dff6ff', 200));
+    }
+  return sheet;
+}
+
+// Force wall segment: a shimmering band (white core, sky blue glow). 3 frames, looping shimmer.
+function forceWallSegment() {
+  const W = 10, H = 8, F = 3;
+  const sheet = new Img(W * F, H);
+  for (let f = 0; f < F; f++)
+    for (let x = 0; x < W; x++)
+      for (let y = 0; y < H; y++) {
+        const d = Math.abs(y - (H - 1) / 2);
+        const shine = (x + f * 3) % 10 < 3;
+        if (d < 1) sheet.set(f * W + x, y, hex('#ffffff'));
+        else if (d < 2.5) sheet.set(f * W + x, y, hex(shine ? '#dff6ff' : '#7ecff2', 220));
+        else if (d < 4) sheet.set(f * W + x, y, hex('#41a6d9', 120));
+      }
+  return sheet;
+}
+
+// Force wall hit: a small ripple where a shot is stopped. 4 frames, plays once.
+function wallHitSheet(S = 16) {
+  const F = 4, c = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++)
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++)
+        if (Math.abs(Math.hypot(x + 0.5 - c, y + 0.5 - c) - (2 + f * 1.8)) < 0.7) sheet.set(f * S + x, y, hex(f < 2 ? '#ffffff' : '#7ecff2'));
+  return sheet;
+}
+
+// Cloak shimmer: a ring of sparkles that spreads and fades as a fleet vanishes (or a ship is hijacked). 6 frames, plays once.
+function cloakSheet(S = 48) {
+  const F = 6, c = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const R = 6 + f * 3;
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2 + f * 0.2;
+      const x = Math.round(c + Math.cos(a) * R), y = Math.round(c + Math.sin(a) * R);
+      if (x >= 0 && y >= 0 && x < S && y < S && (i + f) % 3) sheet.set(f * S + x, y, hex(i % 2 ? '#ffffff' : '#7ecff2'));
+    }
+  }
+  return sheet;
+}
+
+// Hijack pulse: a wavy sky blue ring (256 px = radius 128; the game grows it as the pulse spreads).
+function hijackPulseRing(S = 256) {
+  const img = new Img(S, S);
+  const c = S / 2, R = c - 4;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const dx = x + 0.5 - c, dy = y + 0.5 - c;
+      const wave = R + Math.sin(Math.atan2(dy, dx) * 12) * 2.5;
+      const d = Math.abs(Math.hypot(dx, dy) - wave);
+      if (d < 1) img.set(x, y, hex('#ffffff'));
+      else if (d < 2.2) img.set(x, y, hex('#41a6d9'));
+    }
+  return img;
+}
+
 // Skill and card icons (16×16, flat shapes with a dark outline).
 function icon16(draw) {
   const img = new Img(16, 16);
@@ -1053,6 +1138,38 @@ const SKILL_ICONS = {
       rect(img, x0, y, 3, 1, hex(y % 3 ? '#41a6d9' : '#ffffff'));
     }
     rect(img, 1, 6, 3, 4, hex('#ffd34a'));
+  },
+  wrecksplosion: (img) => {
+    fillPolygon(img, [[2, 10], [6, 6], [10, 8], [13, 4], [14, 12], [5, 14]], () => hex('#6b6f78'));
+    for (const [x, y, r] of [[6, 5, 2.6], [11, 6, 2], [9, 3, 1.5]]) disc(img, x, y, r, hex('#ffb347'));
+    disc(img, 7, 5, 1.2, hex('#ffffff'));
+  },
+  'tractor-beam': (img) => {
+    rect(img, 1, 6, 3, 4, hex('#8a93a6'));
+    for (let x = 4; x < 11; x++) {
+      img.set(x, 6, hex('#41a6d9'));
+      img.set(x, 9, hex('#41a6d9'));
+      if (x % 2) for (let y = 7; y < 9; y++) img.set(x, y, hex('#dff6ff'));
+    }
+    fillPolygon(img, [[11, 5], [15, 6], [14.5, 11], [11, 11]], () => hex('#6b6f78'));
+  },
+  'force-wall': (img) => {
+    for (let y = 1; y < 15; y++) {
+      const x = Math.round(7 + Math.sin(y * 0.45) * 3);
+      rect(img, x, y, 3, 1, hex('#7ecff2'));
+      img.set(x + 1, y, hex('#ffffff'));
+    }
+    rect(img, 1, 7, 3, 2, hex('#ff6b5a'));
+  },
+  cloak: (img) => {
+    fillPolygon(img, [[2, 4], [13, 8], [2, 12], [5, 8]], () => hex('#2a3248'));
+    for (const [x, y] of [[3, 4], [6, 6], [10, 7], [6, 10], [3, 11], [12, 8]]) img.set(x, y, hex('#dff6ff'));
+  },
+  hijack: (img) => {
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) if (Math.abs(Math.hypot(x + 0.5 - 8, y + 0.5 - 8) - 6.5) < 0.7) img.set(x, y, hex('#41a6d9'));
+    fillPolygon(img, [[5, 5], [11, 8], [5, 11]], () => hex('#ff6b5a'));
+    rect(img, 9, 7, 3, 2, hex('#41a6d9'));
   },
   'card-damage': (img) => {
     fillPolygon(img, [[8, 0.5], [10, 6], [15.5, 6], [11, 9.5], [13, 15.5], [8, 11.5], [3, 15.5], [5, 9.5], [0.5, 6], [6, 6]], () => hex('#ff7a3c'));
@@ -1279,6 +1396,13 @@ const FILES = {
   'vfx/gravity-well.png': () => gravityWellSheet(256),
   'vfx/scramble-wave.png': scrambleWaveSheet,
   'vfx/scrambled.png': scrambledSheet,
+  'vfx/wreck-blast.png': () => explosionSheet(184),
+  'vfx/wreck-radius.png': () => ringSheet(128),
+  'vfx/tractor-beam.png': tractorSegment,
+  'vfx/force-wall.png': forceWallSegment,
+  'vfx/force-wall-hit.png': () => wallHitSheet(16),
+  'vfx/cloak.png': () => cloakSheet(48),
+  'vfx/hijack-pulse.png': () => hijackPulseRing(256),
   ...Object.fromEntries(Object.entries(SKILL_ICONS).map(([name, draw]) => [`ui/${name.startsWith('card') ? name : 'skill-' + name}.png`, () => icon16(draw)])),
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,

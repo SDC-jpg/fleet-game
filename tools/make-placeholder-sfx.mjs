@@ -390,6 +390,50 @@ function scramble() {
   });
 }
 
+/** Wrecksplosion: a heavy, crunchy blast with metal debris rattling. */
+function wrecksplosion() {
+  const r = rng(113);
+  const lp = lowpass();
+  const boom = oscillator('sine');
+  return render(0.8, (t, k) => {
+    const noise = lp(r() * 2 - 1, sweep(4000, 200, k)) * decay(t, 5, 0.002);
+    const rattle = (r() < 0.08 ? r() * 2 - 1 : 0) * decay(t, 8) * 0.6;
+    return noise * 0.8 + boom(sweep(90, 35, k)) * decay(t, 6) * 0.8 + rattle;
+  });
+}
+
+/** Tractor beam: a rising hum, like a beam taking hold. */
+function tractorBeam() {
+  const a = oscillator('triangle'), b = oscillator('sine');
+  return render(0.45, (t, k) => (a(sweep(200, 600, k)) * 0.5 + b(sweep(400, 1200, k)) * 0.3) * (0.7 + 0.3 * Math.sin(t * 2 * Math.PI * 30)) * decay(t, 4, 0.03));
+}
+
+/** Force wall: a glassy shimmer swelling up. */
+function forceWall() {
+  const a = oscillator('sine'), b = oscillator('sine');
+  return render(0.5, (t, k) => (a(1200) + b(1800 + 40 * Math.sin(t * 60))) * 0.3 * Math.min(1, t / 0.1) * Math.exp(-t * 5));
+}
+
+/** A shot stopped by a force wall: a short glassy "tink". */
+function forceWallHit() {
+  const a = oscillator('sine');
+  return render(0.12, (t) => a(2600) * decay(t, 35));
+}
+
+/** Cloak: a breathy falling whoosh that fades to nothing. */
+function cloak() {
+  const r = rng(127);
+  const lp = lowpass();
+  return render(0.6, (t, k) => lp(r() * 2 - 1, sweep(5000, 300, k)) * Math.min(1, t / 0.05) * (1 - k) * 0.7);
+}
+
+/** Hijack: a wobbling, warbly pulse. */
+function hijack() {
+  const a = oscillator('square');
+  const lp = lowpass();
+  return render(0.55, (t, k) => lp(a(sweep(300, 700, k) * (1 + 0.15 * Math.sin(t * 2 * Math.PI * 14))), 1800) * decay(t, 4, 0.01) * 0.6);
+}
+
 function command() {
   const osc = oscillator('triangle');
   const notes = [523, 392, 659];
@@ -448,6 +492,12 @@ const FILES = {
   'pod-shot.wav': podShot,
   'gravity-well.wav': gravityWell,
   'scramble.wav': scramble,
+  'wrecksplosion.wav': wrecksplosion,
+  'tractor-beam.wav': tractorBeam,
+  'force-wall.wav': forceWall,
+  'force-wall-hit.wav': forceWallHit,
+  'cloak.wav': cloak,
+  'hijack.wav': hijack,
   'command.wav': command,
   'gameover.wav': gameOver,
 };

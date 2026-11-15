@@ -118,7 +118,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, b.angle, 'beam', b.team, b.age, 1, false);
   }
 
-  drawSkillObjects(state, r, assets);
+  drawSkillObjects(state, r, assets, extras);
 
   for (const b of state.bullets) {
     const name = tierSprite(assets, b.sprite, b.tier);
@@ -153,7 +153,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
 }
 
 /** What the newer skills left in the world (see moreSkills.ts), each drawn from its own art. */
-function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets) {
+function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets, extras: ArtExtras) {
   for (const o of state.skillObjs) {
     switch (o.kind) {
       case 'crescent': {
@@ -208,6 +208,44 @@ function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets) {
         r.drawSprite(teamSprite(assets, 'vfx.scramble-wave', o.team), o.x, o.y, o.angle, state.time, alpha, false, o.scale);
         break;
       }
+      case 'thrown': {
+        // The tractor beam holds it while it speeds up; then the wreck flies on its own.
+        const ship = o.owner;
+        if (ship && !ship.dead && o.age < CONFIG.tractorBeam.beamTime) {
+          const len = Math.hypot(o.x - ship.x, o.y - ship.y);
+          drawBeam(r, teamSprite(assets, 'vfx.tractor-beam', o.team), ship.x, ship.y, Math.atan2(o.y - ship.y, o.x - ship.x), len, o.scale, state.time);
+        }
+        const w = o.wreck;
+        if (w) {
+          const name = tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
+          drawLayoutArt(r, assets, extras.layouts.objects[name], name, o.x, o.y, w.angle, 'drifting', 'player', state.time);
+        }
+        break;
+      }
+      case 'scrap': {
+        // An elite's scrap charge: a flickering ring where it will blow up.
+        const sprite = teamSprite(assets, 'vfx.wreck-radius', o.team);
+        if (Math.floor(o.age * 10) % 2 === 0) r.drawSprite(sprite, o.x, o.y, 0, 0, 1, false, o.radius / (sprite.frames[0].w / 2));
+        break;
+      }
+      case 'wall': {
+        // One shimmering segment image repeated along each stretch of the wall; it fades in its last half second.
+        const pts = o.points ?? [];
+        const alpha = clamp((o.life - o.age) / 0.5, 0, 1);
+        const seg = teamSprite(assets, 'vfx.force-wall', o.team);
+        for (let i = 0; i + 1 < pts.length; i++) {
+          const a = pts[i];
+          const b = pts[i + 1];
+          const angle = Math.atan2(b.y - a.y, b.x - a.x);
+          r.drawSprite(seg, (a.x + b.x) / 2, (a.y + b.y) / 2, angle, state.time + i * 0.07, alpha, false, Math.max(o.scale, Math.hypot(b.x - a.x, b.y - a.y) / seg.frames[0].w));
+        }
+        break;
+      }
+      case 'hijackPulse': {
+        const sprite = teamSprite(assets, 'vfx.hijack-pulse', o.team);
+        r.drawSprite(sprite, o.x, o.y, 0, o.age, 1 - o.age / o.life, false, Math.max(0.05, o.radius / (sprite.frames[0].w / 2)));
+        break;
+      }
     }
   }
 }
@@ -236,7 +274,17 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
     const core = s.merge.core;
     alpha = clamp(Math.hypot(core.x - s.x, core.y - s.y) / (core.stats.radius * 2), 0.3, 1);
   }
-  drawLayoutArt(r, assets, layouts.ships[base], base, s.x, s.y, s.angle, s.thrust, s.team, time, alpha);
+  const layout = layouts.ships[base];
+  if (s.ghost) {
+    // Cloaked: the stars behind show through it, slightly shifted, like glass; the ship itself is faint
+    // (yours so you can still follow them, an elite's so it stays fair).
+    const file = layout?.base[s.thrust] ?? layout?.base.idle;
+    r.drawRefracted(assets.get(file ? fileSprite(file) : base), s.x, s.y, s.angle, time, CONFIG.cloak.refraction);
+    alpha *= s.team === 'player' ? CONFIG.cloak.ownAlpha : CONFIG.elite.cloakAlpha;
+  }
+  // A hijacked ship flickers in its last second before it switches back.
+  if (s.hijacked > 0 && s.hijacked < 1 && Math.floor(s.hijacked * 10) % 2) alpha *= 0.4;
+  drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, s.team, time, alpha);
   const maxHp = s.stats.maxHp;
   if (s.hp < maxHp) {
     const w = Math.round(16 * s.stats.size);
