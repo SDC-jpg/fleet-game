@@ -4,8 +4,8 @@
 
 import { forwardRef } from 'react';
 
-export const MergeToggle = forwardRef<HTMLButtonElement, { open: boolean; onToggle: () => void; style?: React.CSSProperties }>(
-  function MergeToggle({ open, onToggle, style }, ref) {
+export const MergeToggle = forwardRef<HTMLButtonElement, { name: string; open: boolean; onToggle: () => void; style?: React.CSSProperties }>(
+  function MergeToggle({ name, open, onToggle, style }, ref) {
     return (
       <button
         ref={ref}
@@ -15,9 +15,9 @@ export const MergeToggle = forwardRef<HTMLButtonElement, { open: boolean; onTogg
           onToggle();
           e.currentTarget.blur();
         }}
-        title="Merge Module: merge 3 items of the same rarity into a better one"
+        title={`${name}: merge 3 items of the same rarity into a better one`}
       >
-        Merge Module
+        {name}
       </button>
     );
   },

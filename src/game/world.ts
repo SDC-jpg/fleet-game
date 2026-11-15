@@ -6,7 +6,7 @@ import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyFleetValue, xpToNextLevel } from './curves';
 import { drawCards, gainXp } from './progress';
-import { dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type QolDrop } from './equipment';
+import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 import type { SkillObj } from './moreSkills';
 
@@ -347,8 +347,12 @@ export interface GameState {
   /** The last item picked up, and when (for a short message on screen). */
   /** Items picked up in every run so far (saved): enough of them brings the Merge Module. */
   looted: number;
-  /** You have the Merge Module (saved): merge 3 items into a better one on the equipment screen. */
-  mergeModule: boolean;
+  /** Your Merge Module (saved): 0 = none, 1 = Merge Module, 2–4 = Merge Mk. II–IV (Load, QuickMerge, AutoMerge). */
+  mergeLevel: number;
+  /** Rarities QuickMerge and AutoMerge may use (saved; set in the module's settings, Mk. III and up). */
+  mergeAllow: Rarity[];
+  /** AutoMerge is switched on (saved; Mk. IV). */
+  autoMerge: boolean;
   /** A quality-of-life drop just picked up (the game opens its screen, then clears this). */
   unlocked: QolDrop | null;
   found: { item: Item; time: number } | null;
@@ -488,7 +492,9 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     loot: [],
     found: null,
     looted: 0,
-    mergeModule: false,
+    mergeLevel: 0,
+    mergeAllow: defaultMergeAllow(),
+    autoMerge: false,
     unlocked: null,
     beams: [],
     mines: [],

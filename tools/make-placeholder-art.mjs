@@ -1286,7 +1286,8 @@ function lootCrateHolo() {
 }
 
 // Merge Module drop: a small green circuit board with gold pins and a white pulsing ring. 4 looping frames.
-function mergeModuleLoot() {
+// Merge Module upgrades (Mk. II–IV) use the same picture with a ring in their rarity's colour.
+function mergeModuleLoot(ring = '#f4f8ff') {
   const S = 24, F = 4;
   const sheet = new Img(S * F, S);
   for (let f = 0; f < F; f++) {
@@ -1295,7 +1296,7 @@ function mergeModuleLoot() {
     for (let y = 0; y < S; y++)
       for (let x = 0; x < S; x++) {
         const d = Math.hypot(x + 0.5 - S / 2, y + 0.5 - S / 2);
-        if (Math.abs(d - glow) < 0.8) frame.set(x, y, hex('#f4f8ff'));
+        if (Math.abs(d - glow) < 0.8) frame.set(x, y, hex(ring));
       }
     rect(frame, 7, 7, 10, 10, hex('#2f8a4a'));
     for (let i = 0; i < 3; i++) {
@@ -1362,7 +1363,10 @@ const FILES = {
   'ui/loot-epic.png': () => lootCrate('#ffd34a'),
   'ui/loot-legendary.png': () => lootCrate('#e0484a'),
   'ui/loot-mythic.png': lootCrateHolo,
-  'ui/loot-merge-module.png': mergeModuleLoot,
+  'ui/loot-merge-module.png': () => mergeModuleLoot(),
+  'ui/loot-merge-module-2.png': () => mergeModuleLoot('#6fe07a'),
+  'ui/loot-merge-module-3.png': () => mergeModuleLoot('#4aa8ff'),
+  'ui/loot-merge-module-4.png': () => mergeModuleLoot('#c890ff'),
   'vfx/shimmer.png': shimmerSheet,
   'ui/cursor.png': cursorCross,
   ...Object.fromEntries(Object.entries(ITEM_ICONS).map(([name, draw]) => [`ui/item-${name}.png`, () => icon16(draw)])),

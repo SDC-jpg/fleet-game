@@ -50,7 +50,9 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   // or a quality-of-life drop like the Merge Module (never disappears).
   for (const l of state.loot) {
     const blinking = l.life < CONFIG.wreckBlinkTime && Math.floor(l.life * 6) % 2 === 0;
-    const sprite = l.qol ? `ui.loot.${l.qol}` : `ui.loot.${l.item?.rarity}`;
+    // Merge Module upgrades (Mk. II–IV) have their own look: ui.loot.merge-module-2 and up.
+    const qol = l.qol && (l.level ?? 1) > 1 ? `${l.qol}-${l.level}` : l.qol;
+    const sprite = qol ? `ui.loot.${qol}` : `ui.loot.${l.item?.rarity}`;
     r.drawSprite(assets.get(sprite), l.x, l.y, 0, state.time, blinking ? 0.35 : 1, true);
   }
 

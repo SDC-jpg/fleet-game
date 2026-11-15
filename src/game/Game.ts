@@ -13,7 +13,7 @@ import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { clearEquipment, loadEquipment, saveEquipment } from './save';
 import { recordRun, type RunRecord } from './runLog';
-import { describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item } from './equipment';
+import { MAX_MERGE_LEVEL, MERGE_LEVELS, autoMerge, describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item } from './equipment';
 import { rarityTier, rollRarity } from './rarity';
 import { cooldownOf } from './skills';
 import { Particles } from './particles';
@@ -143,6 +143,17 @@ export interface EquipmentInfo {
   gearscore: number;
   /** You have the Merge Module (its button and drawer show). */
   mergeModule: boolean;
+  /** Its level: 1 = Merge Module, 2 = Mk. II (Load), 3 = Mk. III (QuickMerge), 4 = Mk. IV (AutoMerge). */
+  mergeLevel: number;
+  /** What it's called ("Merge Mk. II"). */
+  mergeName: string;
+  /** Rarities QuickMerge and AutoMerge may use. */
+  mergeAllow: Rarity[];
+  /** AutoMerge is on, and how far along the next one is (0–1). */
+  autoMerge: boolean;
+  autoProgress: number;
+  /** The item the last AutoMerge made, if any. */
+  autoMade: ItemInfo | null;
   /** Goes up when the merge drawer should open by itself (just after picking up the Merge Module). */
   openMerge: number;
 }
@@ -161,6 +172,8 @@ export class Game {
   private onHud: (hud: HudInfo) => void;
   private stopLoop: (() => void) | null = null;
   private hudTimer = 0;
+  /** AutoMerge: seconds into the current countdown, and the item the last one made. */
+  private autoMergeState: { time: number; made: Item | null } = { time: 0, made: null };
   private fps = 0;
   private fpsFrames = 0;
   private fpsStart = performance.now();
@@ -304,6 +317,46 @@ export class Game {
     return item ? itemInfo(this.state, item) : null;
   }
 
+  /** Merge Mk. III settings: which rarities QuickMerge and AutoMerge may use. */
+  setMergeAllow(rarities: Rarity[]) {
+    this.state.mergeAllow = rarities;
+    this.state.equipmentChanged = true;
+    this.saveIfChanged();
+    this.sendHud();
+  }
+
+  /** Merge Mk. IV: switch AutoMerge on or off (it starts a fresh countdown). */
+  setAutoMerge(on: boolean) {
+    this.state.autoMerge = on;
+    this.autoMergeState.time = 0;
+    this.state.equipmentChanged = true;
+    this.saveIfChanged();
+    this.sendHud();
+  }
+
+  /**
+   * AutoMerge (Mk. IV): while on, a countdown runs (in real time, also while
+   * paused); each time it fills up, the lowest-rarity allowed set is merged.
+   */
+  private tickAutoMerge(dt: number) {
+    const s = this.state;
+    const a = this.autoMergeState;
+    if (!s.autoMerge || s.mergeLevel < MAX_MERGE_LEVEL) {
+      a.time = 0;
+      return;
+    }
+    a.time += dt;
+    if (a.time < CONFIG.items.autoMergeEvery) return;
+    a.time = 0;
+    const made = autoMerge(s);
+    if (!made) return;
+    a.made = made;
+    updateBonuses(s);
+    this.playQueuedSounds();
+    this.saveIfChanged();
+    this.sendHud();
+  }
+
   /** Equipment screen: take an item out of its slot. */
   unequipItem(id: number) {
     unequip(this.state, id);
@@ -342,6 +395,7 @@ export class Game {
 
   private update(dt: number) {
     const i = this.input;
+    this.tickAutoMerge(dt);
     if (this.state.gameOver && i.isDown('KeyR')) this.restart();
     if (i.wasPressed('KeyM')) this.toggleSound();
     if (i.wasPressed('KeyQ')) this.autoFire = !this.autoFire;
@@ -442,10 +496,12 @@ export class Game {
       const rarity = rollRarity({ common: 1, uncommon: 1, superior: 1, rare: 1, epic: 1, legendary: 1, mythic: 1 });
       if (f) for (let n = 0; n < 3; n++) s.loot.push({ item: rollItem(s, { rarity }), x: f.x + 60 + n * 25, y: f.y - 40, vx: 0, vy: 0, life: 40 });
     }
-    // Drop the Merge Module next to you (normally it drops after looting CONFIG.items.mergeModuleAfter items).
+    // Drop the next Merge Module upgrade next to you (normally they drop after looting enough items; see CONFIG.items).
     if (i.wasPressed('KeyY')) {
       const f = controlledShip(s);
-      if (f && !s.loot.some((l) => l.qol)) s.loot.push({ qol: 'merge-module', x: f.x + 120, y: f.y + 60, vx: 0, vy: 0, life: Infinity });
+      const level = s.mergeLevel + 1;
+      if (f && level <= MAX_MERGE_LEVEL && !s.loot.some((l) => l.qol))
+        s.loot.push({ qol: 'merge-module', level, x: f.x + 120, y: f.y + 60, vx: 0, vy: 0, life: Infinity });
     }
     if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
     if (i.wasPressed('KeyH')) testSpawnSwarm(s, this.spawnDistance());
@@ -597,7 +653,7 @@ export class Game {
         total: cooldownOf(st, sk),
       })),
       cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
-      equipment: this.paused ? equipmentInfo(st, this.openMerge) : null,
+      equipment: this.paused ? equipmentInfo(st, this.openMerge, this.autoMergeState) : null,
       found: st.found && st.time - st.found.time < 3 ? itemInfo(st, st.found.item) : null,
       eliteAlert: st.time - st.eliteAlertTime < 3,
       swarmAlert: st.time - st.swarmAlertTime < CONFIG.swarm.alertSeconds,
@@ -641,7 +697,7 @@ function itemInfo(state: GameState, it: Item): ItemInfo {
 }
 
 /** Everything the equipment screen needs. */
-function equipmentInfo(state: GameState, openMerge: number): EquipmentInfo {
+function equipmentInfo(state: GameState, openMerge: number, auto: { time: number; made: Item | null }): EquipmentInfo {
   const byId = new Map(state.items.map((it) => [it.id, it]));
   const slots = state.slots.map((id, i) => {
     const it = id === null ? undefined : byId.get(id);
@@ -656,7 +712,13 @@ function equipmentInfo(state: GameState, openMerge: number): EquipmentInfo {
     inventory,
     totals,
     gearscore: gearscore(state),
-    mergeModule: state.mergeModule,
+    mergeModule: state.mergeLevel > 0,
+    mergeLevel: state.mergeLevel,
+    mergeName: MERGE_LEVELS[state.mergeLevel]?.name ?? '',
+    mergeAllow: state.mergeAllow,
+    autoMerge: state.autoMerge && state.mergeLevel >= MAX_MERGE_LEVEL,
+    autoProgress: auto.time / CONFIG.items.autoMergeEvery,
+    autoMade: auto.made ? itemInfo(state, auto.made) : null,
     openMerge,
   };
 }

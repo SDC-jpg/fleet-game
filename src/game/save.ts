@@ -4,7 +4,7 @@
 // version that changes gameplay can start everyone fresh.
 
 import { CONFIG } from './config';
-import { gearscore, unlockSlots, updateBonuses, type Item } from './equipment';
+import { MAX_MERGE_LEVEL, defaultMergeAllow, gearscore, unlockSlots, updateBonuses, type Item } from './equipment';
 import { RARITY_ORDER, type Rarity } from './rarity';
 import type { GameState } from './world';
 
@@ -38,7 +38,14 @@ interface SavedEquipment {
   unlockedTier: number;
   /** Items picked up in every run so far. */
   looted?: number;
+  /** Has the Merge Module (older saves only have this). */
   mergeModule?: boolean;
+  /** Merge Module level: 1 = Merge Module, 2–4 = Mk. II–IV. */
+  mergeLevel?: number;
+  /** Rarities QuickMerge and AutoMerge may use. */
+  mergeAllow?: Rarity[];
+  /** AutoMerge switched on. */
+  autoMerge?: boolean;
   /** Gearscore of the equipped items when saved (older saves don't have it; it's worked out again on load anyway). */
   gearscore?: number;
 }
@@ -67,7 +74,10 @@ export function saveEquipment(state: GameState) {
     slots: state.slots,
     unlockedTier: state.unlockedTier,
     looted: state.looted,
-    mergeModule: state.mergeModule,
+    mergeModule: state.mergeLevel > 0,
+    mergeLevel: state.mergeLevel,
+    mergeAllow: state.mergeAllow,
+    autoMerge: state.autoMerge,
     gearscore: gearscore(state),
   };
   try {
@@ -92,7 +102,9 @@ export function clearEquipment(state: GameState) {
   state.slots = state.slots.map(() => null);
   state.unlockedTier = 1;
   state.looted = 0;
-  state.mergeModule = false;
+  state.mergeLevel = 0;
+  state.mergeAllow = defaultMergeAllow();
+  state.autoMerge = false;
   state.found = null;
   // Slots of tiers reached in this run open again, as they would have anyway.
   unlockSlots(state);
@@ -114,7 +126,10 @@ export function loadEquipment(state: GameState) {
   if (!keepsSaveFrom(data.build) || !Array.isArray(data.items) || !Array.isArray(data.slots)) return;
   state.items = data.items.filter((it) => RARITY_ORDER.includes(it.rarity));
   state.looted = Math.max(0, data.looted ?? 0);
-  state.mergeModule = !!data.mergeModule;
+  // Saves from before Merge Mk. II only say whether you had the Merge Module.
+  state.mergeLevel = Math.min(MAX_MERGE_LEVEL, Math.max(0, data.mergeLevel ?? (data.mergeModule ? 1 : 0)));
+  if (Array.isArray(data.mergeAllow)) state.mergeAllow = data.mergeAllow.filter((r) => RARITY_ORDER.includes(r));
+  state.autoMerge = !!data.autoMerge;
   const ids = new Set(state.items.map((it) => it.id));
   // Keep the slot layout (ignoring anything that doesn't match an item).
   state.slots = state.slots.map((_, i) => {

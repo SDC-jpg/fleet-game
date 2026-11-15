@@ -9,7 +9,8 @@
 // With the Merge Module, a button opens the merge drawer on the left. While
 // it's open, equipped slots are locked; right-click (or drag) inventory items
 // into its 3 slots; once one is in, items that can't join it (another rarity
-// or "+N") are dimmed and locked.
+// or "+N") are dimmed and locked. Merge Mk. II–IV add Load, QuickMerge and
+// AutoMerge (see merge/MergeDrawer.tsx).
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -24,6 +25,7 @@ import { MergeDrawer } from './merge/MergeDrawer';
 import { MergeToggle } from './merge/MergeToggle';
 import { CircuitLines, type Box } from './merge/CircuitLines';
 import { useMergeSlots } from './merge/useMergeSlots';
+import { MERGE_COUNT, pickMergeSet } from './game/equipment';
 
 /** Size of the ring area, and of the oval the slot groups sit on (pixels). */
 const RING_W = 640;
@@ -85,6 +87,20 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
     setMergeOpen(true);
   }, [openMerge]);
 
+  // AutoMerge (Mk. IV) works on its own: hand-placed items leave the slots while it's on.
+  const autoOn = !!eq?.autoMerge;
+  const hasPlaced = merge.slots.some((s) => s);
+  useEffect(() => {
+    if (autoOn && hasPlaced) merge.clear();
+  }, [autoOn, hasPlaced, merge]);
+  // Show what AutoMerge made last, like a merge made by hand.
+  const autoMadeId = eq?.autoMade?.id;
+  useEffect(() => {
+    if (autoMadeId !== undefined) setMade(eq?.autoMade ?? null);
+    // Only when AutoMerge makes something new.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoMadeId]);
+
   const toggleMerge = () => {
     if (mergeOpen) merge.clear();
     setMergeOpen(!mergeOpen);
@@ -99,14 +115,14 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
       const slotEl = el?.closest('[data-slot]');
       if (mergeOpen) {
         // Only the merge slots take items while merging (equipped slots are locked).
-        if (mergeEl && drag.from === 'inventory') merge.place(drag.item, Number(mergeEl.getAttribute('data-merge-slot')));
+        if (mergeEl && drag.from === 'inventory' && !autoOn) merge.place(drag.item, Number(mergeEl.getAttribute('data-merge-slot')));
       } else if (slotEl) game?.equipItem(drag.item.id, Number(slotEl.getAttribute('data-slot')));
       else if (el?.closest('.inventory') && drag.from !== 'inventory') game?.unequipItem(drag.item.id);
       setDrag(null);
     };
     window.addEventListener('mouseup', onUp);
     return () => window.removeEventListener('mouseup', onUp);
-  }, [drag, game, mergeOpen, merge]);
+  }, [drag, game, mergeOpen, merge, autoOn]);
 
   // Measure where the button, inventory and drawer are, for the circuit lines and the button's place.
   const panelRef = useRef<HTMLDivElement>(null);
@@ -145,8 +161,11 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
   const used = eq.slots.filter((s) => s.item).length;
   const open = eq.slots.filter((s) => !s.locked).length;
   const merging = eq.mergeModule && mergeOpen;
+  // With AutoMerge on, the items it will merge next show in the slots instead.
+  const autoNext = merging && autoOn ? new Set((pickMergeSet(eq.inventory, MERGE_COUNT, eq.mergeAllow) ?? []).map((it) => it.id)) : null;
+  const inSlots = (id: number) => (autoNext ? autoNext.has(id) : merge.isPlaced(id));
   const inventory = sortItems(
-    eq.inventory.filter((it) => (rarity === 'all' || it.rarity === rarity) && !(merging && merge.isPlaced(it.id))),
+    eq.inventory.filter((it) => (rarity === 'all' || it.rarity === rarity) && !(merging && inSlots(it.id))),
     sort,
   );
 
@@ -157,13 +176,14 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
     return { title: `Tier ${s.tier} slot`, color: '#9aa3bd', lines: ['Empty: drag an item here.'] };
   };
 
+  const mergeIds = (ids: number[]) => {
+    if (!game) return;
+    const result = game.mergeItems(ids);
+    if (result) setMade(result);
+    merge.clear();
+  };
   const doMerge = () => {
-    if (!merge.full || !game) return;
-    const result = game.mergeItems(merge.slots.map((s) => s!.id));
-    if (result) {
-      setMade(result);
-      merge.clear();
-    }
+    if (merge.full) mergeIds(merge.slots.map((s) => s!.id));
   };
 
   const rarityChipTip = (r: Rarity): Tip => ({ title: RARITIES[r].name, color: RARITIES[r].color, holo: RARITIES[r].holo, lines: [] });
@@ -253,6 +273,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
           {eq.mergeModule && (
             <MergeToggle
               ref={buttonRef}
+              name={eq.mergeName}
               open={mergeOpen}
               onToggle={toggleMerge}
               // Flush left, level with the tier-6 slots (hidden until measured).
@@ -270,11 +291,19 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
             <MergeDrawer
               ref={drawerRef}
               game={game}
+              level={eq.mergeLevel}
+              name={eq.mergeName}
               slots={merge.slots}
               full={merge.full}
+              free={eq.inventory.filter((it) => !merge.isPlaced(it.id))}
+              allow={eq.mergeAllow}
+              autoMerge={autoOn}
+              autoProgress={eq.autoProgress}
               made={made}
               onRemove={merge.remove}
               onMerge={doMerge}
+              onFill={merge.fill}
+              onMergeIds={mergeIds}
               onTip={setTip}
               style={boxes.inventory ? { top: boxes.inventory.y } : undefined}
             />
@@ -338,9 +367,12 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
                     game={game}
                     className={'filled' + (locked ? ' dim' : '')}
                     onDown={locked ? undefined : () => setDrag({ item: it, from: 'inventory' })}
-                    onRight={locked ? undefined : merging ? () => merge.place(it) : () => game?.equipItem(it.id)}
+                    onRight={locked ? undefined : merging ? () => !autoOn && merge.place(it) : () => game?.equipItem(it.id)}
                     onTip={setTip}
-                    tip={itemTip(it, locked ? `Can't merge with ${merge.first?.name ?? 'these'}` : merging ? 'Right-click to merge' : undefined)}
+                    tip={itemTip(
+                      it,
+                      locked ? `Can't merge with ${merge.first?.name ?? 'these'}` : merging ? (autoOn ? 'AutoMerge is on' : 'Right-click to merge') : undefined,
+                    )}
                   />
                 );
               })}

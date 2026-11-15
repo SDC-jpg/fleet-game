@@ -5,7 +5,7 @@
 
 import { distSq, randRange } from '../engine/math';
 import { CONFIG, ITEM_STATS, SKILLS, enabledSkills, skillEnabled, type ItemStat, type SkillId, type SkillStat } from './config';
-import { MAX_RARITY, nextRarity, rarityAt, rarityInfo, rarityScale, rarityTier, rarityWeights, rollRarity, rollSpread, roundBonus, type Rarity, type RarityWeights } from './rarity';
+import { MAX_RARITY, RARITY_ORDER, nextRarity, rarityAt, rarityInfo, rarityScale, rarityTier, rarityWeights, rollRarity, rollSpread, roundBonus, type Rarity, type RarityWeights } from './rarity';
 import { addMod, rankAmount, skillStats, upgradeText } from './upgrades';
 import { addEffect, addSound, statsFor, tierValue, type GameState, type Ship } from './world';
 
@@ -37,6 +37,8 @@ export interface Loot {
   /** An item, or a quality-of-life drop (it never disappears and drifts toward you). */
   item?: Item;
   qol?: QolDrop;
+  /** Merge Module drops: the level it gives (1 = Merge Module, 2–4 = Mk. II–IV). */
+  level?: number;
   x: number;
   y: number;
   vx: number;
@@ -128,24 +130,44 @@ export function rollItem(state: GameState, opts: { weights?: RarityWeights; rari
 /** A destroyed enemy sometimes drops an item (bigger enemies more often); the Merge Module once you've looted enough. */
 export function maybeDropItem(state: GameState, s: Ship) {
   const I = CONFIG.items;
-  if (wantsMergeModule(state)) dropQol(state, s, 'merge-module');
+  const level = mergeModuleDue(state);
+  if (level) state.loot.push({ qol: 'merge-module', level, x: s.x, y: s.y, vx: 0, vy: 0, life: Infinity });
   const chance = I.dropChance * tierValue(s.tier) ** I.dropChanceGrowth;
   if (Math.random() < chance) dropItem(state, s);
 }
 
-/** True when the Merge Module should drop: enough items looted, not owned yet, and not already floating somewhere. */
-const wantsMergeModule = (state: GameState) =>
-  !state.mergeModule && state.looted >= CONFIG.items.mergeModuleAfter && !state.loot.some((l) => l.qol === 'merge-module');
+/** Items looted before each Merge Module level drops (index = level). */
+const mergeLevelAfter = () => {
+  const I = CONFIG.items;
+  return [0, I.mergeModuleAfter, I.mergeMk2After, I.mergeMk3After, I.mergeMk4After];
+};
+/** Highest Merge Module level (Mk. IV). */
+export const MAX_MERGE_LEVEL = 4;
+/** What each Merge Module level is called, and the rarity of its drop (its colour). */
+export const MERGE_LEVELS: Record<number, { name: string; rarity: Rarity | null }> = {
+  1: { name: 'Merge Module', rarity: null },
+  2: { name: 'Merge Mk. II', rarity: 'uncommon' },
+  3: { name: 'Merge Mk. III', rarity: 'superior' },
+  4: { name: 'Merge Mk. IV', rarity: 'rare' },
+};
+
+/**
+ * The Merge Module level that should drop now (0 = none): the next one up,
+ * once enough items have been looted, unless one is already floating somewhere.
+ */
+export function mergeModuleDue(state: GameState) {
+  const next = state.mergeLevel + 1;
+  if (next > MAX_MERGE_LEVEL || state.looted < mergeLevelAfter()[next] || state.loot.some((l) => l.qol === 'merge-module')) return 0;
+  return next;
+}
+
+/** Rarities QuickMerge and AutoMerge may use at first: up to CONFIG.items.quickMergeUpTo. */
+export const defaultMergeAllow = (): Rarity[] => RARITY_ORDER.slice(0, rarityTier(CONFIG.items.quickMergeUpTo));
 
 /** Drop an item where ship `s` was, with the given rarity odds (normal ones by default). */
 export function dropItem(state: GameState, s: Ship, weights = rarityWeights()) {
   const a = Math.random() * Math.PI * 2;
   state.loot.push({ item: rollItem(state, { weights }), x: s.x, y: s.y, vx: Math.cos(a) * 40, vy: Math.sin(a) * 40, life: CONFIG.items.lifetime });
-}
-
-/** Drop a quality-of-life item (it stays until picked up and drifts toward you). */
-function dropQol(state: GameState, s: Ship, qol: QolDrop) {
-  state.loot.push({ qol, x: s.x, y: s.y, vx: 0, vy: 0, life: Infinity });
 }
 
 /**
@@ -186,7 +208,7 @@ export function updateLoot(state: GameState, dt: number) {
     if (nearest && nearestD < (nearest.stats.radius + 8) ** 2) {
       l.life = 0;
       addSound(state, 'sfx.loot', l, 1, 1, true);
-      if (l.qol) pickUpQol(state, l.qol);
+      if (l.qol) pickUpQol(state, l.qol, l.level ?? 1);
       else if (l.item) pickUpItem(state, l.item);
     }
   }
@@ -203,8 +225,8 @@ function pickUpItem(state: GameState, item: Item) {
 }
 
 /** A quality-of-life drop unlocks its feature (the game shows it: see Game.ts). */
-function pickUpQol(state: GameState, qol: QolDrop) {
-  if (qol === 'merge-module') state.mergeModule = true;
+function pickUpQol(state: GameState, qol: QolDrop, level: number) {
+  if (qol === 'merge-module') state.mergeLevel = Math.max(state.mergeLevel, level);
   state.equipmentChanged = true;
   state.unlocked = qol;
 }
@@ -282,7 +304,7 @@ export const MERGE_COUNT = 3;
  * the merge isn't allowed.
  */
 export function mergeItems(state: GameState, ids: number[]): Item | null {
-  if (!state.mergeModule || ids.length !== MERGE_COUNT || new Set(ids).size !== MERGE_COUNT) return null;
+  if (state.mergeLevel < 1 || ids.length !== MERGE_COUNT || new Set(ids).size !== MERGE_COUNT) return null;
   const items = ids.map((id) => state.items.find((it) => it.id === id));
   if (items.some((it) => !it || slotOf(state, it.id) >= 0)) return null;
   const [first, ...rest] = items as Item[];
@@ -294,6 +316,43 @@ export function mergeItems(state: GameState, ids: number[]): Item | null {
   state.equipmentChanged = true;
   addSound(state, 'sfx.merge', { x: 0, y: 0 }, 1, 1, true);
   return result;
+}
+
+/** What merge picking needs to know about an item (game items and on-screen ItemInfo both fit). */
+interface Mergeable {
+  id: number;
+  rarity: Rarity;
+  plus?: number;
+  amount: number;
+}
+
+/**
+ * Items for Load, QuickMerge and AutoMerge: from `items` (not equipped), the
+ * lowest-rarity (then lowest "+N") group of the same rarity and "+N" with
+ * enough items to fill the free slots, among the allowed rarities; the weakest
+ * of them first. With `like` (items already in the slots), only that group.
+ * Returns null if there aren't enough.
+ */
+export function pickMergeSet<T extends Mergeable>(items: T[], count = MERGE_COUNT, allowed?: Rarity[], like?: Mergeable): T[] | null {
+  const groups = new Map<string, T[]>();
+  for (const it of items) {
+    if (allowed && !allowed.includes(it.rarity)) continue;
+    if (like && (it.rarity !== like.rarity || (it.plus ?? 0) !== (like.plus ?? 0))) continue;
+    const key = `${rarityTier(it.rarity)}:${it.plus ?? 0}`;
+    groups.set(key, [...(groups.get(key) ?? []), it]);
+  }
+  const best = [...groups.values()]
+    .filter((g) => g.length >= count)
+    .sort((a, b) => rarityTier(a[0].rarity) - rarityTier(b[0].rarity) || (a[0].plus ?? 0) - (b[0].plus ?? 0))[0];
+  return best ? [...best].sort((a, b) => a.amount - b.amount).slice(0, count) : null;
+}
+
+/** AutoMerge (Mk. IV): merge the lowest-rarity allowed set, if there is one. Returns the new item. */
+export function autoMerge(state: GameState): Item | null {
+  if (state.mergeLevel < MAX_MERGE_LEVEL) return null;
+  const free = state.items.filter((it) => slotOf(state, it.id) < 0);
+  const set = pickMergeSet(free, MERGE_COUNT, state.mergeAllow);
+  return set ? mergeItems(state, set.map((it) => it.id)) : null;
 }
 
 // ---------- Describing items ----------

@@ -501,6 +501,20 @@ export const CONFIG = {
     plusBonus: 0.1,
     /** Items looted (all runs together) before the Merge Module drops from the next enemy destroyed. */
     mergeModuleAfter: 100,
+    /** Items looted before the (Uncommon) Merge Mk. II upgrade drops: its button can Load the 3 lowest-rarity items that merge. */
+    mergeMk2After: 300,
+    /** Items looted before the (Superior) Merge Mk. III upgrade drops: QuickMerge (load and merge in one click), with rarity settings. */
+    mergeMk3After: 900,
+    /** Items looted before the (Rare) Merge Mk. IV upgrade drops: AutoMerge (merges by itself every autoMergeEvery seconds while on). */
+    mergeMk4After: 2700,
+    /** Mk. II: seconds between items going into the slots when loading, and before the button turns back to Merge. */
+    mergeLoadDelay: 0.3,
+    /** Mk. III: seconds between items going into the slots with QuickMerge, and before it merges. */
+    quickMergeDelay: 0.1,
+    /** Mk. IV: seconds between AutoMerges while it's on. */
+    autoMergeEvery: 12,
+    /** QuickMerge and AutoMerge may use items up to this rarity at first (changed in the module's settings). */
+    quickMergeUpTo: 'epic' as Rarity,
     /** How strongly a quality-of-life drop (like the Merge Module) drifts toward you (pixels per second). */
     qolDriftSpeed: 25,
   },

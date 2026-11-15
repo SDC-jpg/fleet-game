@@ -783,12 +783,82 @@ body {
   font-size: 12px;
 }
 .panel .merge-drawer button.merge-go {
+  position: relative;
   width: 100%;
-  margin-top: 6px;
+  margin: 0;
+  overflow: hidden;
 }
-.panel .merge-drawer button.merge-go:disabled {
+/* Greyed out (it still shows its tooltip, so it isn't a real "disabled" button). */
+.panel .merge-drawer button.merge-go.off {
   opacity: 0.4;
   cursor: default;
+}
+/* AutoMerge: the button fills from left to right until the next merge. */
+.merge-go .auto-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: #2c5a9e;
+  transition: width 0.1s linear;
+}
+.merge-go.auto.on {
+  border-color: #9fd3ff;
+}
+.merge-go .label {
+  position: relative;
+}
+/* The button row: the settings gear (Mk. III and up), then the main button. */
+.merge-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.merge-go-wrap {
+  flex: 1;
+  display: flex;
+}
+.panel .merge-drawer button.merge-gear {
+  margin: 0;
+  padding: 0 8px;
+  font-size: 14px;
+}
+.panel .merge-drawer button.merge-gear.on {
+  background: #2c5a9e;
+  border-color: #9fd3ff;
+}
+/* The drawer's middle slides sideways to the settings and back, at the same size. */
+.merge-view {
+  overflow: hidden;
+}
+.merge-track {
+  display: flex;
+  width: 200%;
+  transform: translateX(-50%);
+  transition: transform 0.25s ease;
+}
+.merge-track.slid {
+  transform: translateX(0);
+}
+.merge-pane {
+  width: 50%;
+  flex: none;
+}
+.merge-allow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 6px;
+  text-align: left;
+  font-size: 11px;
+}
+.merge-allow label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+}
+.merge-allow input {
+  margin: 0;
 }
 .merge-made {
   margin-top: 10px;
