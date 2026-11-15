@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-14
+- Settings → General has a "Clear saved progress" button (asks first) that deletes your items, slots and Merge Module to start over. Your run log stays.
 - Swarm waves: sometimes, instead of an elite, a big swarm of small ships sweeps in from one side in V formations, curving around you (with a "Swarm incoming!" warning and klaxon).
 - The first 10 waves bring about 30% more lone enemies, so the early game gets going faster.
 - Gearscore: the rarity of everything you have equipped, added up (Common 1 to Mythic 7). It shows under Fleet bonuses on the equipment screen and is recorded with each run.

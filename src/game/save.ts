@@ -4,7 +4,7 @@
 // version that changes gameplay can start everyone fresh.
 
 import { CONFIG } from './config';
-import { gearscore, updateBonuses, type Item } from './equipment';
+import { gearscore, unlockSlots, updateBonuses, type Item } from './equipment';
 import { RARITY_ORDER, type Rarity } from './rarity';
 import type { GameState } from './world';
 
@@ -75,6 +75,30 @@ export function saveEquipment(state: GameState) {
   } catch {
     // Storage blocked or full (e.g. a private window): equipment just won't carry over.
   }
+}
+
+/**
+ * Clear your saved progress: every item, the slot layout, unlocked slot tiers,
+ * the loot count and the Merge Module, both in this game and in the browser.
+ * The run log and settings stay.
+ */
+export function clearEquipment(state: GameState) {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // Storage blocked: nothing was saved anyway.
+  }
+  state.items = [];
+  state.slots = state.slots.map(() => null);
+  state.unlockedTier = 1;
+  state.looted = 0;
+  state.mergeModule = false;
+  state.found = null;
+  // Slots of tiers reached in this run open again, as they would have anyway.
+  unlockSlots(state);
+  updateBonuses(state);
+  for (const s of state.playerFleet.members) s.hp = Math.min(s.hp, s.stats.maxHp);
+  state.equipmentChanged = true;
 }
 
 /** Load saved equipment into a new game, if there is any from this version. */

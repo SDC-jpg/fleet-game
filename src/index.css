@@ -822,6 +822,30 @@ body {
   cursor: pointer;
 }
 .settings-general .setting .note { display: block; margin-top: 3px; }
+.settings-general {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.settings-general .setting.danger {
+  cursor: default;
+  padding-top: 14px;
+  border-top: 1px solid #2c3a66;
+}
+.clear-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.clear-buttons button {
+  margin: 0;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.clear-buttons .danger-button {
+  background: #6a1a1a;
+  border: 1px solid #ff6a6a;
+}
 /* Card index: every card, upgrades stacked by rarity (hover one to bring it forward). */
 .card-index {
   flex: 1;

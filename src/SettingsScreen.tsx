@@ -33,6 +33,8 @@ export function SettingsScreen({ hud, game }: { hud: HudInfo; game: Game | null 
 }
 
 function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
+  const [confirming, setConfirming] = useState(false);
+  const [cleared, setCleared] = useState(false);
   return (
     <div className="settings-general">
       <label className="setting">
@@ -45,6 +47,36 @@ function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
           </span>
         </span>
       </label>
+      <div className="setting danger">
+        <span>
+          <b>Clear saved progress</b>
+          <span className="note">
+            Deletes all your items, equipped slots, unlocked slot tiers, your loot count and the Merge Module, in this browser. Your
+            run log and settings stay. This can't be undone.
+          </span>
+          <span className="clear-buttons">
+            {cleared ? (
+              <span className="note">Saved progress cleared.</span>
+            ) : confirming ? (
+              <>
+                <button
+                  className="danger-button"
+                  onClick={() => {
+                    game?.clearProgress();
+                    setConfirming(false);
+                    setCleared(true);
+                  }}
+                >
+                  Yes, delete everything
+                </button>
+                <button onClick={() => setConfirming(false)}>Cancel</button>
+              </>
+            ) : (
+              <button onClick={() => setConfirming(true)}>Clear saved progress…</button>
+            )}
+          </span>
+        </span>
+      </div>
     </div>
   );
 }

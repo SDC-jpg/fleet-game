@@ -11,7 +11,7 @@ import { renderGame, tierSprite } from './render';
 import { CONFIG, ITEM_STATS, SHIP_TYPES, SKILLS, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
-import { loadEquipment, saveEquipment } from './save';
+import { clearEquipment, loadEquipment, saveEquipment } from './save';
 import { recordRun, type RunRecord } from './runLog';
 import { describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item } from './equipment';
 import { rarityTier, rollRarity } from './rarity';
@@ -256,6 +256,13 @@ export class Game {
     this.input.cursorLock = on;
     saveSetting(CURSOR_LOCK_SETTING, on ? 'on' : 'off');
     if (!on) this.input.unlock();
+    this.sendHud();
+  }
+
+  /** Settings → General: wipe saved equipment (items, slots, loot count, Merge Module). */
+  clearProgress() {
+    clearEquipment(this.state);
+    this.saveIfChanged();
     this.sendHud();
   }
 
