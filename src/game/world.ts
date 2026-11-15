@@ -1635,6 +1635,21 @@ export function testAddShips(state: GameState, count: number) {
   }
 }
 
+/**
+ * Adds one ship of the next tier up (one above your biggest) next to the
+ * flagship. You move into it at once, as after a merge (promoteFlagship).
+ */
+export function testAddNextTier(state: GameState) {
+  const leader = controlledShip(state);
+  if (!leader) return;
+  const tier = Math.max(...state.playerFleet.members.map((s) => s.tier)) + 1;
+  const a = Math.random() * Math.PI * 2;
+  const x = leader.x + Math.cos(a) * leader.stats.radius * 3;
+  const y = leader.y + Math.sin(a) * leader.stats.radius * 3;
+  addShip(state, 'player', leader.type, tier, state.playerFleet, x, y, leader.angle);
+  addEffect(state, 'vfx.recruit', x, y, 0, tier);
+}
+
 /** Destroys one of your smallest ships (never the one you're flying or a merging one). */
 export function testRemoveShip(state: GameState) {
   const leader = controlledShip(state);

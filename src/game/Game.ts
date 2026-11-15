@@ -22,6 +22,7 @@ import {
   controlledShip,
   createGame,
   fleetValue,
+  testAddNextTier,
   testAddShips,
   testDestroyFleet,
   testKillEnemies,
@@ -429,6 +430,7 @@ export class Game {
     if (s.gameOver) return;
     if (i.wasPressed('Equal', 'NumpadAdd')) testAddShips(s, 1);
     if (i.wasPressed('BracketRight')) testAddShips(s, 16);
+    if (i.wasPressed('KeyT')) testAddNextTier(s);
     if (i.wasPressed('Minus', 'NumpadSubtract')) testRemoveShip(s);
     if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);

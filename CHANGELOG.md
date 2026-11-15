@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- New test key T: adds one ship of the next tier up and moves you into it, to try bigger ships quickly.
 - Your saved equipment is back: items from before version 25 load again (if you picked up items in version 25, those are what's saved now).
 - Skill tuning: Wrecksplosion and Tractor Beam are switched off for now; Force Wall ends where you stop drawing; Hijack takes over about a sixth of your own fleet's value; Gravity Well is half the size and fainter; Gatling Laser bolts are yellow.
 
