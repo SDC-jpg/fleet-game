@@ -75,9 +75,6 @@ export interface SkillObj {
   left?: number;
   /** Seconds until the next bolt, bounce or damage tick. */
   timer?: number;
-  /** Where a gatling volley aims. */
-  aimX?: number;
-  aimY?: number;
   /** Arc chain: the ship it just hit. */
   target?: Ship | null;
   /** Splitting Beam: splits it can still make. */
@@ -115,8 +112,8 @@ const rangeOf = (ship: Ship) => CONFIG.tiers.rangePerTier ** (ship.tier - 1);
 
 // ---------- Using the skills ----------
 
-/** Gatling Laser: a volley of bolts fired one after another toward the aim point. */
-export function fireGatling(state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) {
+/** Gatling Laser: a volley of bolts fired one after another, each where the ship faces at that moment. */
+export function fireGatling(state: GameState, ship: Ship, _c: Controls, sk: OwnedSkill) {
   const G = CONFIG.gatling;
   const mods = modsOf(state, ship, sk);
   state.skillObjs.push({
@@ -136,8 +133,6 @@ export function fireGatling(state: GameState, ship: Ship, c: Controls, sk: Owned
     owner: ship,
     left: Math.max(1, G.bolts + Math.round(mods.count)),
     timer: 0,
-    aimX: c.aimX,
-    aimY: c.aimY,
   });
 }
 
@@ -659,7 +654,8 @@ function updateGatling(state: GameState, o: SkillObj, dt: number) {
   while (o.timer <= 0 && o.left > 0) {
     o.timer += G.boltInterval;
     o.left--;
-    const a = Math.atan2((o.aimY ?? 0) - ship.y, (o.aimX ?? 0) - ship.x) + (randRange(-G.spread, G.spread) * Math.PI) / 180;
+    // Each bolt goes where the ship faces as it fires, so turning sweeps the volley.
+    const a = ship.angle + (randRange(-G.spread, G.spread) * Math.PI) / 180;
     const speed = G.speed * CONFIG.tiers.shotSpeedPerTier ** (ship.tier - 1);
     state.bullets.push({
       team: ship.team,

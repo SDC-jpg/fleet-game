@@ -71,7 +71,7 @@ The batches are ordered by how much new engine work they need:
 ### Left Click
 
 **Gatling Laser** (`gatling`)
-- **Behavior:** fires a volley of 6 thin yellow laser bolts (yellow for every team, so they stand out), one every 0.06 s, toward the cursor with ±4° random spread.
+- **Behavior:** fires a volley of 6 thin yellow laser bolts (yellow for every team, so they stand out), one every 0.06 s, each toward where the ship faces as it fires (turning sweeps the volley), with ±4° random spread.
   - Bolts fly at 1200 px/s for 450 px.
   - Each bolt does 0.7 damage and stops at the first ship it hits.
   - Cooldown 1.2 s, so it is almost continuous while held.
