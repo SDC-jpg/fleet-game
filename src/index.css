@@ -392,6 +392,19 @@ body {
 .ring-center .slots-used {
   margin-top: 6px;
 }
+/* Gearscore: centred just under the fleet bonuses box. */
+.gearscore {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 86px);
+  transform: translateX(-50%);
+  font-size: 13px;
+  white-space: nowrap;
+  color: #ffb070;
+}
+.gearscore b {
+  color: #fff;
+}
 
 /* Item squares: slots and inventory. */
 .tile {
@@ -461,14 +474,16 @@ body {
   display: flex;
   gap: 4px;
 }
-.equipment .chips button {
+.equipment .chips button,
+.run-log .chips button {
   margin: 0;
   padding: 2px 8px;
   font-size: 11px;
   background: rgba(30, 38, 70, 0.7);
   border: 1px solid #2c3a66;
 }
-.equipment .chips button.on {
+.equipment .chips button.on,
+.run-log .chips button.on {
   background: #2c5a9e;
   border-color: #9fd3ff;
 }
@@ -486,7 +501,8 @@ body {
 }
 
 /* "Found: ..." message after picking up an item */
-.elite-toast {
+.elite-toast,
+.swarm-toast {
   position: fixed;
   top: 82px;
   left: 50%;
@@ -499,6 +515,11 @@ body {
   border: 1px solid #ff8a3a;
   pointer-events: none;
   text-shadow: 0 1px 2px #000;
+}
+.swarm-toast {
+  color: #ffe070;
+  border-color: #e0c030;
+  background: rgba(30, 26, 6, 0.85);
 }
 
 .found-toast {
@@ -540,14 +561,20 @@ body {
   border-left: 1px solid #3a2030;
   font-size: 11px;
 }
+.run-log-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
 .run-log h2 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 14px;
   color: #ff9a9a;
 }
 .run-grid {
   display: grid;
-  grid-template-columns: auto repeat(7, 1fr);
+  grid-template-columns: auto repeat(8, 1fr);
   gap: 3px 4px;
   align-items: stretch;
 }
@@ -584,6 +611,15 @@ body {
   padding: 0 4px;
   color: #ffffff;
   line-height: 15px;
+}
+/* The longest bar of each column. */
+.run-bar.best {
+  background: #a3520f;
+}
+/* Other players' runs: gray, like the version number. */
+.run-row.other .run-when,
+.run-row.other .run-value {
+  color: #8a8a8a;
 }
 .run-row.latest .run-cell,
 .run-row.latest .run-when {

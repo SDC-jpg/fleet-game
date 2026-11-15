@@ -299,6 +299,18 @@ function alert() {
   });
 }
 
+/** Swarm incoming: a short two-pulse klaxon (a low, buzzy siren rising and falling). */
+function swarm() {
+  const osc = oscillator('saw');
+  const lp = lowpass();
+  return render(0.8, (t) => {
+    const pulse = Math.floor(t / 0.4);
+    const k = (t - pulse * 0.4) / 0.4;
+    const f = 330 + 200 * Math.sin(Math.PI * k);
+    return lp(osc(f), 2200) * Math.min(1, k * 20) * (1 - k) ** 0.5 * 0.5;
+  });
+}
+
 function command() {
   const osc = oscillator('triangle');
   const notes = [523, 392, 659];
@@ -345,6 +357,7 @@ const FILES = {
   'card.wav': card,
   'loot.wav': loot,
   'alert.wav': alert,
+  'swarm.wav': swarm,
   'command.wav': command,
   'gameover.wav': gameOver,
 };

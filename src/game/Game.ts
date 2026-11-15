@@ -13,7 +13,7 @@ import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { loadEquipment, saveEquipment } from './save';
 import { recordRun, type RunRecord } from './runLog';
-import { describeItem, equip, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item } from './equipment';
+import { describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item } from './equipment';
 import { rarityTier, rollRarity } from './rarity';
 import { cooldownOf } from './skills';
 import { Particles } from './particles';
@@ -26,6 +26,7 @@ import {
   testDestroyFleet,
   testKillEnemies,
   testSpawnElite,
+  testSpawnSwarm,
   typeOf,
   testRemoveShip,
   updateGame,
@@ -75,6 +76,8 @@ export interface HudInfo {
   found: ItemInfo | null;
   /** True for a few seconds after an elite arrives. */
   eliteAlert: boolean;
+  /** A swarm wave just arrived (shows "Swarm incoming"). */
+  swarmAlert: boolean;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -135,6 +138,8 @@ export interface EquipmentInfo {
   inventory: ItemInfo[];
   /** Your fleet's total bonuses from cards and equipment, e.g. "+12% damage". */
   totals: string[];
+  /** Rarity tiers of all equipped items added up (Common 1 … Mythic 7). */
+  gearscore: number;
   /** You have the Merge Module (its button and drawer show). */
   mergeModule: boolean;
   /** Goes up when the merge drawer should open by itself (just after picking up the Merge Module). */
@@ -433,6 +438,7 @@ export class Game {
       if (f && !s.loot.some((l) => l.qol)) s.loot.push({ qol: 'merge-module', x: f.x + 120, y: f.y + 60, vx: 0, vy: 0, life: Infinity });
     }
     if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
+    if (i.wasPressed('KeyH')) testSpawnSwarm(s, this.spawnDistance());
     if (i.wasPressed('KeyO')) {
       s.elitesEnabled = !s.elitesEnabled;
       saveSetting(ELITES_SETTING, s.elitesEnabled ? 'on' : 'off');
@@ -584,6 +590,7 @@ export class Game {
       equipment: this.paused ? equipmentInfo(st, this.openMerge) : null,
       found: st.found && st.time - st.found.time < 3 ? itemInfo(st, st.found.item) : null,
       eliteAlert: st.time - st.eliteAlertTime < 3,
+      swarmAlert: st.time - st.swarmAlertTime < CONFIG.swarm.alertSeconds,
       stats: { ...st.stats },
       history: st.history,
       invincible: st.invincible,
@@ -638,6 +645,7 @@ function equipmentInfo(state: GameState, openMerge: number): EquipmentInfo {
     slots,
     inventory,
     totals,
+    gearscore: gearscore(state),
     mergeModule: state.mergeModule,
     openMerge,
   };

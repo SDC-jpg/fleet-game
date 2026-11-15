@@ -1,8 +1,11 @@
-// The run log on the "Fleet destroyed" screen: every run played in this
-// browser, newest first, one line each. Each number sits on a dark red bar
-// sized against the highest value in its column, so runs compare at a glance.
+// The run log on the "Fleet destroyed" screen, one line per run. "My runs"
+// lists this player's runs, newest first; "Leaderboard" lists every player's
+// runs, best fleet value first. Your runs are in white, other players' in gray.
+// Each number sits on a dark red bar sized against the highest value in its
+// column; the highest bar of each column is orange.
 
-import type { RunRecord } from './game/runLog';
+import { useState } from 'react';
+import { playerId, type RunRecord } from './game/runLog';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 /** "2026/11/13 14:05" in the player's own time zone. */
@@ -20,14 +23,37 @@ const COLUMNS: { key: keyof RunRecord; label: string; format?: (v: number) => st
   { key: 'losses', label: 'Lost' },
   { key: 'killValue', label: 'Value destroyed' },
   { key: 'lossValue', label: 'Value lost' },
+  { key: 'gearscore', label: 'Gearscore' },
 ];
 
+type View = 'mine' | 'all';
+/** The chosen view, remembered while the page is open. */
+const remembered: { view: View } = { view: 'mine' };
+
 export function RunLog({ runs }: { runs: RunRecord[] }) {
-  const newestFirst = [...runs].reverse();
-  const max = Object.fromEntries(COLUMNS.map((c) => [c.key, Math.max(1, ...runs.map((r) => Number(r[c.key]) || 0))]));
+  const [view, setView] = useState(remembered.view);
+  remembered.view = view;
+  const me = playerId();
+  // Keep each run's place in the log, so "latest" means the run that just ended.
+  const latest = runs[runs.length - 1];
+  const shown =
+    view === 'mine' ? runs.filter((r) => r.player === me).reverse() : [...runs].sort((a, b) => b.best - a.best || (a.ended < b.ended ? 1 : -1));
+  const max = Object.fromEntries(COLUMNS.map((c) => [c.key, Math.max(1, ...shown.map((r) => Number(r[c.key]) || 0))]));
+  const choose = (v: View) => () => setView(v);
   return (
     <div className="run-log">
-      <h2>Run log</h2>
+      <div className="run-log-head">
+        <h2>Run log</h2>
+        <div className="chips">
+          <button className={view === 'mine' ? 'on' : ''} onClick={choose('mine')}>
+            My runs
+          </button>
+          <button className={view === 'all' ? 'on' : ''} onClick={choose('all')}>
+            Leaderboard
+          </button>
+        </div>
+        <span className="note">You are {me}</span>
+      </div>
       <div className="run-grid">
         <div className="run-head">Ended</div>
         {COLUMNS.map((c) => (
@@ -35,17 +61,25 @@ export function RunLog({ runs }: { runs: RunRecord[] }) {
             {c.label}
           </div>
         ))}
-        {newestFirst.map((r, i) => (
-          <div key={r.ended + i} className={'run-row' + (i === 0 ? ' latest' : '')}>
+        {shown.map((r, i) => (
+          <div key={r.ended + r.player + i} className={'run-row' + (r === latest ? ' latest' : '') + (r.player === me ? '' : ' other')}>
             <div className="run-when">
               <span className="run-version">{r.build === 'dev' ? 'dev' : `v${r.build}`} · </span>
-              {formatEnded(r.ended)}
+              {r.player ?? '??'} · {formatEnded(r.ended)}
             </div>
             {COLUMNS.map((c) => {
-              const v = Number(r[c.key]) || 0;
+              const raw = r[c.key];
+              // Older runs have no Gearscore.
+              if (raw === undefined)
+                return (
+                  <div key={c.key} className="run-cell">
+                    <span className="run-value">–</span>
+                  </div>
+                );
+              const v = Number(raw) || 0;
               return (
                 <div key={c.key} className="run-cell">
-                  <span className="run-bar" style={{ width: `${(v / max[c.key]) * 100}%` }} />
+                  <span className={'run-bar' + (v > 0 && v === max[c.key] ? ' best' : '')} style={{ width: `${(v / max[c.key]) * 100}%` }} />
                   <span className="run-value">{c.format ? c.format(v) : v}</span>
                 </div>
               );
@@ -53,6 +87,7 @@ export function RunLog({ runs }: { runs: RunRecord[] }) {
           </div>
         ))}
       </div>
+      {shown.length === 0 && <div className="note">No runs yet.</div>}
     </div>
   );
 }

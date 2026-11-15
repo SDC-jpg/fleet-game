@@ -75,6 +75,12 @@ export function unlockSlots(state: GameState) {
 /** The slot an item is in, or -1 if it's not equipped. */
 export const slotOf = (state: GameState, id: number) => state.slots.indexOf(id);
 
+/** Gearscore: the rarity tiers (Common 1 … Mythic 7) of every equipped item, added up. */
+export function gearscore(state: GameState) {
+  const equipped = new Set(state.slots);
+  return state.items.reduce((sum, it) => sum + (equipped.has(it.id) ? rarityTier(it.rarity) : 0), 0);
+}
+
 /** The first empty unlocked slot, or -1 if there's none. */
 const freeSlot = (state: GameState) => state.slots.findIndex((id, i) => id === null && slotUnlocked(state, i));
 

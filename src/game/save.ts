@@ -4,7 +4,7 @@
 // version that changes gameplay can start everyone fresh.
 
 import { CONFIG } from './config';
-import { updateBonuses, type Item } from './equipment';
+import { gearscore, updateBonuses, type Item } from './equipment';
 import { RARITY_ORDER, type Rarity } from './rarity';
 import type { GameState } from './world';
 
@@ -39,6 +39,8 @@ interface SavedEquipment {
   /** Items picked up in every run so far. */
   looted?: number;
   mergeModule?: boolean;
+  /** Gearscore of the equipped items when saved (older saves don't have it; it's worked out again on load anyway). */
+  gearscore?: number;
 }
 
 /** Old rarity names → their tier in the 7-tier scale (format 1 saves). */
@@ -66,6 +68,7 @@ export function saveEquipment(state: GameState) {
     unlockedTier: state.unlockedTier,
     looted: state.looted,
     mergeModule: state.mergeModule,
+    gearscore: gearscore(state),
   };
   try {
     localStorage.setItem(KEY, JSON.stringify(data));

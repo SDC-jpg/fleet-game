@@ -97,6 +97,18 @@ export interface Fleet {
   /** Direction of the current dash. */
   dashX: number;
   dashY: number;
+  /** Set for a chevron of a swarm wave: it flies its own curving path (see updateEnemyLeader). */
+  swarm: SwarmInfo | null;
+}
+
+/** A swarm chevron's path and shape. */
+export interface SwarmInfo {
+  /** Which way the whole swarm curves: 1 or -1 (the same for every chevron of a wave). */
+  turn: number;
+  /** How far away it started (the curve tightens as it gets closer). */
+  from: number;
+  /** Each follower's spot behind the leader (x forward, y sideways) and its row (0 = front). */
+  slots: Map<number, { x: number; y: number; row: number }>;
 }
 
 /** Where the leader was, and what it was doing, at one moment. */
@@ -119,6 +131,7 @@ const newFleet = (team: Team): Fleet => ({
   dashPower: 1,
   dashX: 0,
   dashY: 0,
+  swarm: null,
 });
 
 export interface Bullet {
@@ -321,6 +334,8 @@ export interface GameState {
   eliteDue: boolean;
   /** When the last elite arrived (for the "Elite incoming" message). */
   eliteAlertTime: number;
+  /** When the last swarm wave arrived (for the "Swarm incoming" message). */
+  swarmAlertTime: number;
   /** Boost stamina, 0–1 (shown by the ring around the ship you fly). */
   boostStamina: number;
   /** True after the bar ran dry, until it refills to CONFIG.boost.restartAt. */
@@ -449,6 +464,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     elitesSpawned: 0,
     eliteDue: false,
     eliteAlertTime: -Infinity,
+    swarmAlertTime: -Infinity,
     boostStamina: 1,
     boostLocked: false,
     boostRest: 0,
@@ -781,18 +797,21 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
 
   // Ships flying into a merge are steered by updateMerges instead.
   const followers = formationOrder(fleet.members.filter((s) => s !== leader && !isMergePart(s)));
-  const slots = formationSlots(leader, followers);
+  // A swarm chevron keeps its V shape; other fleets fly in rings.
+  const slots = fleet.swarm ? [] : formationSlots(leader, followers);
   followers.forEach((ship, i) => {
     const t = typeOf(ship);
     const q = ship.quirk;
     const speedMul = ship.team === 'enemy' ? CONFIG.enemySpeedMultiplier : 1;
-    const off = slots[i];
+    const chevron = fleet.swarm ? (fleet.swarm.slots.get(ship.id) ?? { x: 0, y: 0, row: 0 }) : null;
+    const ring = chevron ? chevron.row + 1 : slots[i].ring;
     // React to where the leader was a moment ago. Outer rings react later,
     // so turns ripple outward through the formation.
     // During a dash everyone follows the leader with no delay, so the formation stays together.
     const dashing = fleet.dashTime > 0;
-    const delay = dashing ? 0 : CONFIG.followDelay + (off.ring - 1) * CONFIG.followDelayPerRing + q.delay;
+    const delay = dashing ? 0 : CONFIG.followDelay + (ring - 1) * CONFIG.followDelayPerRing + q.delay;
     const past = trailAt(fleet, delay, dt);
+    const off = chevron ? chevronSpot(chevron, past) : slots[i];
     // Each ship drifts gently around its spot in its own slow loop.
     const driftX = Math.sin(state.time * q.speedX * Math.PI * 2 + q.phaseX) * CONFIG.driftAmount;
     const driftY = Math.sin(state.time * q.speedY * Math.PI * 2 + q.phaseY) * CONFIG.driftAmount;
@@ -856,6 +875,14 @@ function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number
   }
 }
 
+/** A chevron spot (behind the leader) turned to where the leader is heading. */
+function chevronSpot(spot: { x: number; y: number }, past: LeaderSample) {
+  const heading = Math.hypot(past.vx, past.vy) > MOVING_SPEED ? Math.atan2(past.vy, past.vx) : past.angle;
+  const c = Math.cos(heading);
+  const s = Math.sin(heading);
+  return { x: spot.x * c - spot.y * s, y: spot.x * s + spot.y * c };
+}
+
 function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
   const t = typeOf(ship);
   const speed = t.maxSpeed * CONFIG.enemySpeedMultiplier;
@@ -867,6 +894,19 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
   const dx = target.x - ship.x;
   const dy = target.y - ship.y;
   const d = Math.hypot(dx, dy) || 1;
+  const swarm = ship.fleet.swarm;
+  if (swarm) {
+    // A swarm chevron doesn't fly straight at you: it heads a little to one side,
+    // so it curves in. The angle shrinks as it gets close, so it swirls past and around you.
+    const S = CONFIG.swarm;
+    const far = clamp(d / swarm.from, 0, 1);
+    const off = ((S.curveNear + (S.curveFar - S.curveNear) * far) * Math.PI) / 180;
+    const heading = Math.atan2(dy, dx) + off * swarm.turn;
+    steer(ship, Math.cos(heading) * speed, Math.sin(heading) * speed, t.accel, dt);
+    aimAndShoot(state, ship, dt, heading);
+    ship.thrust = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED ? 'move' : 'idle';
+    return;
+  }
   const nx = dx / d;
   const ny = dy / d;
   // A big enemy fleet charges in. A lone fighter keeps its distance and circles.
@@ -1309,10 +1349,12 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
 
   // Every few waves an elite comes. If this wave already brings a fleet, it waits for the next one.
   const E = CONFIG.elite;
-  if (state.elitesEnabled && state.wave >= E.firstWave && state.wave % E.everyNthWave === 0) state.eliteDue = true;
+  if ((state.elitesEnabled || CONFIG.swarm.enabled) && state.wave >= E.firstWave && state.wave % E.everyNthWave === 0) state.eliteDue = true;
+  // Sometimes a swarm comes instead of the elite.
   if (state.eliteDue && !fleetWave) {
     state.eliteDue = false;
-    if (state.elitesEnabled) spawnElite(state, center, spawnDistance);
+    if (CONFIG.swarm.enabled && Math.random() < CONFIG.swarm.chance) spawnSwarm(state, center, spawnDistance, room);
+    else if (state.elitesEnabled) spawnElite(state, center, spawnDistance);
   }
 
   if (fleetWave) {
@@ -1320,12 +1362,10 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
     spawnEnemyFleet(state, center, spawnDistance, enemyFleetValue(state.wave), room);
     addSound(state, 'sfx.alert', center, 1, 1, true);
   } else {
-    // A handful of lone fighters from random directions.
-    const count = Math.min(
-      1 + Math.floor(state.wave * CONFIG.loneEnemiesPerWave),
-      CONFIG.maxLoneEnemiesPerWave,
-      room,
-    );
+    // A handful of lone fighters from random directions (a few more in the first waves).
+    const base = 1 + Math.floor(state.wave * CONFIG.loneEnemiesPerWave);
+    const early = state.wave <= CONFIG.earlyWavesUntil ? 1 + CONFIG.earlyWaveExtraEnemies : 1;
+    const count = Math.min(Math.round(base * early), CONFIG.maxLoneEnemiesPerWave, room);
     for (let i = 0; i < count; i++) spawnEnemyFleet(state, center, spawnDistance, 1, room);
   }
 }
@@ -1390,7 +1430,77 @@ function spawnElite(state: GameState, near: Ship, distance: number) {
   addSound(state, 'sfx.alert', near, 1, 1, true);
 }
 
+/**
+ * Spawn a swarm wave: many small ships (at least CONFIG.swarm.tiersBelow tiers
+ * below your biggest ship, never below tier 1), in chevrons spread over a wide
+ * arc on one side. Every chevron curves in toward you, turning the same way.
+ */
+function spawnSwarm(state: GameState, near: Ship, distance: number, room: number) {
+  const S = CONFIG.swarm;
+  const total = Math.min(Math.round(S.count + S.countPerWave * state.wave), S.maxCount, room);
+  if (total <= 0) return;
+  const top = Math.max(1, state.maxTier - S.tiersBelow);
+  const smaller = top > 1 ? Math.round(total * S.smallerShare) : 0;
+  const chevrons = Math.max(1, Math.round(total / S.shipsPerChevron));
+  const approachAngle = Math.random() * Math.PI * 2;
+  const arc = (S.arc * Math.PI) / 180;
+  const turn = Math.random() < 0.5 ? 1 : -1;
+  // Share the ships out so every chevron gets a mix of both sizes.
+  const groups: number[][] = Array.from({ length: chevrons }, () => []);
+  for (let i = 0; i < total; i++) groups[i % chevrons].push(i < total - smaller ? top : top - 1);
+  groups.forEach((tiers, g) => {
+    const a = approachAngle + (chevrons === 1 ? 0 : (g / (chevrons - 1) - 0.5) * arc);
+    spawnChevron(state, near, distance, a, tiers, turn);
+  });
+  state.swarmAlertTime = state.time;
+  addSound(state, 'sfx.swarm', near, 1, 1, true);
+}
+
+/** One chevron of a swarm: 2–3 rows of nested V shapes, coming from angle `a`, biggest ship leading. */
+function spawnChevron(state: GameState, near: Ship, distance: number, a: number, tiers: number[], turn: number) {
+  const S = CONFIG.swarm;
+  const facing = a + Math.PI;
+  const fleet = newFleet('enemy');
+  const ships = [...tiers].sort((x, y) => y - x).map((t) => addShip(state, 'enemy', 'fighter', t, fleet, 0, 0, facing));
+  const [leader, ...rest] = ships;
+  fleet.leader = leader;
+  const spacing = CONFIG.formationSpacing * S.spacing * leader.stats.size;
+  // Spots in the leader's own frame (x forward, y sideways). Each row is a V: its
+  // tip, then pairs going back along both arms. Row 0's tip is the leader.
+  const rows = Math.floor(randRange(S.minRows, S.maxRows + 1));
+  const perRow = Math.ceil(ships.length / rows);
+  const spots: { x: number; y: number; row: number }[] = [];
+  for (let row = 0; row < rows; row++)
+    for (let j = row === 0 ? 1 : 0; j < perRow; j++) {
+      const arm = Math.ceil(j / 2);
+      const side = j % 2 ? 1 : -1;
+      spots.push({ x: -row * spacing * 1.2 - arm * spacing * 0.8, y: arm === 0 ? 0 : side * arm * spacing, row });
+    }
+  const slots = new Map<number, { x: number; y: number; row: number }>();
+  rest.forEach((s, i) => slots.set(s.id, spots[i]));
+  const extent = Math.max(0, ...spots.map((p) => Math.hypot(p.x, p.y)));
+  const from = distance + extent;
+  fleet.swarm = { turn, from, slots };
+  const c = Math.cos(facing);
+  const sn = Math.sin(facing);
+  leader.x = near.x + Math.cos(a) * from;
+  leader.y = near.y + Math.sin(a) * from;
+  for (const s of rest) {
+    const p = slots.get(s.id)!;
+    s.x = leader.x + p.x * c - p.y * sn;
+    s.y = leader.y + p.x * sn + p.y * c;
+  }
+  state.enemyFleets.push(fleet);
+}
+
 // ---------- Test tools (only reachable from dev-mode keys) ----------
+
+/** Spawns a swarm wave right away. */
+export function testSpawnSwarm(state: GameState, spawnDistance: number) {
+  const center = controlledShip(state);
+  const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
+  if (center) spawnSwarm(state, center, spawnDistance, room);
+}
 
 /** Adds tier-1 ships to your fleet right next to the flagship. */
 export function testAddShips(state: GameState, count: number) {

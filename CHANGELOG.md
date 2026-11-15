@@ -5,6 +5,10 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-14
+- Swarm waves: sometimes, instead of an elite, a big swarm of small ships sweeps in from one side in V formations, curving around you (with a "Swarm incoming!" warning and klaxon).
+- The first 10 waves bring about 30% more lone enemies, so the early game gets going faster.
+- Gearscore: the rarity of everything you have equipped, added up (Common 1 to Mythic 7). It shows under Fleet bonuses on the equipment screen and is recorded with each run.
+- The run log has "My runs" and "Leaderboard" views, a two-letter code for each player, and a Gearscore column; the top bar in each column is now orange.
 
 - Rarities now go from 1 to 7: Common, Uncommon, Superior (blue, was Rare), Rare (purple, was Epic), and new Epic (yellow), Legendary (red) and Mythic (holographic). Your saved items keep their bonuses.
 - Legendary items come with an extra Damage or Hitpoints bonus, Mythic items with two, and some Mythic items also carry a level-up card's bonus.

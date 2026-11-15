@@ -580,6 +580,10 @@ export const CONFIG = {
   loneEnemiesPerWave: 0.25,
   /** Most lone enemies in one wave. */
   maxLoneEnemiesPerWave: 12,
+  /** Extra lone enemies in the first waves (0.3 = 30% more, rounded to whole ships), up to earlyWavesUntil. */
+  earlyWaveExtraEnemies: 0.3,
+  /** Last wave that gets earlyWaveExtraEnemies. */
+  earlyWavesUntil: 10,
   /** Most enemies alive at once. */
   maxEnemies: 120,
   /** How far outside the visible area enemies appear. */
@@ -594,6 +598,44 @@ export const CONFIG = {
   enemyFleetValuePerWave: 0.6,
   /** 1 = enemy fleets grow steadily; higher = they grow faster and faster in later waves. */
   enemyFleetValueCurve: 1.3,
+
+  /**
+   * Swarm waves: sometimes, when an elite would come, a swarm of many small
+   * enemies comes instead. They arrive in chevrons spread over a wide arc and
+   * all curve in toward you, turning the same way.
+   */
+  swarm: {
+    /** true = swarms can replace elites; false = never. */
+    enabled: true,
+    /** Chance that a swarm comes instead of an elite (0.25 = 1 in 4). Works even when elites are off. */
+    chance: 0.25,
+    /** Ships in a swarm = count + countPerWave × wave, up to maxCount (and the enemy limit). */
+    count: 30,
+    /** Extra swarm ships per wave number. */
+    countPerWave: 0.25,
+    /** Most ships in one swarm. */
+    maxCount: 60,
+    /** Swarm ships are at least this many tiers below your biggest ship this run (never below tier 1). */
+    tiersBelow: 3,
+    /** Share of the swarm one tier smaller still (when there is a smaller tier), for a mix of sizes. */
+    smallerShare: 0.4,
+    /** About this many ships per chevron (the swarm splits into several). */
+    shipsPerChevron: 10,
+    /** Width of the arc the chevrons arrive across (degrees). */
+    arc: 120,
+    /** Fewest rows (nested V shapes) in one chevron. */
+    minRows: 2,
+    /** Most rows in one chevron. */
+    maxRows: 3,
+    /** Space between ships in a chevron, compared to the normal formation spacing. */
+    spacing: 0.9,
+    /** How far off a straight line to you they fly when far away (degrees). Bigger = wider curve. */
+    curveFar: 55,
+    /** How far off a straight line to you they fly up close (degrees), so they swirl past and around you. */
+    curveNear: 20,
+    /** Seconds the "Swarm incoming" message shows. */
+    alertSeconds: 3,
+  },
 
   /**
    * Elite enemies: one strong ship every few waves that uses skills and always

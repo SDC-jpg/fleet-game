@@ -149,6 +149,7 @@
     "sfx.card": { "file": "sfx/card.wav", "volume": 0.4, "maxVoices": 1, "pitchVariation": 0 },
     "sfx.loot": { "file": "sfx/loot.wav", "volume": 0.5, "maxVoices": 1, "pitchVariation": 0 },
     "sfx.alert": { "file": "sfx/alert.wav", "volume": 0.4, "maxVoices": 1, "pitchVariation": 0 },
+    "sfx.swarm": { "file": "sfx/swarm.wav", "volume": 0.45, "maxVoices": 1, "pitchVariation": 0 },
     "sfx.command": { "file": "sfx/command.wav", "volume": 0.5, "maxVoices": 1, "pitchVariation": 0 },
     "sfx.gameover": { "file": "sfx/gameover.wav", "volume": 0.6, "maxVoices": 1, "pitchVariation": 0 }
   }

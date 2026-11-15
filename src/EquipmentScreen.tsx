@@ -245,6 +245,9 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
                 {used} / {open} slots used
               </div>
             </div>
+            <div className="gearscore" title="The rarity tiers of your equipped items added up (Common 1 … Mythic 7)">
+              Gearscore <b>{eq.gearscore}</b>
+            </div>
           </div>
 
           {eq.mergeModule && (
