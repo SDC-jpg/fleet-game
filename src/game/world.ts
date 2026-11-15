@@ -171,6 +171,8 @@ export interface Bullet {
   target: Ship | null;
   /** Missiles: which way it points (it turns before speeding off, so this can differ from its movement). */
   facing?: number;
+  /** Missiles: the ship that launched it (with no target, a missile heads where that ship faces). */
+  owner?: Ship;
   /** Missiles: its speed when it started speeding off. */
   boostFrom?: number;
   /** Missiles: seconds after launch when it fires up (lights its thruster), and whether it has. */
@@ -1148,7 +1150,9 @@ function steerMissile(state: GameState, b: Bullet, dt: number) {
   }
   if (!b.target || b.target.dead || b.target.merge) b.target = retargetMissile(state, b);
   const facing = b.facing ?? Math.atan2(b.vy, b.vx);
-  const want = b.target ? Math.atan2(b.target.y - b.y, b.target.x - b.x) : facing;
+  // No target (yet): head where the ship that launched it is facing (it keeps looking for one meanwhile).
+  const owner = b.owner && !b.owner.dead ? b.owner : null;
+  const want = b.target ? Math.atan2(b.target.y - b.y, b.target.x - b.x) : owner ? owner.angle : facing;
   // 1. Drifting straight out of the ship.
   if (age < M.ejectTime) return;
   // 2. Still drifting, turning to face the target.

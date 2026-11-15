@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- Missiles with nothing to lock onto now turn toward where your ship is facing (and still lock on if a target shows up).
 - Missiles: smaller, launched in a fan around your ship before they turn and home in, twice as fast, with a longer lock range. They run on 2 seconds of fuel; after that they tumble harmlessly for a moment and disappear.
 - New test key T: adds one ship of the next tier up and moves you into it, to try bigger ships quickly.
 - Your saved equipment is back: items from before version 25 load again (if you picked up items in version 25, those are what's saved now).
