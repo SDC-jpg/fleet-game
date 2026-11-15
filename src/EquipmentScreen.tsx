@@ -106,6 +106,21 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
     setMergeOpen(!mergeOpen);
   };
 
+  // Esc with the merge drawer open closes just the drawer. Caught on the document, before the
+  // game's own key listener on the window sees it (that one would close the whole screen).
+  useEffect(() => {
+    if (!mergeOpen || tab !== 'equipment') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Escape') return;
+      e.stopPropagation();
+      e.preventDefault();
+      merge.clear();
+      setMergeOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mergeOpen, tab, merge]);
+
   // Dropping: wherever the mouse is released decides what happens.
   useEffect(() => {
     if (!drag) return;

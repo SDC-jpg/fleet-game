@@ -793,17 +793,18 @@ body {
   opacity: 0.4;
   cursor: default;
 }
-/* AutoMerge: the button fills from left to right until the next merge. */
+/* AutoMerge: while on, the button goes dark and a bright shading fills it from left to right until the next merge. */
+.panel .merge-drawer button.merge-go.auto.on {
+  background: #141a30;
+  border-color: #9fd3ff;
+}
 .merge-go .auto-fill {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  background: #2c5a9e;
+  background: linear-gradient(to right, #2c5a9e, #4f9be8);
   transition: width 0.1s linear;
-}
-.merge-go.auto.on {
-  border-color: #9fd3ff;
 }
 .merge-go .label {
   position: relative;
