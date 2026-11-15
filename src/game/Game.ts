@@ -578,22 +578,22 @@ export class Game {
     for (const s of this.state.ships) {
       if (s.dead || s.absorbed || !near(s.x, s.y)) continue;
       const base = tierSprite(this.assets, typeOf(s).sprites.ship, s.tier);
-      this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt);
+      this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy);
     }
     // Objects with particle emitters (art.json): missiles (Inert until they fire up, then Fired),
     // gun shots, mines, wrecks, laser beams and elite laser warnings.
-    const emit = (base: string, tier: number, state: string, x: number, y: number, angle: number, suffix = '') => {
+    const emit = (base: string, tier: number, state: string, x: number, y: number, angle: number, suffix = '', vx = 0, vy = 0) => {
       if (!near(x, y)) return;
       const name = tierSprite(this.assets, base, tier, suffix);
       const layout = this.layouts.objects[name];
-      if (layout) this.particles.emitMounts(this.layouts, layout, state, x, y, angle, dt);
+      if (layout) this.particles.emitMounts(this.layouts, layout, state, x, y, angle, dt, vx, vy);
     };
     for (const b of this.state.bullets) {
-      if (b.homing > 0) emit(b.sprite, b.tier, b.lit ? 'fired' : 'inert', b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx));
-      else emit(b.sprite, b.tier, 'flying', b.x, b.y, Math.atan2(b.vy, b.vx));
+      if (b.homing > 0) emit(b.sprite, b.tier, b.lit ? 'fired' : 'inert', b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx), '', b.vx, b.vy);
+      else emit(b.sprite, b.tier, 'flying', b.x, b.y, Math.atan2(b.vy, b.vx), '', b.vx, b.vy);
     }
     for (const m of this.state.mines) emit('projectile.mine', m.tier, 'armed', m.x, m.y, 0);
-    for (const w of this.state.wrecks) emit(SHIP_TYPES[w.type].sprites.ship, w.tier, 'drifting', w.x, w.y, w.angle, '.wreck');
+    for (const w of this.state.wrecks) emit(SHIP_TYPES[w.type].sprites.ship, w.tier, 'drifting', w.x, w.y, w.angle, '.wreck', w.vx, w.vy);
     for (const b of this.state.beams) emit('vfx.laser', b.tier, 'beam', b.x, b.y, b.angle);
     for (const s of this.state.ships)
       if (s.elite && s.elite.laserCharge > 0)

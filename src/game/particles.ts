@@ -24,8 +24,13 @@ interface Particle {
 export class Particles {
   private list: Particle[] = [];
 
-  /** Spawn about kind.perSecond × dt particles at (x, y), flying toward `angle` (radians), spread over the kind's cone. */
-  emit(kind: ParticleSettings, x: number, y: number, angle: number, dt: number) {
+  /**
+   * Spawn about kind.perSecond × dt particles at (x, y), flying toward `angle` (radians), spread over the kind's cone.
+   * The emitter moved at (vx, vy) during this step: each particle is born at a random moment within the step,
+   * so it starts where the emitter was then and has already aged a little. Fast emitters (missiles) then leave
+   * an even trail instead of clumps one step apart, and higher spawn rates fill it in.
+   */
+  emit(kind: ParticleSettings, x: number, y: number, angle: number, dt: number, vx = 0, vy = 0) {
     let n = kind.perSecond * dt;
     // Fractions become a chance, so low rates still produce the right amount over time.
     while (n > 0) {
@@ -35,13 +40,16 @@ export class Particles {
       // Anywhere in a cone kind.angle degrees wide, centred on `angle` (360 = any direction).
       const a = angle + ((randRange(-0.5, 0.5) * Math.min(360, kind.angle)) / 180) * Math.PI;
       const speed = kind.speed * randRange(0.7, 1.3);
+      const back = Math.random() * dt;
+      const pvx = Math.cos(a) * speed;
+      const pvy = Math.sin(a) * speed;
       this.list.push({
         sprite: kind.sprite,
-        x,
-        y,
-        vx: Math.cos(a) * speed,
-        vy: Math.sin(a) * speed,
-        age: 0,
+        x: x - vx * back + pvx * back,
+        y: y - vy * back + pvy * back,
+        vx: pvx,
+        vy: pvy,
+        age: back,
         life: kind.life * randRange(0.8, 1.2),
         drag: kind.drag,
       });
@@ -51,13 +59,14 @@ export class Particles {
   /**
    * Particles from a ship's or object's mounts: every mount that gives off
    * particles in this state does so from its VFX point, out the back of the mount.
+   * (vx, vy) is how fast the ship or object is moving (spreads the particles along its path).
    */
-  emitMounts(data: ArtLayoutsFile, layout: ArtLayout | undefined, state: string, x: number, y: number, angle: number, dt: number) {
+  emitMounts(data: ArtLayoutsFile, layout: ArtLayout | undefined, state: string, x: number, y: number, angle: number, dt: number, vx = 0, vy = 0) {
     if (!layout) return;
     for (const m of layout.mounts) {
       if (!m.emit?.[state]) continue;
       const p = shipPointToWorld(m.x + m.vfxX, m.y + m.vfxY, x, y, angle);
-      this.emit(particleSettings(data, m, state), p.x, p.y, mountWorldAngle(m, angle) + Math.PI, dt);
+      this.emit(particleSettings(data, m, state), p.x, p.y, mountWorldAngle(m, angle) + Math.PI, dt, vx, vy);
     }
   }
 
