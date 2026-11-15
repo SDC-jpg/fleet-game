@@ -4,7 +4,8 @@
 // by simple rules (updateEliteSkills). Like world.ts, nothing is drawn here.
 
 import { distSq, randRange, wrapAngle } from '../engine/math';
-import { CONFIG, SKILLS, type SkillId, type SkillStat } from './config';
+import { CONFIG, SKILLS, enabledSkills, type SkillId, type SkillStat } from './config';
+import { eliteWantsMore, fireArc, fireCrescent, fireGatling, fireIonCloud, firePlasmaLance, updateSkillObjects } from './moreSkills';
 import { addMod, newMods, type SkillMods } from './upgrades';
 import {
   addEffect,
@@ -28,6 +29,11 @@ const COOLDOWNS: Record<SkillId, () => number> = {
   shield: () => CONFIG.shield.cooldown,
   repulse: () => CONFIG.repulse.cooldown,
   freeze: () => CONFIG.freeze.cooldown,
+  gatling: () => CONFIG.gatling.cooldown,
+  crescent: () => CONFIG.crescent.cooldown,
+  arcImpulse: () => CONFIG.arcImpulse.cooldown,
+  ionCloud: () => CONFIG.ionCloud.cooldown,
+  plasmaLance: () => CONFIG.plasmaLance.cooldown,
 };
 
 /**
@@ -59,6 +65,7 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
   for (const b of state.beams) b.age += dt;
   state.beams = state.beams.filter((b) => b.age < BEAM_SHOW_TIME);
   updateMines(state, dt);
+  updateSkillObjects(state, dt);
 
   for (const sk of state.skills) sk.timer = Math.max(0, sk.timer - dt);
   const ship = controlledShip(state);
@@ -70,8 +77,10 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
     const wants = weapon ? c.fire : c.defend;
     // A frozen ship can't shoot, but defences still work.
     if (!wants || (weapon && ship.frozen > 0)) continue;
+    if (!SKILLS[sk.id].enabled) continue;
     sk.timer = cooldownOf(state, sk);
-    USE[sk.id](state, ship, c, sk);
+    // A skill with nothing to work on (no target in range...) stays ready.
+    if (USE[sk.id](state, ship, c, sk) === false) sk.timer = 0;
   }
 }
 
@@ -79,10 +88,11 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
  * Skill damage: grows with the ship's tier. Yours gets the fleet's damage bonus;
  * an elite's is scaled by CONFIG.elite.skillDamage.
  */
-const powerOf = (state: GameState, ship: Ship) =>
+export const powerOf = (state: GameState, ship: Ship) =>
   CONFIG.tiers.powerPerTier ** (ship.tier - 1) * (ship.team === 'player' ? state.bonus.damage : CONFIG.elite.skillDamage);
 
-type Use = (state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) => void;
+/** Uses a skill. Returning false means it found nothing to do, so it stays ready. */
+type Use = (state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) => boolean | void;
 
 const USE: Record<SkillId, Use> = {
   laser: (state, ship, _c, sk) => fireLaser(state, ship, sk),
@@ -91,6 +101,11 @@ const USE: Record<SkillId, Use> = {
   shield: (state, ship, _c, sk) => raiseShield(state, ship, sk),
   repulse: (state, ship, _c, sk) => repulse(state, ship, sk),
   freeze: (state, ship, _c, sk) => freeze(state, ship, sk),
+  gatling: fireGatling,
+  crescent: fireCrescent,
+  arcImpulse: fireArc,
+  ionCloud: fireIonCloud,
+  plasmaLance: (state, ship, _c, sk) => firePlasmaLance(state, ship, sk),
 };
 
 /** Laser: everything along the beam in front of you takes damage at once. */
@@ -298,7 +313,7 @@ const freezeLength = (ship: Ship, mods: SkillMods) => CONFIG.freeze.length * shi
  */
 export function makeEliteSkills(index: number): OwnedSkill[] {
   const E = CONFIG.elite;
-  const ids = (Object.keys(SKILLS) as SkillId[]).sort(() => Math.random() - 0.5);
+  const ids = enabledSkills().sort(() => Math.random() - 0.5);
   const count = Math.min(E.maxSkills, E.firstSkills + index, ids.length);
   const rank = Math.min(CONFIG.cards.maxRank, 1 + Math.max(0, index + 2 - E.rankUpFrom));
   return ids.slice(0, count).map((id) => {
@@ -339,13 +354,14 @@ export function updateEliteSkills(state: GameState, dt: number) {
     if (!target) continue;
     for (const sk of e.skills) {
       if (sk.timer > 0 || !eliteWants(state, ship, sk, target)) continue;
+      if (!SKILLS[sk.id].enabled) continue;
       sk.timer = eliteCooldown(sk);
       if (sk.id === 'laser') {
         e.laserCharge = CONFIG.elite.laserWarning;
         break;
       }
       const aim: Controls = { moveX: 0, moveY: 0, aimX: target.x, aimY: target.y, fire: false, boost: false, dash: false, defend: false };
-      USE[sk.id](state, ship, aim, sk);
+      if (USE[sk.id](state, ship, aim, sk) === false) sk.timer = 0;
     }
   }
 }
@@ -374,5 +390,7 @@ function eliteWants(state: GameState, ship: Ship, sk: OwnedSkill, target: Ship) 
       const half = ((CONFIG.freeze.angle * Math.PI) / 180) * Math.min(2, sk.mods.size);
       return off < half && d < freezeLength(ship, sk.mods);
     }
+    default:
+      return eliteWantsMore(ship, sk, d, off);
   }
 }

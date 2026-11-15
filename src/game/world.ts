@@ -8,6 +8,7 @@ import { enemyFleetValue, xpToNextLevel } from './curves';
 import { drawCards, gainXp } from './progress';
 import { dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
+import type { SkillObj } from './moreSkills';
 
 export type Team = 'player' | 'enemy';
 export type Thrust = 'idle' | 'move' | 'boost';
@@ -227,6 +228,8 @@ export interface OwnedSkill {
   id: SkillId;
   rank: number;
   timer: number;
+  /** Crescent Strike: which way the last one curved (they alternate). */
+  flip?: number;
   /** Upgrades from rank-up cards, as multipliers (1 = none, 1.15 = +15%). */
   mods: Record<SkillStat, number>;
 }
@@ -328,6 +331,8 @@ export interface GameState {
   found: { item: Item; time: number } | null;
   beams: Beam[];
   mines: Mine[];
+  /** Things the newer skills left in the world for a moment (crescents, ion balls, lances...). */
+  skillObjs: SkillObj[];
   /** Whether elites come this run (CONFIG.elite.enabled, or the test key O). */
   elitesEnabled: boolean;
   /** Elites spawned so far this run (each new one gets more skills). */
@@ -462,6 +467,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     unlocked: null,
     beams: [],
     mines: [],
+    skillObjs: [],
     elitesEnabled: CONFIG.elite.enabled,
     elitesSpawned: 0,
     eliteDue: false,

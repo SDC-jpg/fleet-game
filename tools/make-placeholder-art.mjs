@@ -735,6 +735,123 @@ function frozenShell(S = 40) {
   return sheet;
 }
 
+// ---------- Newer skills (docs/SKILLS.md) ----------
+// Sky blue parts are the team colour (recoloured red for elites). Tier-1 size;
+// the game scales them up for bigger ships and size cards.
+
+// Gatling bolt: a thin streak, white tip, sky blue tail. Faces right.
+function gatlingBolt() {
+  const img = new Img(12, 4);
+  rect(img, 1, 1, 7, 2, hex('#41a6d9'));
+  rect(img, 8, 1, 3, 2, hex('#ffffff'));
+  return img;
+}
+
+// Crescent: a golden crescent (opening to the right) with a pale edge. One frame; the game spins it.
+function crescentBlade(S = 40) {
+  const img = new Img(S, S);
+  const c = S / 2, R = S / 2 - 2;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+      const cut = Math.hypot(x + 0.5 - (c + R * 0.45), y + 0.5 - c);
+      if (d > R || cut < R * 0.9) continue;
+      img.set(x, y, hex(d > R - 2 ? '#fff2a8' : '#ffd34a'));
+    }
+  outline(img, hex('#5a3a10'));
+  return img;
+}
+
+// Arc segment: a jagged electric line (white core, sky blue glow), repeated along the arc.
+// 4 frames, plays once: the zigzag changes and it fades.
+function arcSegment() {
+  const W = 8, H = 12, F = 4;
+  const sheet = new Img(W * F, H);
+  for (let f = 0; f < F; f++) {
+    const r = rng(300 + f);
+    let y = H / 2;
+    for (let x = 0; x < W; x++) {
+      y = Math.max(2, Math.min(H - 3, y + Math.round((r() - 0.5) * 4)));
+      if (f < 3) sheet.set(f * W + x, y - 1, hex('#41a6d9'));
+      sheet.set(f * W + x, y, hex(f < 3 ? '#ffffff' : '#7ecff2'));
+      if (f < 2) sheet.set(f * W + x, y + 1, hex('#41a6d9'));
+    }
+  }
+  return sheet;
+}
+
+// Spark where an arc strikes: a small white-blue star. 4 frames, plays once.
+function arcSparkSheet(S = 16) {
+  const F = 4, c = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const len = [3, 5, 6, 6][f];
+    for (let i = 0; i <= len; i++)
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]]) {
+        if (f >= 2 && i < f) continue;
+        const x = Math.round(c + dx * i - 0.5), y = Math.round(c + dy * i - 0.5);
+        if (x >= 0 && y >= 0 && x < S && y < S) sheet.set(f * S + x, y, hex(i < 2 ? '#ffffff' : '#7ecff2'));
+      }
+  }
+  return sheet;
+}
+
+// Ion ball: a small glowing ball (sky blue rim, white middle). 2 frames, looping pulse.
+function ionBall() {
+  const S = 10, F = 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    disc(frame, 5, 5, f ? 4.2 : 3.6, hex('#41a6d9'));
+    disc(frame, 5, 5, f ? 2.2 : 1.8, hex('#ffffff'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
+// Ion pop: a burst the size of the blast (radius 35), white core then a sky blue ring breaking up. 6 frames, plays once.
+function ionPopSheet(S = 72) {
+  const F = 6, c = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const R = (c - 2) * ((f + 1) / F);
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+        if (f < 2 && d < R * 0.6) sheet.set(f * S + x, y, hex('#ffffff'));
+        else if (Math.abs(d - R) < 2 && !(f >= 3 && noise(x, y, f) < (f - 2) / F)) sheet.set(f * S + x, y, hex(f < 3 ? '#7ecff2' : '#41a6d9'));
+      }
+  }
+  return sheet;
+}
+
+// Plasma lance segment: white core, sky blue edges, repeated along the blade. 2 frames, looping flicker.
+function lanceSegment() {
+  const W = 8, H = 14, F = 2;
+  const sheet = new Img(W * F, H);
+  for (let f = 0; f < F; f++)
+    for (let x = 0; x < W; x++)
+      for (let y = 0; y < H; y++) {
+        const d = Math.abs(y - (H - 1) / 2);
+        const half = f ? 6 : 5.4;
+        if (d > half) continue;
+        sheet.set(f * W + x, y, hex(d < 2 ? '#ffffff' : d < 4 ? '#7ecff2' : '#41a6d9'));
+      }
+  return sheet;
+}
+
+// Plasma hit: a small pale blue flash. 3 frames, plays once.
+function plasmaHitSheet(S = 12) {
+  const F = 3, c = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    disc(frame, c, c, [5, 4, 2.5][f], hex(['#ffffff', '#7ecff2', '#41a6d9'][f]));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 // Skill and card icons (16×16, flat shapes with a dark outline).
 function icon16(draw) {
   const img = new Img(16, 16);
@@ -782,6 +899,33 @@ const SKILL_ICONS = {
       for (let t = -6; t <= 6; t++) img.set(Math.round(8 + Math.cos(a) * t - 0.5), Math.round(8 + Math.sin(a) * t - 0.5), hex('#dff6ff'));
     }
     disc(img, 8, 8, 1.5, hex('#9fe8ff'));
+  },
+  gatling: (img) => {
+    rect(img, 1, 5, 5, 6, hex('#8a93a6'));
+    for (const y of [5, 8, 11]) rect(img, 6, y - 1, 3, 1, hex('#c9ced8'));
+    for (const [x, y] of [[10, 4], [12, 7], [10, 10]]) rect(img, x, y, 4, 1, hex('#7ecff2'));
+  },
+  crescent: (img) => {
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) {
+        const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+        if (d < 7 && Math.hypot(x + 0.5 - 11, y + 0.5 - 8) > 6) img.set(x, y, hex(d > 5.5 ? '#fff2a8' : '#ffd34a'));
+      }
+  },
+  'arc-impulse': (img) => {
+    fillPolygon(img, [[9, 0.5], [3, 9], [7.5, 9], [6, 15.5], [13, 6], [8.5, 6]], () => hex('#7ecff2'));
+    rect(img, 7, 6, 2, 3, hex('#ffffff'));
+  },
+  'ion-cloud': (img) => {
+    for (const [x, y, r] of [[5, 5, 2.6], [11, 4, 2], [9, 10, 3], [4, 11, 2]]) {
+      disc(img, x, y, r, hex('#41a6d9'));
+      disc(img, x, y, r * 0.45, hex('#ffffff'));
+    }
+  },
+  'plasma-lance': (img) => {
+    rect(img, 1, 6, 4, 4, hex('#8a93a6'));
+    rect(img, 5, 6, 10, 4, hex('#41a6d9'));
+    rect(img, 5, 7, 10, 2, hex('#ffffff'));
   },
   'card-damage': (img) => {
     fillPolygon(img, [[8, 0.5], [10, 6], [15.5, 6], [11, 9.5], [13, 15.5], [8, 11.5], [3, 15.5], [5, 9.5], [0.5, 6], [6, 6]], () => hex('#ff7a3c'));
@@ -993,6 +1137,14 @@ const FILES = {
   'vfx/repulse.png': () => repulseRing(304),
   'vfx/freeze.png': () => freezeCone(220),
   'vfx/frozen.png': () => frozenShell(40),
+  'projectiles/gatling.png': gatlingBolt,
+  'vfx/crescent.png': () => crescentBlade(40),
+  'vfx/arc.png': arcSegment,
+  'vfx/arc-hit.png': () => arcSparkSheet(16),
+  'vfx/ion-ball.png': ionBall,
+  'vfx/ion-pop.png': () => ionPopSheet(72),
+  'vfx/plasma-lance.png': lanceSegment,
+  'vfx/plasma-hit.png': () => plasmaHitSheet(12),
   ...Object.fromEntries(Object.entries(SKILL_ICONS).map(([name, draw]) => [`ui/${name.startsWith('card') ? name : 'skill-' + name}.png`, () => icon16(draw)])),
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,

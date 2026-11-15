@@ -71,6 +71,7 @@ export type ShipTypeId = keyof typeof SHIP_TYPES;
 export const SKILLS = {
   laser: {
     name: 'Laser',
+    enabled: true,
     side: 'left',
     icon: 'ui.skill.laser',
     text: 'A beam that pierces every ship in a line.',
@@ -79,6 +80,7 @@ export const SKILLS = {
   },
   missiles: {
     name: 'Missiles',
+    enabled: true,
     side: 'left',
     icon: 'ui.skill.missiles',
     text: 'A cluster of homing missiles.',
@@ -86,6 +88,7 @@ export const SKILLS = {
   },
   mines: {
     name: 'Mines',
+    enabled: true,
     side: 'left',
     icon: 'ui.skill.mines',
     text: 'Drops a mine that blows up when an enemy comes near.',
@@ -93,6 +96,7 @@ export const SKILLS = {
   },
   shield: {
     name: 'Shield',
+    enabled: true,
     side: 'right',
     icon: 'ui.skill.shield',
     text: 'A bubble that soaks up damage, on you and nearby ships.',
@@ -100,6 +104,7 @@ export const SKILLS = {
   },
   repulse: {
     name: 'Repulse',
+    enabled: true,
     side: 'right',
     icon: 'ui.skill.repulse',
     text: 'A shockwave that pushes enemies and their shots away.',
@@ -107,15 +112,59 @@ export const SKILLS = {
   },
   freeze: {
     name: 'Freeze',
+    enabled: true,
     side: 'right',
     icon: 'ui.skill.freeze',
     text: 'Enemies in a cone in front of you stop moving and shooting for a moment.',
     stats: { power: 'duration', rate: 'recharge', size: 'cone size', reach: 'range' },
   },
+  // New skills (docs/SKILLS.md). Left click:
+  gatling: {
+    name: 'Gatling Laser',
+    enabled: true,
+    side: 'left',
+    icon: 'ui.skill.gatling',
+    text: 'A rapid volley of laser bolts toward the cursor.',
+    stats: { power: 'damage', rate: 'fire rate', count: 'bolt' },
+  },
+  crescent: {
+    name: 'Crescent Strike',
+    enabled: true,
+    side: 'left',
+    icon: 'ui.skill.crescent',
+    text: 'A spinning golden crescent that curves out and slices through enemies.',
+    stats: { power: 'damage', rate: 'fire rate', size: 'crescent size' },
+  },
+  arcImpulse: {
+    name: 'Arc Impulse',
+    enabled: true,
+    side: 'left',
+    icon: 'ui.skill.arc-impulse',
+    text: 'An electric arc hits the enemy nearest the cursor, then bounces to others nearby.',
+    stats: { count: 'bounce', power: 'damage', rate: 'fire rate' },
+  },
+  ionCloud: {
+    name: 'Ion Cloud',
+    enabled: true,
+    side: 'left',
+    icon: 'ui.skill.ion-cloud',
+    text: 'A cloud of glowing balls that each blow up after a moment.',
+    stats: { size: 'cloud size', count: 'ball', power: 'damage', rate: 'fire rate' },
+  },
+  plasmaLance: {
+    name: 'Plasma Lance',
+    enabled: true,
+    side: 'left',
+    icon: 'ui.skill.plasma-lance',
+    text: 'An energy blade sticks out of your ship for a moment, cutting what it touches.',
+    stats: { power: 'damage', rate: 'fire rate', size: 'blade size' },
+  },
 } satisfies Record<
   string,
   {
     name: string;
+    /** false = the skill is switched off: never offered on cards or items, never used by elites. */
+    enabled: boolean;
     side: 'left' | 'right';
     icon: string;
     text: string;
@@ -125,6 +174,12 @@ export const SKILLS = {
 >;
 
 export type SkillId = keyof typeof SKILLS;
+
+/** True if a skill exists and is switched on (`enabled` in SKILLS). Old saves may name skills that no longer exist. */
+export const skillEnabled = (id: string): id is SkillId => (SKILLS as Record<string, { enabled: boolean }>)[id]?.enabled === true;
+
+/** Every skill that is switched on. */
+export const enabledSkills = () => (Object.keys(SKILLS) as SkillId[]).filter(skillEnabled);
 
 /**
  * What a rank-up card improves: power (damage, strength...), rate (shorter
@@ -482,6 +537,98 @@ export const CONFIG = {
     reachPerCard: 1.2,
   },
 
+  /** Gatling Laser skill: a rapid volley of laser bolts toward the cursor. */
+  gatling: {
+    /** Seconds between volleys. */
+    cooldown: 1.2,
+    /** Bolts per volley (bolt cards add more). */
+    bolts: 6,
+    /** Seconds between bolts in a volley. */
+    boltInterval: 0.06,
+    /** Random aim change per bolt, either way (degrees). */
+    spread: 4,
+    /** Bolt speed. */
+    speed: 1200,
+    /** How far a bolt flies (tier 1; grows with the ship's shot range per tier). */
+    range: 450,
+    /** Damage per bolt (tier 1). A bolt stops at the first ship it hits. */
+    damage: 0.7,
+  },
+
+  /** Crescent Strike skill: a spinning crescent that curves out from the ship, cutting through enemies. */
+  crescent: {
+    /** Seconds between crescents. */
+    cooldown: 2.5,
+    /** Damage to each enemy it passes through (once per enemy). */
+    damage: 5,
+    /** Hit radius (tier 1; grows with ship size and size cards). */
+    radius: 20,
+    /** How far it flies (tier 1). */
+    distance: 600,
+    /** Seconds it flies. */
+    flightTime: 0.6,
+    /** How much it curves over its flight (degrees). It curves left and right in turn. */
+    curve: 90,
+    /** Spin speed of the picture (turns per second). */
+    spin: 3,
+  },
+
+  /** Arc Impulse skill: an arc hits the enemy nearest the cursor, then bounces to nearby enemies. */
+  arcImpulse: {
+    /** Seconds between arcs. */
+    cooldown: 3,
+    /** Damage of the first hit (tier 1). */
+    damage: 5,
+    /** Bounces after the first hit (bounce cards add more). */
+    bounces: 3,
+    /** Each bounce does this much of the one before (0.85 = 85%). */
+    falloff: 0.85,
+    /** Furthest the first target can be from your ship (tier 1). */
+    range: 500,
+    /** Furthest a bounce can jump (tier 1). */
+    bounceRange: 220,
+    /** Seconds between jumps, so the chain can be seen. */
+    jumpDelay: 0.05,
+  },
+
+  /** Ion Cloud skill: a cloud of glowing balls that each blow up after a short random time. */
+  ionCloud: {
+    /** Seconds between clouds. */
+    cooldown: 3.5,
+    /** Balls per cloud (ball cards add more). */
+    balls: 8,
+    /** How far the cloud travels toward the cursor before it stops (tier 1). */
+    distance: 300,
+    /** Seconds the cloud takes to get there. */
+    travelTime: 0.5,
+    /** How far balls spread from the cloud's middle (tier 1; cloud size cards make it bigger). */
+    spread: 60,
+    /** Shortest time before a ball blows up (seconds). */
+    fuseMin: 0.6,
+    /** Longest time before a ball blows up (seconds). */
+    fuseMax: 1.2,
+    /** Blast radius of each ball (tier 1; cloud size cards make it bigger). */
+    blastRadius: 35,
+    /** Damage of each ball's blast (tier 1). */
+    damage: 1.5,
+  },
+
+  /** Plasma Lance skill: an energy blade sticks out of the front of your ship for a moment. */
+  plasmaLance: {
+    /** Seconds between lances (counted from when it appears). */
+    cooldown: 4,
+    /** Seconds the blade stays out. */
+    duration: 1.5,
+    /** Blade length (tier 1; grows with ship size and size cards). */
+    length: 180,
+    /** Blade width (tier 1). */
+    width: 12,
+    /** Damage to each enemy touching the blade, every tickTime (tier 1). */
+    damage: 1.5,
+    /** Seconds between damage ticks. */
+    tickTime: 0.25,
+  },
+
   /**
    * Particles (thrusters, missile trails...). Every emitter's settings, and the
    * defaults per kind of mount, are edited in ShipArt and saved in art.json.
@@ -673,6 +820,16 @@ export const CONFIG = {
     cooldownMultiplier: 1.5,
     /** Seconds an elite's laser shows a warning line before it fires. */
     laserWarning: 0.6,
+    /** Fairness: an elite's Crescent Strike stops after hitting this many ships. */
+    crescentMaxHits: 3,
+    /** Fairness: bounces an elite's Arc Impulse can make (yours: CONFIG.arcImpulse.bounces and up). */
+    arcBounces: 1,
+    /** Fairness: seconds an elite's Plasma Lance flickers as a warning before it starts cutting. */
+    lanceWarning: 0.6,
+    /** Fairness: an elite's Plasma Lance damage compared to its other skills (0.5 = half). */
+    lanceDamage: 0.5,
+    /** Fairness: an elite's Plasma Lance cuts each of your ships at most this many times per use. */
+    lanceHitsPerShip: 2,
     /** Drop odds: weight for "a wreck only". */
     dropWreckWeight: 40,
     /** Drop odds: weight for "an item only". */

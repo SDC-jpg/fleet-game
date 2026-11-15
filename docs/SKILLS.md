@@ -1,6 +1,6 @@
 # New skills: specification
 
-Status: design, not built yet (2026-11-14). 14 new skills to add to the 6 that already exist.
+Status (2026-11-14): batch 1 built (Gatling Laser, Crescent Strike, Arc Impulse, Ion Cloud, Plasma Lance). 14 new skills to add to the 6 that already exist. Numbers below are the starting values in `config.ts`.
 
 ## Background: how skills work today
 
@@ -28,7 +28,12 @@ Every new skill follows the same rules as the existing six (Laser, Missiles, Min
   - leaves no effects, sounds or HUD icons behind.
 
   Turning one off is a one-word change.
-- **Elites** keep using only the original six skills unless asked.
+- **Elites use any switched-on skill** (the user's note), through `CONFIG.elite.skillDamage` (a quarter of yours) and 1.5× cooldowns like before. Where a skill would feel unfair against you, the elite's version is limited. Each limit is a setting in `CONFIG.elite`:
+  - Crescent Strike stops after 3 ships.
+  - Arc Impulse makes 1 bounce.
+  - Plasma Lance flickers as a warning for 0.6 s, then cuts at half damage, at most 2 times per ship.
+  - The limits for batches 2 and 3 are listed with each skill below.
+- **Wreck skills hit harder** (the user's note). Wrecksplosion and Tractor Beam use up wrecks you could have recruited, so they do about twice the damage of other skills, and more for bigger wrecks.
 - **Targeting:**
   - "Closest to the cursor" means the enemy nearest the cursor position in the world.
   - "In range" uses the distance from the ship you fly.
@@ -61,14 +66,14 @@ The batches are ordered by how much new engine work they need:
 **Gatling Laser** (`gatling`)
 - **Behavior:** fires a volley of 6 thin laser bolts, one every 0.06 s, toward the cursor with ±4° random spread.
   - Bolts fly at 1200 px/s for 450 px.
-  - Each bolt does 1 damage and stops at the first ship it hits.
+  - Each bolt does 0.7 damage and stops at the first ship it hits.
   - Cooldown 1.2 s, so it is almost continuous while held.
 - **Upgrades:** power (bolt damage), rate (cooldown), count (+bolts per volley).
 - **Art:** `vfx.gatling-bolt` (short glowing bolt), `vfx.gatling-muzzle` (muzzle flash at the ship's gun point).
 
 **Crescent Strike** (`crescent`)
-- **Behavior:** a spinning golden crescent, 40 px across, leaves the ship toward the cursor.
-  - It curves 90° to one side over its flight (600 px in 0.6 s), then fades. It alternates left and right on each cast.
+- **Behavior:** a spinning golden crescent, 40 px across, leaves the ship and flies along a curve that always passes through the cursor, then keeps curving past it.
+  - The curve is a circle sized so a full flight (600 px in 0.6 s) turns 90°. It fades at the end, and alternates left and right on each cast.
   - It passes through enemies, hitting each one once for 5 damage.
   - Cooldown 2.5 s.
 - **Upgrades:** power (damage), rate (cooldown), size (crescent size and hit width).
@@ -105,7 +110,7 @@ The batches are ordered by how much new engine work they need:
 
 **Wrecksplosion** (`wrecksplosion`)
 - **Behavior:** every wreck within 300 px of the cursor explodes at once.
-  - Each blast hits enemies within 90 px for 8 damage. Bigger wrecks have a bigger blast (×1.5 per tier, like ship size).
+  - Each blast hits enemies within 90 px for 16 damage, about twice a normal skill's damage, to make up for losing the recruits. Bigger wrecks have a bigger and harder blast (×1.5 size and ×1.5 damage per tier above 1).
   - The exploded wrecks are gone. Trade-off: those ships can no longer be recruited.
   - The 300 px radius flashes as a ring around the cursor for 0.4 s.
   - If there are no wrecks in the radius, nothing happens and the skill stays ready.
@@ -116,7 +121,7 @@ The batches are ordered by how much new engine work they need:
 **Tractor Beam** (`tractorBeam`)
 - **Behavior:** a beam from the ship grabs the nearest wreck within 350 px. It then hurls the wreck at the enemy closest to the cursor.
   - The wreck speeds up to 900 px/s and homes in gently, with a turn rate like Missiles.
-  - On hit it does 10 damage (×1.5 per wreck tier) to that enemy and 50% of that to enemies within 50 px. The wreck is used up.
+  - On hit it does 20 damage (×1.5 per wreck tier above 1) to that enemy and 50% of that to enemies within 50 px. The wreck is used up. That's about twice a normal skill's damage, to make up for losing the recruit.
   - The beam stays visible from the ship to the wreck while it accelerates (0.3 s).
   - If there's no wreck in range, the skill stays ready.
   - Cooldown 3.5 s.
@@ -126,7 +131,7 @@ The batches are ordered by how much new engine work they need:
 **Ion Cloud** (`ionCloud`)
 - **Behavior:** fires a cloud of 8 small glowing balls toward the cursor.
   - The cloud's centre travels 300 px over 0.5 s and slows to a stop. The balls spread within 60 px of it, drifting slightly.
-  - Each ball explodes after a random 0.6–1.2 s, hitting enemies within 35 px for 2 damage.
+  - Each ball explodes after a random 0.6–1.2 s, hitting enemies within 35 px for 1.5 damage.
   - Cooldown 3.5 s.
 - **Upgrades:**
   - size: cloud spread and blast radius.

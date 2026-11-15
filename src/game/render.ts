@@ -112,6 +112,8 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, b.angle, 'beam', b.team, b.age, 1, false);
   }
 
+  drawSkillObjects(state, r, assets);
+
   for (const b of state.bullets) {
     const name = tierSprite(assets, b.sprite, b.tier);
     if (b.homing > 0) {
@@ -142,6 +144,42 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   const enemyArrow = assets.get('ui.arrow.enemy');
   const eliteArrow = assets.get('ui.arrow.elite');
   for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, s.elite ? eliteArrow : enemyArrow, s.x, s.y, state.time);
+}
+
+/** What the newer skills left in the world (see moreSkills.ts), each drawn from its own art. */
+function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets) {
+  for (const o of state.skillObjs) {
+    switch (o.kind) {
+      case 'crescent': {
+        // Spins as it flies; fades out at the very end.
+        const spin = o.age * CONFIG.crescent.spin * Math.PI * 2;
+        const alpha = clamp((o.life - o.age) / 0.15, 0, 1);
+        r.drawSprite(assets.get('vfx.crescent'), o.x, o.y, spin, o.age, alpha, false, o.scale);
+        break;
+      }
+      case 'ionBall': {
+        // Flickers faster just before it blows up.
+        const left = o.life - o.age;
+        const alpha = left < 0.25 && Math.floor(left * 30) % 2 === 0 ? 0.5 : 1;
+        r.drawSprite(teamSprite(assets, 'vfx.ion-ball', o.team), o.x, o.y, 0, state.time + o.angle, alpha, false, o.scale);
+        break;
+      }
+      case 'arcBolt': {
+        const fx = o.fromX ?? o.x;
+        const fy = o.fromY ?? o.y;
+        const length = Math.hypot(o.x - fx, o.y - fy);
+        drawBeam(r, teamSprite(assets, 'vfx.arc', o.team), fx, fy, Math.atan2(o.y - fy, o.x - fx), length, o.scale, o.age);
+        break;
+      }
+      case 'lance': {
+        // An elite's lance flickers thin and faint while it's only a warning.
+        const warn = o.age < (o.warning ?? 0);
+        if (warn && Math.floor(o.age * 16) % 2) break;
+        drawBeam(r, teamSprite(assets, 'vfx.plasma-lance', o.team), o.x, o.y, o.angle, o.length ?? 0, warn ? o.scale * 0.3 : o.scale, state.time);
+        break;
+      }
+    }
+  }
 }
 
 /** A beam: one short segment image repeated along its length, scaled by `width`. */

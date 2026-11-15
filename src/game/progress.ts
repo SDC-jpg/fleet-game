@@ -2,7 +2,7 @@
 // the game and offers a few cards (new skills or fleet bonuses).
 // Like world.ts, nothing is drawn here.
 
-import { CONFIG, SKILLS, type SkillId } from './config';
+import { CONFIG, SKILLS, enabledSkills, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { addSound, type Card, type GameState } from './world';
 import { updateBonuses } from './equipment';
@@ -26,7 +26,7 @@ function newSkillOptions(state: GameState): SkillId[] {
   const owned = state.skills.map((s) => s.id);
   const count = (side: string) => owned.filter((id) => SKILLS[id].side === side).length;
   const room = { left: count('left') < C.maxWeapons, right: count('right') < C.maxDefences };
-  return (Object.keys(SKILLS) as SkillId[]).filter((id) => !owned.includes(id) && room[SKILLS[id].side]);
+  return enabledSkills().filter((id) => !owned.includes(id) && room[SKILLS[id].side]);
 }
 
 /** A rank-up card for one of your skills: one of its stats, with a rarity-based bonus. */
@@ -82,7 +82,7 @@ export function pickCard(state: GameState, index: number) {
 
 /** Test helper: get every skill you don't have yet (ignores the weapon/defence limits). */
 export function testGiveAllSkills(state: GameState) {
-  for (const id of Object.keys(SKILLS) as SkillId[])
+  for (const id of enabledSkills())
     if (!state.skills.some((sk) => sk.id === id)) state.skills.push({ id, rank: 1, timer: 0, mods: newMods() });
 }
 
@@ -134,7 +134,7 @@ export interface CardGroup {
  */
 export function cardIndex(): { section: string; groups: CardGroup[] }[] {
   const C = CONFIG.cards;
-  const skills = Object.keys(SKILLS) as SkillId[];
+  const skills = enabledSkills();
   // A blank game is enough to describe cards (rank numbers show as rank 2).
   const blank = { skills: [] } as unknown as GameState;
   const card = (c: Card) => describeCard(c, blank);

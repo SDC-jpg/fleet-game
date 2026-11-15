@@ -311,6 +311,46 @@ function swarm() {
   });
 }
 
+/** Gatling bolt: a tiny, quick zap (plays for every bolt, so it's short and quiet). */
+function gatling() {
+  const a = oscillator('square');
+  return render(0.05, (t, k) => a(sweep(2400, 1200, k)) * decay(t, 60) * 0.6);
+}
+
+/** Crescent Strike: an airy rising whoosh with a bright ring. */
+function crescent() {
+  const r = rng(71);
+  const lp = lowpass();
+  const ring = oscillator('sine');
+  return render(0.35, (t, k) => lp(r() * 2 - 1, sweep(800, 4000, k)) * decay(t, 7, 0.03) * 0.7 + ring(sweep(900, 1400, k)) * decay(t, 10) * 0.3);
+}
+
+/** Arc Impulse: a crackling electric snap. */
+function arc() {
+  const r = rng(83);
+  const buzz = oscillator('saw');
+  return render(0.25, (t) => ((r() < 0.3 ? r() * 2 - 1 : 0) * 0.8 + buzz(120 + 40 * Math.sin(t * 200)) * 0.3) * decay(t, 12, 0.001));
+}
+
+/** Ion Cloud launch: a soft bubbly burble. */
+function ionCloud() {
+  const a = oscillator('sine');
+  return render(0.3, (t) => a(500 + 300 * Math.sin(t * 2 * Math.PI * 25)) * decay(t, 9, 0.01) * 0.7);
+}
+
+/** Ion ball popping: a small, high blip. */
+function ionPop() {
+  const a = oscillator('triangle');
+  return render(0.08, (t, k) => a(sweep(1600, 700, k)) * decay(t, 40));
+}
+
+/** Plasma Lance: an ignition hum that swells and fades. */
+function plasmaLance() {
+  const a = oscillator('saw'), b = oscillator('sine');
+  const lp = lowpass();
+  return render(0.6, (t, k) => lp(a(110) * 0.6 + b(220), sweep(300, 2500, Math.min(1, k * 4))) * Math.min(1, t / 0.05) * Math.exp(-t * 4) * 0.7);
+}
+
 function command() {
   const osc = oscillator('triangle');
   const notes = [523, 392, 659];
@@ -358,6 +398,12 @@ const FILES = {
   'loot.wav': loot,
   'alert.wav': alert,
   'swarm.wav': swarm,
+  'gatling.wav': gatling,
+  'crescent.wav': crescent,
+  'arc.wav': arc,
+  'ion-cloud.wav': ionCloud,
+  'ion-pop.wav': ionPop,
+  'plasma-lance.wav': plasmaLance,
   'command.wav': command,
   'gameover.wav': gameOver,
 };

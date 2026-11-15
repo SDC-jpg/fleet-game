@@ -4,7 +4,7 @@
 // Like world.ts, nothing is drawn here.
 
 import { distSq, randRange } from '../engine/math';
-import { CONFIG, ITEM_STATS, SKILLS, type ItemStat, type SkillId, type SkillStat } from './config';
+import { CONFIG, ITEM_STATS, SKILLS, enabledSkills, skillEnabled, type ItemStat, type SkillId, type SkillStat } from './config';
 import { MAX_RARITY, nextRarity, rarityAt, rarityInfo, rarityScale, rarityTier, rarityWeights, rollRarity, rollSpread, roundBonus, type Rarity, type RarityWeights } from './rarity';
 import { addMod, rankAmount, skillStats, upgradeText } from './upgrades';
 import { addEffect, addSound, statsFor, tierValue, type GameState, type Ship } from './world';
@@ -90,7 +90,7 @@ function rollItemCard(): ItemCard {
   const options: (() => ItemCard)[] = [
     () => ({ kind: 'damage', amount: C.damageBonus }),
     () => ({ kind: 'fireRate', amount: C.fireRateBonus }),
-    ...(Object.keys(SKILLS) as SkillId[]).flatMap((skill) =>
+    ...enabledSkills().flatMap((skill) =>
       skillStats(skill).map((stat) => () => ({ kind: 'skill', skill, stat, amount: rankAmount(stat, rollRarity()) }) as ItemCard),
     ),
   ];
@@ -253,8 +253,10 @@ export function updateBonuses(state: GameState) {
     b[it.stat] += it.amount;
     for (const sub of it.subs ?? []) b[sub.stat] += sub.amount;
     const c = it.card;
-    if (c?.kind === 'skill') addMod((skills[c.skill] ??= {}), c.stat, c.amount);
-    else if (c) b[c.kind] += c.amount;
+    // A bonus for a switched-off skill does nothing (and isn't shown).
+    if (c?.kind === 'skill') {
+      if (skillEnabled(c.skill)) addMod((skills[c.skill] ??= {}), c.stat, c.amount);
+    } else if (c) b[c.kind] += c.amount;
   });
   state.bonus = b;
   state.skillBonus = skills;
@@ -312,7 +314,10 @@ export function describeItem(it: Item) {
   return {
     name: `${it.plus ? `+${it.plus} ` : ''}${r.name} ${s.name}`,
     bonus: bonusText(it.stat, it.amount),
-    extra: [...(it.subs ?? []).map((sub) => bonusText(sub.stat, sub.amount)), ...(it.card ? [cardText(it.card)] : [])],
+    extra: [
+      ...(it.subs ?? []).map((sub) => bonusText(sub.stat, sub.amount)),
+      ...(it.card && (it.card.kind !== 'skill' || skillEnabled(it.card.skill)) ? [cardText(it.card)] : []),
+    ],
     icon: s.icon,
     color: r.color,
     holo: !!r.holo,
