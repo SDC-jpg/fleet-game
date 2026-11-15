@@ -894,7 +894,7 @@ export const CONFIG = {
    */
   particles: {
     /** Most particles on screen at once (keeps big fleets fast). */
-    max: 1500,
+    max: 2500,
   },
 
   /** Space dash: the whole fleet gets a burst of speed that fades out. */
