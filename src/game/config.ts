@@ -159,6 +159,39 @@ export const SKILLS = {
     text: 'An energy blade sticks out of your ship for a moment, cutting what it touches.',
     stats: { power: 'damage', rate: 'fire rate', size: 'blade size' },
   },
+  splitBeam: {
+    name: 'Splitting Beam',
+    enabled: true,
+    side: 'left',
+    icon: 'ui.skill.split-beam',
+    text: 'A fast beam that splits in two each time it hits.',
+    stats: { count: 'split', power: 'damage', rate: 'fire rate' },
+  },
+  laserPods: {
+    name: 'Laser Pods',
+    enabled: true,
+    side: 'left',
+    icon: 'ui.skill.laser-pods',
+    text: 'Launches pods that each pick a target and shoot it with precise lasers.',
+    stats: { count: 'pod', power: 'damage', rate: 'fire rate' },
+  },
+  // Right click:
+  gravityWell: {
+    name: 'Gravity Well',
+    enabled: true,
+    side: 'right',
+    icon: 'ui.skill.gravity-well',
+    text: 'Enemies around the cursor are dragged toward it, harder near the middle.',
+    stats: { size: 'radius', power: 'pull', rate: 'recharge' },
+  },
+  scramble: {
+    name: 'Scramble',
+    enabled: true,
+    side: 'right',
+    icon: 'ui.skill.scramble',
+    text: 'A wave of disruption in front of you: enemies it hits turn and fly at random for a while.',
+    stats: { power: 'duration', rate: 'recharge', size: 'wave width' },
+  },
 } satisfies Record<
   string,
   {
@@ -629,6 +662,86 @@ export const CONFIG = {
     tickTime: 0.25,
   },
 
+  /** Splitting Beam skill: a fast beam that splits in two each time it hits an enemy. */
+  splitBeam: {
+    /** Seconds between beams. */
+    cooldown: 3,
+    /** Damage of the first beam (tier 1). */
+    damage: 5,
+    /** Times it can split (split cards add more, up to maxSplits). 1 = one beam, then two. */
+    splits: 1,
+    /** Most splits, whatever the cards (5 = up to 32 beams at the end). */
+    maxSplits: 5,
+    /** Each new beam does this much of its parent's damage (0.6 = 60%). */
+    falloff: 0.6,
+    /** Angle of each new beam either side of its parent's direction (degrees). */
+    splitAngle: 35,
+    /** Beam speed. */
+    speed: 1000,
+    /** How far the first beam flies (tier 1; grows with shot range per tier). */
+    range: 600,
+    /** How far each split beam flies (tier 1). */
+    splitRange: 300,
+    /** Length of the beam's streak (tier 1). */
+    streak: 36,
+  },
+
+  /** Laser Pods skill: pods glide out in front of you, each picks a target and shoots it with precise lasers. */
+  laserPods: {
+    /** Seconds between launches. */
+    cooldown: 4,
+    /** Pods per launch (pod cards add more). */
+    pods: 3,
+    /** Width of the cone they're launched in (degrees). */
+    cone: 60,
+    /** How far they glide out before stopping (tier 1). */
+    glide: 80,
+    /** Seconds they take to glide out. */
+    glideTime: 0.3,
+    /** Seconds they keep shooting after stopping. */
+    duration: 2.5,
+    /** Seconds between a pod's shots. */
+    shotInterval: 0.5,
+    /** Damage per shot (tier 1). */
+    damage: 1,
+    /** Shot speed (they aim ahead of moving targets, so they rarely miss). */
+    shotSpeed: 1500,
+    /** Closest a target can be (they pick close to mid-range targets, tier 1). */
+    minRange: 100,
+    /** Furthest a target can be (tier 1). */
+    maxRange: 600,
+  },
+
+  /** Gravity Well skill (right click): enemies around the cursor are pulled toward it, harder near the middle. */
+  gravityWell: {
+    /** Seconds between wells. */
+    cooldown: 5,
+    /** Seconds a well lasts. */
+    duration: 2.5,
+    /** Radius (tier 1; radius cards make it bigger). */
+    radius: 250,
+    /** Pull speed at the very middle (falls to nothing at the edge). Pull cards make it stronger. */
+    pull: 300,
+  },
+
+  /** Scramble skill (right click): a wave in front of you; enemies it hits turn and fly at random for a while. */
+  scramble: {
+    /** Seconds between waves. */
+    cooldown: 5,
+    /** Seconds enemies stay scrambled. */
+    duration: 2.5,
+    /** Wave width (tier 1; wave width cards make it wider). */
+    width: 150,
+    /** Wave speed. */
+    speed: 900,
+    /** How far the wave goes (tier 1). */
+    distance: 700,
+    /** A scrambled ship picks a new random direction this often (seconds). */
+    changeEvery: 0.4,
+    /** A scrambled ship's speed compared to normal. */
+    scrambledSpeed: 0.6,
+  },
+
   /**
    * Particles (thrusters, missile trails...). Every emitter's settings, and the
    * defaults per kind of mount, are edited in ShipArt and saved in art.json.
@@ -830,6 +943,12 @@ export const CONFIG = {
     lanceDamage: 0.5,
     /** Fairness: an elite's Plasma Lance cuts each of your ships at most this many times per use. */
     lanceHitsPerShip: 2,
+    /** Fairness: most times an elite's Splitting Beam can split. */
+    splitBeamSplits: 2,
+    /** Fairness: an elite's Gravity Well pulls your ships this hard compared to yours (the ship you fly is never pulled). */
+    wellPull: 0.5,
+    /** Fairness: an elite's Scramble lasts this long compared to yours (the ship you fly is never scrambled). */
+    scrambleDuration: 0.5,
     /** Drop odds: weight for "a wreck only". */
     dropWreckWeight: 40,
     /** Drop odds: weight for "an item only". */

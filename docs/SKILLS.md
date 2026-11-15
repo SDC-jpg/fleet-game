@@ -1,6 +1,6 @@
 # New skills: specification
 
-Status (2026-11-14): batch 1 built (Gatling Laser, Crescent Strike, Arc Impulse, Ion Cloud, Plasma Lance). 14 new skills to add to the 6 that already exist. Numbers below are the starting values in `config.ts`.
+Status (2026-11-14): batches 1 and 2 built (Gatling Laser, Crescent Strike, Arc Impulse, Ion Cloud, Plasma Lance; Splitting Beam, Laser Pods, Gravity Well, Scramble). 14 new skills to add to the 6 that already exist. Numbers below are the starting values in `config.ts`.
 
 ## Background: how skills work today
 
@@ -32,7 +32,11 @@ Every new skill follows the same rules as the existing six (Laser, Missiles, Min
   - Crescent Strike stops after 3 ships.
   - Arc Impulse makes 1 bounce.
   - Plasma Lance flickers as a warning for 0.6 s, then cuts at half damage, at most 2 times per ship.
-  - The limits for batches 2 and 3 are listed with each skill below.
+  - Splitting Beam splits at most 2 times.
+  - Gravity Well pulls your ships at half strength.
+  - Scramble lasts half as long.
+  - Gravity Well and Scramble (anyone's) never affect the ship you fly, so you always keep control.
+  - The limits for batch 3 are listed with each skill below.
 - **Wreck skills hit harder** (the user's note). Wrecksplosion and Tractor Beam use up wrecks you could have recruited, so they do about twice the damage of other skills, and more for bigger wrecks.
 - **Targeting:**
   - "Closest to the cursor" means the enemy nearest the cursor position in the world.

@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-14
+- Four more skills: Splitting Beam and Laser Pods (left click), Gravity Well and Scramble (right click). Elites can use them too, toned down; they never pull or scramble the ship you fly.
 - Five new weapon skills on level-up cards: Gatling Laser, Crescent Strike, Arc Impulse, Ion Cloud and Plasma Lance. Elites can use them too, toned down so they stay fair.
 - Elites are fairer: their toughness now grows steadily with the waves (with some variety) instead of jumping hugely at waves 20 and 106, and one elite gives at most about 2 level-ups.
 - Settings → General has a "Clear saved progress" button (asks first) that deletes your items, slots and Merge Module to start over. Your run log stays.

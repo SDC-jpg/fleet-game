@@ -5,7 +5,19 @@
 
 import { distSq, randRange, wrapAngle } from '../engine/math';
 import { CONFIG, SKILLS, enabledSkills, type SkillId, type SkillStat } from './config';
-import { eliteWantsMore, fireArc, fireCrescent, fireGatling, fireIonCloud, firePlasmaLance, updateSkillObjects } from './moreSkills';
+import {
+  eliteWantsMore,
+  fireArc,
+  fireCrescent,
+  fireGatling,
+  fireIonCloud,
+  firePlasmaLance,
+  fireSplitBeam,
+  launchPods,
+  openGravityWell,
+  sendScramble,
+  updateSkillObjects,
+} from './moreSkills';
 import { addMod, newMods, type SkillMods } from './upgrades';
 import {
   addEffect,
@@ -34,6 +46,10 @@ const COOLDOWNS: Record<SkillId, () => number> = {
   arcImpulse: () => CONFIG.arcImpulse.cooldown,
   ionCloud: () => CONFIG.ionCloud.cooldown,
   plasmaLance: () => CONFIG.plasmaLance.cooldown,
+  splitBeam: () => CONFIG.splitBeam.cooldown,
+  laserPods: () => CONFIG.laserPods.cooldown,
+  gravityWell: () => CONFIG.gravityWell.cooldown,
+  scramble: () => CONFIG.scramble.cooldown,
 };
 
 /**
@@ -106,6 +122,10 @@ const USE: Record<SkillId, Use> = {
   arcImpulse: fireArc,
   ionCloud: fireIonCloud,
   plasmaLance: (state, ship, _c, sk) => firePlasmaLance(state, ship, sk),
+  splitBeam: fireSplitBeam,
+  laserPods: (state, ship, _c, sk) => launchPods(state, ship, sk),
+  gravityWell: openGravityWell,
+  scramble: (state, ship, _c, sk) => sendScramble(state, ship, sk),
 };
 
 /** Laser: everything along the beam in front of you takes damage at once. */
@@ -338,8 +358,8 @@ export function updateEliteSkills(state: GameState, dt: number) {
     const e = ship.elite;
     if (!e || ship.dead || ship.merge) continue;
     for (const sk of e.skills) sk.timer = Math.max(0, sk.timer - dt);
-    // Frozen: can't shoot, and a laser that was charging fizzles.
-    if (ship.frozen > 0) {
+    // Frozen or scrambled: can't use skills, and a laser that was charging fizzles.
+    if (ship.frozen > 0 || ship.scrambled > 0) {
       e.laserCharge = 0;
       continue;
     }

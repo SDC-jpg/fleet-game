@@ -351,6 +351,45 @@ function plasmaLance() {
   return render(0.6, (t, k) => lp(a(110) * 0.6 + b(220), sweep(300, 2500, Math.min(1, k * 4))) * Math.min(1, t / 0.05) * Math.exp(-t * 4) * 0.7);
 }
 
+/** Splitting Beam: a bright zap that forks (two tones peeling apart). */
+function splitBeam() {
+  const a = oscillator('square'), b = oscillator('square');
+  return render(0.22, (t, k) => (a(sweep(1500, 900, k)) + b(sweep(1500, 2100, k))) * 0.35 * decay(t, 14));
+}
+
+/** Laser Pods launch: three soft pops in a row. */
+function pods() {
+  const a = oscillator('sine');
+  return render(0.3, (t) => {
+    const i = Math.floor(t / 0.08);
+    return a(300 + i * 80) * decay(t - i * 0.08, 30) * (i < 3 ? 1 : 0);
+  });
+}
+
+/** Pod shot: a very short, thin "tik". */
+function podShot() {
+  const a = oscillator('triangle');
+  return render(0.04, (t, k) => a(sweep(3000, 2000, k)) * decay(t, 80));
+}
+
+/** Gravity Well: a deep falling "whoom". */
+function gravityWell() {
+  const a = oscillator('sine'), b = oscillator('saw');
+  const lp = lowpass();
+  return render(0.9, (t, k) => (a(sweep(160, 50, k)) + lp(b(sweep(80, 30, k)), 400) * 0.4) * Math.min(1, t / 0.08) * Math.exp(-t * 3) * 0.8);
+}
+
+/** Scramble: a glitchy burst of stuttering noise and blips. */
+function scramble() {
+  const r = rng(97);
+  const a = oscillator('square');
+  return render(0.4, (t) => {
+    const step = Math.floor(t / 0.03);
+    const on = rng(step + 5)() < 0.6 ? 1 : 0;
+    return ((r() * 2 - 1) * 0.5 + a(400 + (step % 5) * 220) * 0.4) * on * decay(t, 5, 0.005);
+  });
+}
+
 function command() {
   const osc = oscillator('triangle');
   const notes = [523, 392, 659];
@@ -404,6 +443,11 @@ const FILES = {
   'ion-cloud.wav': ionCloud,
   'ion-pop.wav': ionPop,
   'plasma-lance.wav': plasmaLance,
+  'split-beam.wav': splitBeam,
+  'pods.wav': pods,
+  'pod-shot.wav': podShot,
+  'gravity-well.wav': gravityWell,
+  'scramble.wav': scramble,
   'command.wav': command,
   'gameover.wav': gameOver,
 };

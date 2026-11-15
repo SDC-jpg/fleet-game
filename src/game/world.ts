@@ -59,6 +59,11 @@ export interface Ship {
   thrust: Thrust;
   /** Seconds left frozen (Freeze skill): it can't move, turn or shoot meanwhile. */
   frozen: number;
+  /** Seconds left scrambled (Scramble skill): it turns and flies at random, shooting wherever it faces. */
+  scrambled: number;
+  /** Scrambled: the random direction it's turning toward, and seconds until it picks another. */
+  scrambleAngle: number;
+  scrambleTimer: number;
   /** Damage a Shield (skill) will still absorb, and seconds until it fades. */
   shield: number;
   shieldTime: number;
@@ -521,6 +526,9 @@ function addShip(
     absorbed: false,
     thrust: 'idle',
     frozen: 0,
+    scrambled: 0,
+    scrambleAngle: 0,
+    scrambleTimer: 0,
     shield: 0,
     shieldTime: 0,
     elite: null,
@@ -621,6 +629,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   for (const fleet of [state.playerFleet, ...state.enemyFleets]) updateFleet(state, fleet, dt);
   updateSkills(state, controls, dt);
   updateEliteSkills(state, dt);
+  updateScrambled(state, dt);
   updateMerges(state, dt);
   separateShips(state, dt);
 
@@ -854,7 +863,8 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
  * With an `arc`, only targets inside it count and the ship never turns outside it.
  */
 function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number, arc?: FireArc) {
-  if (ship.frozen > 0) return;
+  // Frozen ships can't aim; scrambled ones turn and shoot at random (updateScrambled).
+  if (ship.frozen > 0 || ship.scrambled > 0) return;
   // An elite holds still while its laser warning shows, so the warning line is where the beam will go.
   if (ship.elite && ship.elite.laserCharge > 0) return;
   // Merging ships hold fire.
@@ -928,6 +938,34 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
   }
   aimAndShoot(state, ship, dt, Math.atan2(dy, dx));
   ship.thrust = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED ? 'move' : 'idle';
+}
+
+/**
+ * Scrambled ships (Scramble skill) ignore their orders: each turns toward a
+ * random direction (a new one every CONFIG.scramble.changeEvery seconds), drifts
+ * that way, and fires wherever it happens to face.
+ */
+function updateScrambled(state: GameState, dt: number) {
+  const S = CONFIG.scramble;
+  for (const s of state.ships) {
+    if (s.scrambled <= 0) continue;
+    s.scrambled = Math.max(0, s.scrambled - dt);
+    if (s.frozen > 0 || s.merge) continue;
+    s.scrambleTimer -= dt;
+    if (s.scrambleTimer <= 0) {
+      s.scrambleTimer = S.changeEvery;
+      s.scrambleAngle = Math.random() * Math.PI * 2;
+    }
+    const t = typeOf(s);
+    s.angle = turnToward(s.angle, s.scrambleAngle, s.stats.turnRate * 2 * dt);
+    const speed = t.maxSpeed * S.scrambledSpeed * (s.team === 'enemy' ? CONFIG.enemySpeedMultiplier : 1);
+    steer(s, Math.cos(s.angle) * speed, Math.sin(s.angle) * speed, t.accel, dt);
+    if (s.fireTimer <= 0) {
+      const enemy = s.team === 'enemy';
+      const mul = enemy ? CONFIG.enemyFireCooldownMultiplier : CONFIG.allyFireCooldownMultiplier;
+      fire(state, s, s.stats.fireCooldown * mul * randRange(0.85, 1.15), enemy ? CONFIG.enemyAimSpread : CONFIG.allyAimSpread);
+    }
+  }
 }
 
 /**

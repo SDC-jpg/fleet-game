@@ -852,6 +852,104 @@ function plasmaHitSheet(S = 12) {
   return sheet;
 }
 
+// Split beam streak: thin white core, sky blue edges, repeated along the streak.
+function splitBeamSegment() {
+  const W = 6, H = 6;
+  const img = new Img(W, H);
+  for (let x = 0; x < W; x++) {
+    img.set(x, 1, hex('#41a6d9'));
+    img.set(x, 2, hex('#ffffff'));
+    img.set(x, 3, hex('#ffffff'));
+    img.set(x, 4, hex('#41a6d9'));
+  }
+  return img;
+}
+
+// Split burst: a small flash with two short prongs (the split). 4 frames, plays once.
+function splitBurstSheet(S = 16) {
+  const F = 4, c = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    if (f < 3) disc(frame, c, c, [4, 3, 1.8][f], hex(f ? '#7ecff2' : '#ffffff'));
+    for (const a of [-0.6, 0.6])
+      for (let i = 2 + f; i < 4 + f * 1.5; i++) frame.set(Math.round(c + Math.cos(a) * i), Math.round(c + Math.sin(a) * i), hex('#41a6d9'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
+// Laser pod: a small grey pod with a sky blue lens at the front (faces right). 2 frames, the lens blinks.
+function podSheet() {
+  const S = 12, F = 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    fillPolygon(frame, [[2, 3], [8, 3], [10.5, 6], [8, 9], [2, 9]], () => hex('#8a93a6'));
+    rect(frame, 3, 5, 3, 2, hex('#5d6578'));
+    rect(frame, 8, 5, 2, 2, hex(f ? '#ffffff' : '#41a6d9'));
+    outline(frame, hex('#10131a'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
+// Pod shot: a thin, bright laser streak.
+function podShot() {
+  const img = new Img(12, 2);
+  rect(img, 0, 0, 8, 2, hex('#41a6d9'));
+  rect(img, 8, 0, 4, 2, hex('#ffffff'));
+  return img;
+}
+
+// Gravity well: thin sky blue spiral arms and a dotted rim around a dark middle
+// (256 px = radius 128; the game scales it to the well's radius and turns it). 4 frames, looping.
+function gravityWellSheet(S = 256) {
+  const F = 4, c = S / 2, R = c - 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++)
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const dx = x + 0.5 - c, dy = y + 0.5 - c;
+        const d = Math.hypot(dx, dy);
+        if (d > R) continue;
+        const a = Math.atan2(dy, dx);
+        // Three arms winding inward.
+        const arm = Math.sin(3 * a + (d / R) * 9 - (f / F) * Math.PI * 2);
+        if (Math.abs(d - R) < 0.8 && Math.floor(a * 40) % 2 === 0) sheet.set(f * S + x, y, hex('#7ecff2', 160));
+        else if (arm > 0.97 && d > 8) sheet.set(f * S + x, y, hex('#41a6d9', Math.round(40 + 150 * (1 - d / R))));
+        else if (d < 8) sheet.set(f * S + x, y, hex('#10131a', 200));
+      }
+  return sheet;
+}
+
+// Scramble wave: a tall band of jittery static (sky blue and white), facing right. 2 frames, looping.
+function scrambleWaveSheet() {
+  const W = 12, H = 152, F = 2;
+  const sheet = new Img(W * F, H);
+  for (let f = 0; f < F; f++)
+    for (let y = 0; y < H; y++) {
+      const r = rng(500 + y * 3 + f);
+      const x0 = Math.floor(r() * 6);
+      // Taper at the ends of the band.
+      if (r() < Math.abs(y - H / 2) / (H / 2) - 0.2) continue;
+      for (let x = x0; x < x0 + 3 + Math.floor(r() * 3); x++) sheet.set(f * W + x, y, hex(r() < 0.3 ? '#ffffff' : '#41a6d9'));
+    }
+  return sheet;
+}
+
+// Scrambled marker: a little yellow glitchy "?" above a scrambled ship. 2 frames, looping.
+function scrambledSheet() {
+  const S = 10, F = 2;
+  const sheet = new Img(S * F, S);
+  const q = ['.###.', '#...#', '...#.', '..#..', '.....', '..#..'];
+  for (let f = 0; f < F; f++) {
+    q.forEach((row, y) => [...row].forEach((ch, x) => ch === '#' && sheet.set(f * S + x + 2 + (f && y < 2 ? 1 : 0), y + 2, hex('#ffd34a'))));
+    sheet.set(f * S + (f ? 1 : 8), f ? 7 : 1, hex('#ffffff'));
+  }
+  return sheet;
+}
+
 // Skill and card icons (16×16, flat shapes with a dark outline).
 function icon16(draw) {
   const img = new Img(16, 16);
@@ -926,6 +1024,35 @@ const SKILL_ICONS = {
     rect(img, 1, 6, 4, 4, hex('#8a93a6'));
     rect(img, 5, 6, 10, 4, hex('#41a6d9'));
     rect(img, 5, 7, 10, 2, hex('#ffffff'));
+  },
+  'split-beam': (img) => {
+    rect(img, 1, 7, 7, 2, hex('#ffffff'));
+    for (let i = 0; i < 7; i++) {
+      img.set(8 + i, 7 - i, hex('#7ecff2'));
+      img.set(8 + i, 8 + i, hex('#7ecff2'));
+    }
+  },
+  'laser-pods': (img) => {
+    for (const [x, y] of [[2, 2], [2, 10], [7, 6]]) {
+      rect(img, x, y, 4, 4, hex('#8a93a6'));
+      rect(img, x + 4, y + 1, 1, 2, hex('#41a6d9'));
+    }
+    rect(img, 12, 7, 3, 1, hex('#ffffff'));
+  },
+  'gravity-well': (img) => {
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) {
+        const dx = x + 0.5 - 8, dy = y + 0.5 - 8, d = Math.hypot(dx, dy);
+        if (d < 7 && Math.sin(2 * Math.atan2(dy, dx) + d * 0.9) > 0.5) img.set(x, y, hex('#7ecff2'));
+      }
+    disc(img, 8, 8, 1.6, hex('#10131a'));
+  },
+  scramble: (img) => {
+    for (let y = 1; y < 15; y++) {
+      const x0 = 4 + ((y * 7) % 5);
+      rect(img, x0, y, 3, 1, hex(y % 3 ? '#41a6d9' : '#ffffff'));
+    }
+    rect(img, 1, 6, 3, 4, hex('#ffd34a'));
   },
   'card-damage': (img) => {
     fillPolygon(img, [[8, 0.5], [10, 6], [15.5, 6], [11, 9.5], [13, 15.5], [8, 11.5], [3, 15.5], [5, 9.5], [0.5, 6], [6, 6]], () => hex('#ff7a3c'));
@@ -1145,6 +1272,13 @@ const FILES = {
   'vfx/ion-pop.png': () => ionPopSheet(72),
   'vfx/plasma-lance.png': lanceSegment,
   'vfx/plasma-hit.png': () => plasmaHitSheet(12),
+  'vfx/split-beam.png': splitBeamSegment,
+  'vfx/split-burst.png': () => splitBurstSheet(16),
+  'vfx/pod.png': podSheet,
+  'projectiles/pod-shot.png': podShot,
+  'vfx/gravity-well.png': () => gravityWellSheet(256),
+  'vfx/scramble-wave.png': scrambleWaveSheet,
+  'vfx/scrambled.png': scrambledSheet,
   ...Object.fromEntries(Object.entries(SKILL_ICONS).map(([name, draw]) => [`ui/${name.startsWith('card') ? name : 'skill-' + name}.png`, () => icon16(draw)])),
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,

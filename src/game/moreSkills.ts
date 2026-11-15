@@ -1,17 +1,18 @@
 // The newer skills (docs/SKILLS.md): Gatling Laser, Crescent Strike, Arc
-// Impulse, Ion Cloud, Plasma Lance... Most of them leave "skill objects" in the
+// Impulse, Ion Cloud, Plasma Lance, Splitting Beam, Laser Pods, Gravity Well,
+// Scramble... Most of them leave "skill objects" in the
 // world (a crescent in flight, a cloud's balls, a lance on a ship) that live
 // for a moment; updateSkillObjects moves them and does their damage, and
 // render.ts draws them by kind. Like world.ts, nothing is drawn here.
 
-import { distSq, randRange, wrapAngle } from '../engine/math';
+import { clamp, distSq, randRange, wrapAngle } from '../engine/math';
 import { CONFIG } from './config';
 import { modsOf, powerOf } from './skills';
 import { addEffect, addSound, damageShip, type Controls, type GameState, type OwnedSkill, type Ship, type Team } from './world';
 
 /** Something a skill left in the world for a moment. */
 export interface SkillObj {
-  kind: 'gatling' | 'crescent' | 'arcChain' | 'arcBolt' | 'ionBall' | 'lance';
+  kind: 'gatling' | 'crescent' | 'arcChain' | 'arcBolt' | 'ionBall' | 'lance' | 'splitBeam' | 'pod' | 'well' | 'scrambleWave';
   team: Team;
   tier: number;
   x: number;
@@ -49,6 +50,10 @@ export interface SkillObj {
   aimY?: number;
   /** Arc chain: the ship it just hit. */
   target?: Ship | null;
+  /** Splitting Beam: splits it can still make. */
+  splits?: number;
+  /** Pod: when it stops gliding and starts shooting (seconds after launch). */
+  readyAt?: number;
   /** Arc bolt: where it starts (it's drawn from here to x, y). Lance: its length. */
   fromX?: number;
   fromY?: number;
@@ -234,6 +239,132 @@ export function firePlasmaLance(state: GameState, ship: Ship, sk: OwnedSkill) {
   addSound(state, 'sfx.plasma-lance', ship, ship.tier);
 }
 
+/** Splitting Beam: a fast beam toward the aim point that splits when it hits. */
+export function fireSplitBeam(state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) {
+  const B = CONFIG.splitBeam;
+  const mods = modsOf(state, ship, sk);
+  const most = ship.elite ? CONFIG.elite.splitBeamSplits : B.maxSplits;
+  const a = Math.atan2(c.aimY - ship.y, c.aimX - ship.x);
+  addSplitBeam(state, ship.team, ship.tier, ship.x + Math.cos(a) * ship.stats.gunOffset, ship.y + Math.sin(a) * ship.stats.gunOffset, a, {
+    damage: B.damage * powerOf(state, ship) * mods.power,
+    range: B.range * rangeOf(ship),
+    splits: clamp(B.splits + Math.round(mods.count), 0, most),
+    scale: ship.stats.size,
+    hit: new Set(),
+  });
+  addSound(state, 'sfx.split-beam', ship, ship.tier);
+}
+
+function addSplitBeam(
+  state: GameState,
+  team: Team,
+  tier: number,
+  x: number,
+  y: number,
+  angle: number,
+  b: { damage: number; range: number; splits: number; scale: number; hit: Set<Ship> },
+) {
+  const speed = CONFIG.splitBeam.speed;
+  state.skillObjs.push({
+    kind: 'splitBeam',
+    team,
+    tier,
+    x,
+    y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    angle,
+    age: 0,
+    life: b.range / speed,
+    damage: b.damage,
+    radius: 3 * b.scale,
+    scale: b.scale,
+    splits: b.splits,
+    hit: b.hit,
+  });
+}
+
+/** Laser Pods: pods glide out in a cone in front of the ship, then each shoots its own target. */
+export function launchPods(state: GameState, ship: Ship, sk: OwnedSkill) {
+  const P = CONFIG.laserPods;
+  const mods = modsOf(state, ship, sk);
+  const count = Math.max(1, P.pods + Math.round(mods.count));
+  const cone = (P.cone * Math.PI) / 180;
+  const glide = P.glide * ship.stats.size;
+  for (let i = 0; i < count; i++) {
+    const a = ship.angle + (count === 1 ? 0 : (i / (count - 1) - 0.5) * cone);
+    state.skillObjs.push({
+      kind: 'pod',
+      team: ship.team,
+      tier: ship.tier,
+      x: ship.x,
+      y: ship.y,
+      // Glides out, slowing evenly to a stop (like the ion balls).
+      vx: ship.vx + (Math.cos(a) * 2 * glide) / P.glideTime,
+      vy: ship.vy + (Math.sin(a) * 2 * glide) / P.glideTime,
+      angle: a,
+      age: 0,
+      life: P.glideTime + P.duration,
+      damage: P.damage * powerOf(state, ship) * mods.power,
+      radius: 0,
+      scale: ship.stats.size,
+      readyAt: P.glideTime,
+      timer: i * 0.08,
+      target: null,
+    });
+  }
+  addSound(state, 'sfx.pods', ship, ship.tier);
+}
+
+/** Gravity Well: opens at the aim point and pulls enemies toward its middle for a while. */
+export function openGravityWell(state: GameState, ship: Ship, c: Controls, sk: OwnedSkill) {
+  const G = CONFIG.gravityWell;
+  const mods = modsOf(state, ship, sk);
+  const size = sizeOf(ship, mods);
+  state.skillObjs.push({
+    kind: 'well',
+    team: ship.team,
+    tier: ship.tier,
+    x: c.aimX,
+    y: c.aimY,
+    vx: 0,
+    vy: 0,
+    angle: 0,
+    age: 0,
+    life: G.duration,
+    // Pull speed at the middle (an elite's pulls your ships less hard).
+    damage: G.pull * mods.power * (ship.elite ? CONFIG.elite.wellPull : 1),
+    radius: G.radius * size,
+    scale: size,
+  });
+  addSound(state, 'sfx.gravity-well', { x: c.aimX, y: c.aimY }, ship.tier);
+}
+
+/** Scramble: a wave out of the front of the ship; enemies it touches are scrambled. */
+export function sendScramble(state: GameState, ship: Ship, sk: OwnedSkill) {
+  const S = CONFIG.scramble;
+  const mods = modsOf(state, ship, sk);
+  const size = sizeOf(ship, mods);
+  state.skillObjs.push({
+    kind: 'scrambleWave',
+    team: ship.team,
+    tier: ship.tier,
+    x: ship.x + Math.cos(ship.angle) * ship.stats.gunOffset,
+    y: ship.y + Math.sin(ship.angle) * ship.stats.gunOffset,
+    vx: Math.cos(ship.angle) * S.speed,
+    vy: Math.sin(ship.angle) * S.speed,
+    angle: ship.angle,
+    age: 0,
+    life: (S.distance * ship.stats.size) / S.speed,
+    // How long it scrambles (an elite's scrambles your ships for less).
+    damage: S.duration * mods.power * (ship.elite ? CONFIG.elite.scrambleDuration : 1),
+    radius: (S.width * size) / 2,
+    scale: size,
+    hit: new Set(),
+  });
+  addSound(state, 'sfx.scramble', ship, ship.tier);
+}
+
 // ---------- Updating what they left in the world ----------
 
 export function updateSkillObjects(state: GameState, dt: number) {
@@ -251,6 +382,10 @@ const UPDATE: Record<SkillObj['kind'], (state: GameState, o: SkillObj, dt: numbe
   arcBolt: () => {},
   ionBall: updateIonBall,
   lance: updateLance,
+  splitBeam: updateSplitBeam,
+  pod: updatePod,
+  well: updateWell,
+  scrambleWave: updateScrambleWave,
 };
 
 function updateGatling(state: GameState, o: SkillObj, dt: number) {
@@ -410,6 +545,127 @@ function updateLance(state: GameState, o: SkillObj, dt: number) {
   }
 }
 
+function updateSplitBeam(state: GameState, o: SkillObj, dt: number) {
+  const B = CONFIG.splitBeam;
+  o.x += o.vx * dt;
+  o.y += o.vy * dt;
+  for (const t of targetsOf(state, o.team)) {
+    // Ships it already hit (or split from) don't count, so new beams don't hit them again at once.
+    if (o.hit!.has(t) || distSq(t.x, t.y, o.x, o.y) > (o.radius + t.stats.radius) ** 2) continue;
+    damageShip(state, t, o.damage);
+    addEffect(state, 'vfx.split-burst', t.x, t.y, Math.random() * Math.PI * 2, 1, o.scale);
+    o.life = 0;
+    if ((o.splits ?? 0) > 0) {
+      const spread = (B.splitAngle * Math.PI) / 180;
+      const range = B.splitRange * o.scale;
+      for (const side of [-1, 1])
+        addSplitBeam(state, o.team, o.tier, t.x, t.y, o.angle + side * spread, {
+          damage: o.damage * B.falloff,
+          range,
+          splits: (o.splits ?? 0) - 1,
+          scale: o.scale,
+          // Each new beam remembers what this line of beams has hit.
+          hit: new Set([...o.hit!, t]),
+        });
+      addSound(state, 'sfx.split-beam', t, o.tier, 0.4);
+    }
+    return;
+  }
+}
+
+function updatePod(state: GameState, o: SkillObj, dt: number) {
+  const P = CONFIG.laserPods;
+  // Gliding out: slow evenly to a stop.
+  if (o.age < (o.readyAt ?? 0)) {
+    const left = (o.readyAt ?? 0) - o.age;
+    o.vx *= left / (left + dt);
+    o.vy *= left / (left + dt);
+    o.x += o.vx * dt;
+    o.y += o.vy * dt;
+    return;
+  }
+  // Pick a target: close to mid range, not one another pod already has (unless there aren't enough).
+  if (!o.target || o.target.dead || o.target.merge) o.target = podTarget(state, o);
+  const t = o.target;
+  if (t) o.angle = Math.atan2(t.y - o.y, t.x - o.x);
+  o.timer = (o.timer ?? 0) - dt;
+  if (o.timer > 0 || !t) return;
+  o.timer += P.shotInterval;
+  // Aim where the target will be when the shot arrives.
+  const travel = Math.hypot(t.x - o.x, t.y - o.y) / P.shotSpeed;
+  const a = Math.atan2(t.y + t.vy * travel - o.y, t.x + t.vx * travel - o.x);
+  state.bullets.push({
+    team: o.team,
+    sprite: 'projectile.pod-shot',
+    tier: o.tier,
+    x: o.x,
+    y: o.y,
+    vx: Math.cos(a) * P.shotSpeed,
+    vy: Math.sin(a) * P.shotSpeed,
+    life: (P.maxRange * 1.3 * o.scale) / P.shotSpeed,
+    damage: o.damage,
+    radius: 2 * o.scale,
+    homing: 0,
+    target: null,
+  });
+  addSound(state, 'sfx.pod-shot', o, o.tier, 0.5);
+}
+
+function podTarget(state: GameState, pod: SkillObj): Ship | null {
+  const P = CONFIG.laserPods;
+  const min = P.minRange * pod.scale;
+  const max = P.maxRange * pod.scale;
+  const taken = new Set(state.skillObjs.filter((o) => o.kind === 'pod' && o !== pod && o.target).map((o) => o.target));
+  let best: Ship | null = null;
+  let bestD = Infinity;
+  let bestTaken = true;
+  for (const s of targetsOf(state, pod.team)) {
+    const d = Math.sqrt(distSq(s.x, s.y, pod.x, pod.y));
+    if (d < min || d > max) continue;
+    const isTaken = taken.has(s);
+    if ((bestTaken && !isTaken) || (isTaken === bestTaken && d < bestD)) {
+      best = s;
+      bestD = d;
+      bestTaken = isTaken;
+    }
+  }
+  return best;
+}
+
+function updateWell(state: GameState, o: SkillObj, dt: number) {
+  for (const s of state.ships) {
+    if (s.team === o.team || s.dead || s.merge) continue;
+    // The ship the player flies is never pulled (an elite's well only pulls your other ships).
+    if (s === state.playerFleet.leader) continue;
+    const dx = o.x - s.x;
+    const dy = o.y - s.y;
+    const d = Math.hypot(dx, dy);
+    if (d > o.radius || d < 1) continue;
+    // Strongest at the middle, nothing at the edge.
+    const pull = o.damage * (1 - d / o.radius) ** 2;
+    const step = Math.min(d, pull * dt);
+    s.x += (dx / d) * step;
+    s.y += (dy / d) * step;
+  }
+}
+
+function updateScrambleWave(state: GameState, o: SkillObj, dt: number) {
+  o.x += o.vx * dt;
+  o.y += o.vy * dt;
+  const dx = Math.cos(o.angle);
+  const dy = Math.sin(o.angle);
+  for (const s of state.ships) {
+    if (s.team === o.team || s.dead || s.merge || o.hit!.has(s)) continue;
+    // Never the ship the player flies: you always keep control.
+    if (s === state.playerFleet.leader) continue;
+    const along = (s.x - o.x) * dx + (s.y - o.y) * dy;
+    const side = Math.abs((s.x - o.x) * dy - (s.y - o.y) * dx);
+    if (Math.abs(along) > s.stats.radius + 12 || side > o.radius + s.stats.radius) continue;
+    o.hit!.add(s);
+    s.scrambled = Math.max(s.scrambled, o.damage);
+  }
+}
+
 // ---------- Elites ----------
 
 /** Whether an elite should use one of these skills now, against `target` (d = distance, off = angle off its nose). */
@@ -425,6 +681,14 @@ export function eliteWantsMore(ship: Ship, sk: OwnedSkill, d: number, off: numbe
       return d < CONFIG.ionCloud.distance * ship.stats.size * 1.3;
     case 'plasmaLance':
       return off < 0.3 && d < CONFIG.plasmaLance.length * ship.stats.size * sk.mods.size;
+    case 'splitBeam':
+      return off < 0.3 && d < CONFIG.splitBeam.range * rangeOf(ship) * 0.9;
+    case 'laserPods':
+      return d < CONFIG.laserPods.maxRange * ship.stats.size;
+    case 'gravityWell':
+      return d < 500;
+    case 'scramble':
+      return off < 0.4 && d < CONFIG.scramble.distance * ship.stats.size * 0.8;
     default:
       return false;
   }

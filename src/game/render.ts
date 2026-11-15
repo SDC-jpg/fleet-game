@@ -91,6 +91,12 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     r.drawSprite(assets.get(tierSprite(assets, 'vfx.frozen', s.tier)), s.x, s.y, 0, state.time, Math.min(1, s.frozen * 2));
   }
 
+  // Scrambled ships get a glitchy marker.
+  for (const s of state.ships) {
+    if (s.scrambled <= 0 || s.absorbed) continue;
+    r.drawSprite(assets.get('vfx.scrambled'), s.x, s.y - s.stats.radius - 6, 0, state.time, Math.min(1, s.scrambled * 3), false, s.stats.size);
+  }
+
   // An elite's laser warning: a flickering line where its beam is about to go.
   for (const s of state.ships) {
     const laser = s.elite?.skills.find((sk) => sk.id === 'laser');
@@ -176,6 +182,30 @@ function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets) {
         const warn = o.age < (o.warning ?? 0);
         if (warn && Math.floor(o.age * 16) % 2) break;
         drawBeam(r, teamSprite(assets, 'vfx.plasma-lance', o.team), o.x, o.y, o.angle, o.length ?? 0, warn ? o.scale * 0.3 : o.scale, state.time);
+        break;
+      }
+      case 'splitBeam': {
+        // A short streak behind the beam's tip.
+        const len = Math.min(CONFIG.splitBeam.streak * o.scale, o.age * CONFIG.splitBeam.speed);
+        drawBeam(r, teamSprite(assets, 'vfx.split-beam', o.team), o.x - Math.cos(o.angle) * len, o.y - Math.sin(o.angle) * len, o.angle, len, o.scale, state.time);
+        break;
+      }
+      case 'pod': {
+        // Fades out over its last 0.3 s.
+        const alpha = clamp((o.life - o.age) / 0.3, 0, 1);
+        r.drawSprite(teamSprite(assets, 'vfx.pod', o.team), o.x, o.y, o.angle, state.time, alpha, false, o.scale);
+        break;
+      }
+      case 'well': {
+        // The swirl is drawn to the well's radius, fading in and out.
+        const sprite = teamSprite(assets, 'vfx.gravity-well', o.team);
+        const alpha = clamp(Math.min(o.age, o.life - o.age) / 0.25, 0, 1);
+        r.drawSprite(sprite, o.x, o.y, o.age * 2, state.time, alpha, false, o.radius / (sprite.frames[0].w / 2));
+        break;
+      }
+      case 'scrambleWave': {
+        const alpha = clamp((o.life - o.age) / 0.2, 0, 1);
+        r.drawSprite(teamSprite(assets, 'vfx.scramble-wave', o.team), o.x, o.y, o.angle, state.time, alpha, false, o.scale);
         break;
       }
     }
