@@ -326,7 +326,7 @@ export const CONFIG = {
     /** Ships of one tier that merge into one ship of the next tier. */
     shipsPerMerge: 12,
     /** Merging only starts once your fleet value reaches this. */
-    mergeStartsAt: 24,
+    mergeStartsAt: 18,
     /** Each tier up multiplies health and damage per second by this. */
     powerPerTier: 8,
     /** Shots per volley for tier 2 and up (tier 1 fires 1). Damage is split between them. */

@@ -99,7 +99,7 @@
 - **Ship types:** all ships are the same type for now. Different types are a nice-to-have for later.
 - **Tiers and merging** (numbers in `CONFIG.tiers`):
   - Fleet value = what every ship is worth in tier-1 ships (T2 = 12, T3 = 144... since 2026-11-15; was 16, 256). It's the score.
-  - Once fleet value reaches 24, any 12 ships of one tier merge into one of the next tier, so there are never more than 11 per tier (`shipsPerMerge` 12, `mergeStartsAt` 24 since 2026-11-15; were 16 / 32). Merging is automatic for now; merging by choice may come later.
+  - Once fleet value reaches 18, any 12 ships of one tier merge into one of the next tier, so there are never more than 11 per tier (`shipsPerMerge` 12, `mergeStartsAt` 18 since 2026-11-15; were 16 / 32). Merging is automatic for now; merging by choice may come later.
   - The testing values (4 / 8 / 0.6, 2026-11-11 to 11-13) were removed on 2026-11-13: tiers are back to version 10 (16 / 32 / 0.4).
   - Each tier: 8× health and 8× damage per volley (`powerPerTier` 8 since 2026-11-15, was 12), always 2 shots per volley for T2+ (4× per shot at T2, 32× at T3...), 1.5× size, shots 1.2× faster and travelling 1.5× further.
   - Each tier turns half as fast (`turnRatePerTier` 0.5 since 2026-11-15, was 0.75), so big ships feel heavy and reward aiming ahead.
