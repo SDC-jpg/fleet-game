@@ -31,6 +31,7 @@
 - **Discord logs** (webhook URLs are GitHub secrets, never in files):
   - The `notify` job in `deploy.yml` runs `.github/scripts/discord-build-log.sh`, which posts "version N is live" plus the `- ` lines added to `CHANGELOG.md` since the last successful publish to the build-log channel (`DISCORD_WEBHOOK_BUILD`), or a failure notice.
   - **For every player-facing change, add one plain-language line to `CHANGELOG.md`** (under today's `## YYYY-MM-DD` heading, newest first) in the same commit. Write it for players, not as a code note.
+  - **New skills and upgrades (the user's rule, 2026-11-15):** the push notes must always name and describe each skill and upgrade added in that build (what it does, in a short phrase each), never just "new skills". Check this before every push.
 - Commits use the user's GitHub noreply email (set in this repo's git config). Never commit with their personal email.
 
 ## Seeing the game (for Claude)
