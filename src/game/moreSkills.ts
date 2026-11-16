@@ -1016,7 +1016,7 @@ function finishWall(state: GameState, o: SkillObj) {
   if (pts.length < 2) o.life = 0;
 }
 
-/** Enemy ships can't cross a wall (they slide along it); enemy shots (not missiles) and moving skill effects that reach it are stopped. */
+/** Enemy ships can't cross a wall (they slide along it); enemy shots (missiles too) and moving skill effects that reach it are stopped. */
 function blockAtWall(state: GameState, o: SkillObj, dt: number) {
   const pts = o.points!;
   for (let i = 0; i + 1 < pts.length; i++) {
@@ -1042,8 +1042,7 @@ function blockAtWall(state: GameState, o: SkillObj, dt: number) {
       }
     }
     for (const bl of state.bullets) {
-      // Missiles fly through walls: only Point Defense Cannons and Repulse stop them.
-      if (bl.team === o.team || bl.life <= 0 || bl.homing > 0) continue;
+      if (bl.team === o.team || bl.life <= 0) continue;
       if (!crossesWall(bl.x, bl.y, bl.x + bl.vx * dt, bl.y + bl.vy * dt, a, b, o.radius + bl.radius)) continue;
       bl.life = 0;
       wallHit(state, o, bl.x, bl.y);

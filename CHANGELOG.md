@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-16
+- Force Walls block enemy missiles again.
 - Hijack reaches half as far (it could take over a whole swarm). Arc Impulse now only fires at enemies in a 45° cone in front of your ship.
 - Your ship now has engine sounds: a faint hum while you fly, a little louder while you boost (the short boost sound still plays when you start).
 
