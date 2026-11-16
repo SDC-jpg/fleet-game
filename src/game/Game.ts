@@ -590,8 +590,8 @@ export class Game {
   }
 
   /**
-   * Engine sounds of the ship you fly: a faint hum while it moves and a
-   * stronger roar on top while it boosts (loops that fade in and out; the
+   * Engine sounds of the ship you fly: a faint hum while it moves, and a
+   * slightly louder version instead while it boosts (loops that fade in and out; the
    * short boost sound still plays when boost starts). Bigger tiers sound
    * deeper. Silent while the game is stopped or over.
    */
@@ -600,7 +600,8 @@ export class Game {
     const playing = !!ship && !ship.dead && !this.isFrozen() && !this.state.gameOver;
     const thrust = playing ? ship!.thrust : 'idle';
     const pitch = playing ? CONFIG.audio.pitchPerTier ** (ship!.tier - 1) * this.timeScale ** 0.5 : 1;
-    this.sounds.setLoop('sfx.engine-move', thrust !== 'idle' ? CONFIG.audio.engineMoveLevel : 0, pitch);
+    // While boosting, the boost loop takes over from the hum (it's the same sound, a little louder).
+    this.sounds.setLoop('sfx.engine-move', thrust === 'move' ? CONFIG.audio.engineMoveLevel : 0, pitch);
     this.sounds.setLoop('sfx.engine-boost', thrust === 'boost' ? CONFIG.audio.engineBoostLevel : 0, pitch);
   }
 

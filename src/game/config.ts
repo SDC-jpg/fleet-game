@@ -1425,7 +1425,7 @@ export const CONFIG = {
     silentAt: 2,
     /** The ship you fly: engine hum while moving (sfx.engine-move loop), 0 = silent. Its loudness is also set in the manifest. */
     engineMoveLevel: 1,
-    /** The ship you fly: stronger engine roar while boosting (sfx.engine-boost loop, on top of the hum), 0 = silent. */
+    /** The ship you fly: engine sound while boosting (sfx.engine-boost loop, playing instead of the hum), 0 = silent. */
     engineBoostLevel: 1,
   },
 

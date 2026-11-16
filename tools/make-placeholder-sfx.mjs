@@ -236,20 +236,6 @@ function engineMove() {
   });
 }
 
-/** Engine roar (loop) while boosting, on top of the hum: brighter rushing noise with a buzzing drone and a slight flutter. */
-function engineBoost() {
-  const r = rng(62);
-  const lp = lowpass();
-  const drone = oscillator('saw');
-  const lpd = lowpass();
-  return renderLoop(2, (t) => {
-    const rush = lp(r() * 2 - 1, 1100) * 1.6;
-    const buzz = lpd(drone(82), 400) * 0.5;
-    const flutter = 1 + 0.12 * Math.sin(t * 2 * Math.PI * 9);
-    return (rush + buzz) * flutter;
-  });
-}
-
 /** Dash: a quick "fwoosh" of noise that opens up, plus a rising zip. */
 function dash() {
   const r = rng(21);
@@ -586,7 +572,8 @@ const FILES = {
   'hijack.wav': hijack,
   'pdc.wav': pdc,
   'engine-move.wav': engineMove,
-  'engine-boost.wav': engineBoost,
+  // The user's choice (2026-11-16): boosting uses the same hum, a little louder (manifest volume).
+  'engine-boost.wav': engineMove,
   'time-dilation.wav': timeDilation,
   'command.wav': command,
   'gameover.wav': gameOver,

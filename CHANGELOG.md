@@ -6,7 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-16
 - Hijack reaches half as far (it could take over a whole swarm). Arc Impulse now only fires at enemies in a 45° cone in front of your ship.
-- Your ship now has engine sounds: a faint hum while you fly and a stronger roar while you boost (the short boost sound still plays when you start).
+- Your ship now has engine sounds: a faint hum while you fly, a little louder while you boost (the short boost sound still plays when you start).
 
 ## 2026-11-15
 - Fixed: Crisis Jump and Tech Scanner no longer get broken "+x% undefined" upgrade cards at level-up (they have nothing to upgrade). The radar minimap now sits above the skill icons.
