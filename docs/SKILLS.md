@@ -87,7 +87,7 @@ The batches are ordered by how much new engine work they need:
 - **Art:** `vfx.crescent` (spinning flipbook), plus a faint golden trail emitter.
 
 **Arc Impulse** (`arcImpulse`)
-- **Behavior:** an electric arc strikes the enemy closest to the cursor, within 500 px of the ship.
+- **Behavior:** an electric arc strikes the enemy closest to the cursor, within 500 px of the ship and inside a 45° cone in front of it (2026-11-16; bounces can then go any direction).
   - It then bounces 3 times, each time to the nearest enemy within 220 px of the last one that hasn't been hit yet.
   - The first hit does 5 damage. Each bounce does 85% of the one before.
   - The jumps happen 0.05 s apart, so the chain can be seen.

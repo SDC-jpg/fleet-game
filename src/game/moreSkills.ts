@@ -179,10 +179,13 @@ export function fireArc(state: GameState, ship: Ship, c: Controls, sk: OwnedSkil
   const A = CONFIG.arcImpulse;
   const mods = modsOf(state, ship, sk);
   const range = A.range * rangeOf(ship);
+  const halfCone = ((A.cone / 2) * Math.PI) / 180;
   let first: Ship | null = null;
   let best = Infinity;
   for (const s of visibleTargetsOf(state, ship.team)) {
     if (distSq(s.x, s.y, ship.x, ship.y) > (range + s.stats.radius) ** 2) continue;
+    // Only targets in the cone in front of the ship.
+    if (Math.abs(wrapAngle(Math.atan2(s.y - ship.y, s.x - ship.x) - ship.angle)) > halfCone) continue;
     const d = distSq(s.x, s.y, c.aimX, c.aimY);
     if (d < best) {
       best = d;

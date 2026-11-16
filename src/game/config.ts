@@ -804,6 +804,8 @@ export const CONFIG = {
     falloff: 0.85,
     /** Furthest the first target can be from your ship (tier 1). */
     range: 500,
+    /** The first target must be inside a cone this many degrees wide in front of the ship (45 = 22.5° either side). Bounces can go anywhere. */
+    cone: 45,
     /** Furthest a bounce can jump (tier 1). */
     bounceRange: 220,
     /** Seconds between jumps, so the chain can be seen. */
@@ -1002,8 +1004,8 @@ export const CONFIG = {
     cooldown: 8,
     /** Fleet value it can take over, as a share of your own fleet's value (1/12 = a twelfth; fleet value cards raise it). Always at least one tier-1 ship's worth. */
     fleetShare: 1 / 12,
-    /** How far the pulse reaches (tier 1; grows with ship size). */
-    radius: 400,
+    /** How far the pulse reaches (tier 1; grows with ship size). Halved from 400 (2026-11-16) so it can't take a whole swarm. */
+    radius: 200,
     /** Seconds the pulse takes to reach its edge. */
     pulseTime: 0.4,
     /** Seconds hijacked ships fight on your side. */
