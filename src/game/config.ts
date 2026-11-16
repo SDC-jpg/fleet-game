@@ -736,10 +736,8 @@ export const CONFIG = {
     cooldown: 3,
     /** Reach (tier 1; grows with ship size). */
     radius: 150,
-    /** How hard enemies are pushed (speed added, pixels per second). */
+    /** How hard enemies are pushed (speed added, pixels per second). Repulse does no damage. */
     push: 420,
-    /** Damage to each enemy caught (tier 1). */
-    damage: 2,
   },
 
   /** Freeze skill: enemies in a cone in front of you stop moving and shooting for a while. */

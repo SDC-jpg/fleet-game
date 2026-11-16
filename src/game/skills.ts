@@ -338,12 +338,11 @@ function raiseShield(state: GameState, ship: Ship, sk: OwnedSkill) {
   addSound(state, 'sfx.shield', ship, ship.tier);
 }
 
-/** Repulse: a shockwave that shoves enemies away, hurts them a little and wipes out their shots. */
+/** Repulse: a shockwave that shoves enemies away and wipes out their shots. It does no damage. */
 function repulse(state: GameState, ship: Ship, sk: OwnedSkill) {
   const R = CONFIG.repulse;
   const mods = modsOf(state, ship, sk);
   const radius = R.radius * ship.stats.size * mods.size;
-  const damage = R.damage * powerOf(state, ship) * mods.power;
   for (const s of state.ships) {
     if (s.team === ship.team || s.dead || s.merge) continue;
     const d = Math.sqrt(distSq(s.x, s.y, ship.x, ship.y));
@@ -351,7 +350,6 @@ function repulse(state: GameState, ship: Ship, sk: OwnedSkill) {
     const a = d > 0 ? Math.atan2(s.y - ship.y, s.x - ship.x) : wrapAngle(ship.angle);
     s.vx += Math.cos(a) * R.push * mods.power;
     s.vy += Math.sin(a) * R.push * mods.power;
-    damageShip(state, s, damage, 'repulse');
   }
   state.bullets = state.bullets.filter((b) => b.team === ship.team || distSq(b.x, b.y, ship.x, ship.y) > radius * radius);
   addEffect(state, 'vfx.repulse', ship.x, ship.y, 0, ship.tier, mods.size);
