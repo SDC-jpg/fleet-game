@@ -112,6 +112,8 @@ export interface Fleet {
   trail: LeaderSample[];
   /** Which ship the trail belongs to (reset when the leader changes). */
   trailLeaderId: number;
+  /** Your fleet: the direction toward the cursor from the flagship. Wingmen turn toward it at their own speed. */
+  aim?: number;
   /** Seconds left of a dash (Space), counting down to 0. */
   dashTime: number;
   /** Speed multiplier at the start of the current dash (fades to 1). */
@@ -144,6 +146,8 @@ interface LeaderSample {
   vx: number;
   vy: number;
   angle: number;
+  /** Where the fleet wants to face (your fleet: toward the cursor; others: the leader's facing). */
+  aim: number;
   boosting: boolean;
 }
 
@@ -832,7 +836,7 @@ function originalSlots(leader: Ship, followers: Ship[]) {
 
 /** Remember where the leader is this step. Starts fresh when the leader changes. */
 function recordTrail(fleet: Fleet, leader: Ship, dt: number) {
-  const sample = { x: leader.x, y: leader.y, vx: leader.vx, vy: leader.vy, angle: leader.angle, boosting: leader.thrust === 'boost' };
+  const sample = { x: leader.x, y: leader.y, vx: leader.vx, vy: leader.vy, angle: leader.angle, aim: fleet.aim ?? leader.angle, boosting: leader.thrust === 'boost' };
   if (fleet.trailLeaderId !== leader.id) {
     fleet.trail = [];
     fleet.trailLeaderId = leader.id;
@@ -969,7 +973,9 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   if (boosting && ship.thrust !== 'boost') addSound(state, 'sfx.boost', ship, ship.tier);
   // A dash doesn't change the thrusters (only Shift boost does).
   ship.thrust = boosting ? 'boost' : steering ? 'move' : 'idle';
-  ship.angle = turnToward(ship.angle, Math.atan2(c.aimY - ship.y, c.aimX - ship.x), ship.stats.turnRate * dt);
+  // The fleet faces the cursor: the flagship at its own (tier) turn speed, wingmen at theirs.
+  fleet.aim = Math.atan2(c.aimY - ship.y, c.aimX - ship.x);
+  ship.angle = turnToward(ship.angle, fleet.aim, ship.stats.turnRate * dt);
   if (c.fire && ship.fireTimer <= 0 && !ship.merge && ship.frozen <= 0) fire(state, ship, ship.stats.fireCooldown, 0);
 }
 
@@ -1089,11 +1095,12 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
     const moving = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED;
     // When the leader boosts, the whole formation boosts to keep up (a dash doesn't change the thrusters).
     ship.thrust = !moving ? 'idle' : past.boosting ? 'boost' : 'move';
-    // With nothing to shoot, face where the leader faced, swaying a little.
+    // With nothing to shoot, face where the fleet wanted to face (your fleet: toward the cursor), swaying a little.
+    // Each ship turns at its own speed, so small ships don't wait for a slow, big leader.
     const sway = Math.sin(state.time * q.speedX * Math.PI * 2 + q.phaseY) * CONFIG.idleSway;
-    // Only shoot at things roughly in front of the leader (where it faces right now).
+    // Only shoot at things roughly where the fleet aims right now (your fleet: the cursor; others: the leader's facing).
     const arcDeg = ship.team === 'enemy' ? CONFIG.enemyFireArc : CONFIG.allyFireArc;
-    aimAndShoot(state, ship, dt, past.angle + sway, { center: leader.angle, half: (arcDeg * Math.PI) / 180 });
+    aimAndShoot(state, ship, dt, past.aim + sway, { center: fleet.aim ?? leader.angle, half: (arcDeg * Math.PI) / 180 });
   });
 }
 
