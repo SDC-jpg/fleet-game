@@ -1018,6 +1018,10 @@ export const CONFIG = {
   enemyFleetValuePerWave: 0.6,
   /** 1 = enemy fleets grow steadily; higher = they grow faster and faster in later waves. */
   enemyFleetValueCurve: 1.3,
+  /** From this wave on, waves bring more and more enemies (see lateWaveGrowth). */
+  lateWavesFrom: 30,
+  /** Late waves: lone enemies (and their cap) and enemy fleet value × (1 + this × waves past lateWavesFrom). 0.04 = 2× at wave 55, 3× at wave 80. */
+  lateWaveGrowth: 0.04,
 
   /**
    * Swarm waves: sometimes, when an elite would come, a swarm of many small

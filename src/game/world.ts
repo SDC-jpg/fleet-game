@@ -4,7 +4,7 @@
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
-import { enemyFleetValue, xpToNextLevel } from './curves';
+import { enemyFleetValue, lateWaveMultiplier, xpToNextLevel } from './curves';
 import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
@@ -1623,13 +1623,15 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
 
   if (fleetWave) {
     // One enemy fleet in formation. It grows with the wave number (see curves.ts), not with your fleet.
-    spawnEnemyFleet(state, center, spawnDistance, enemyFleetValue(state.wave), room);
+    spawnEnemyFleet(state, center, spawnDistance, Math.round(enemyFleetValue(state.wave) * lateWaveMultiplier(state.wave)), room);
     addSound(state, 'sfx.alert', center, 1, 1, true);
   } else {
     // A handful of lone fighters from random directions (a few more in the first waves).
     const base = 1 + Math.floor(state.wave * CONFIG.loneEnemiesPerWave);
     const early = state.wave <= CONFIG.earlyWavesUntil ? 1 + CONFIG.earlyWaveExtraEnemies : 1;
-    const count = Math.min(Math.round(base * early), CONFIG.maxLoneEnemiesPerWave, room);
+    // Late waves bring more (and allow more).
+    const late = lateWaveMultiplier(state.wave);
+    const count = Math.min(Math.round(base * early * late), Math.round(CONFIG.maxLoneEnemiesPerWave * late), room);
     for (let i = 0; i < count; i++) spawnEnemyFleet(state, center, spawnDistance, 1, room);
   }
 }

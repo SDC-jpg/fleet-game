@@ -9,6 +9,11 @@ export function enemyFleetValue(wave: number) {
   return Math.max(1, Math.round(c.enemyFleetValueStart + c.enemyFleetValuePerWave * wave ** c.enemyFleetValueCurve));
 }
 
+/** Late waves bring more enemies: lone enemies (and their cap) and enemy fleets are this many times bigger. */
+export function lateWaveMultiplier(wave: number) {
+  return 1 + CONFIG.lateWaveGrowth * Math.max(0, wave - CONFIG.lateWavesFrom);
+}
+
 /** XP needed to go from `level` to the next one. */
 export function xpToNextLevel(level: number) {
   const L = CONFIG.levels;

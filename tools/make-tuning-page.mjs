@@ -173,9 +173,16 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
     where: 'src/game/curves.ts',
     intro:
       'Worked out from the settings above. Enemy fleet value is the fleet that comes in that wave ' +
-      '(fleet waves only; see enemyFleetsFromWave and enemyFleetEveryNthWave). XP columns are for reaching that level.',
-    columns: ['wave / level', 'enemy fleet value', 'XP for next level', 'total XP to reach it'],
-    items: points.map((n) => [String(n), String(curves.enemyFleetValue(n)), String(curves.xpToNextLevel(n)), String(totals[n])]),
+      '(fleet waves only; see enemyFleetsFromWave and enemyFleetEveryNthWave), including the late-wave multiplier ' +
+      '(lateWavesFrom, lateWaveGrowth), which also multiplies lone enemies. XP columns are for reaching that level.',
+    columns: ['wave / level', 'enemy fleet value', 'late-wave ×', 'XP for next level', 'total XP to reach it'],
+    items: points.map((n) => [
+      String(n),
+      String(Math.round(curves.enemyFleetValue(n) * curves.lateWaveMultiplier(n))),
+      curves.lateWaveMultiplier(n).toFixed(2),
+      String(curves.xpToNextLevel(n)),
+      String(totals[n]),
+    ]),
   });
 }
 
