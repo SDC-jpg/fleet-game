@@ -990,3 +990,12 @@ body {
 .crash-screen button {
   margin: 8px 8px 0 0;
 }
+
+/* "Resume your last run?" (an interrupted run was found when the game opened). */
+.resume-offer {
+  max-width: 460px;
+  z-index: 20;
+}
+.resume-offer button {
+  margin: 8px 6px 0;
+}

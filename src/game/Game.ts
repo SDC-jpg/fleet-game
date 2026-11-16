@@ -13,6 +13,7 @@ import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { clearEquipment, loadEquipment, saveEquipment } from './save';
 import { recordRun, type RunRecord } from './runLog';
+import { clearRun, loadRun, restoreRun, saveRun, type RunSnapshot } from './runSave';
 import { MAX_MERGE_LEVEL, MERGE_LEVELS, autoMerge, describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item } from './equipment';
 import { rarityTier, rollRarity } from './rarity';
 import { cooldownOf } from './skills';
@@ -98,6 +99,8 @@ export interface HudInfo {
   cursorLock: boolean;
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
+  /** An interrupted run that can be resumed (asked when the game opens), or null. */
+  resumeOffer: { wave: number; fleetValue: number; level: number; savedAt: number } | null;
   assetProblems: string[];
 }
 
@@ -184,6 +187,11 @@ export class Game {
   private autoFire = false;
   /** The run log, filled in when a run ends (null until then). */
   private runs: RunRecord[] | null = null;
+  /** An interrupted run found when the game opened: the game waits until you resume it or start anew. */
+  private resumeOffer: RunSnapshot | null = null;
+  /** Seconds until the run's progress is saved again (runSave.ts), and the wave it was last saved in. */
+  private runSaveTimer = 0;
+  private runSavedWave = 0;
   /** Art layouts from art.json (thrusters, flames, emitters, points; made with the ShipArt tool). */
   private layouts: ArtLayoutsFile;
   /** Thruster particles (visual only). */
@@ -199,7 +207,9 @@ export class Game {
   /** Pause by itself when you click another window or switch tabs. */
   private onBlur = () => this.setPaused(true);
   private onVisibility = () => {
-    if (document.hidden) this.setPaused(true);
+    if (!document.hidden) return;
+    this.setPaused(true);
+    this.onPageHide();
   };
 
   constructor(canvas: HTMLCanvasElement, assets: Assets, sounds: Sounds, layouts: ArtLayoutsFile, onHud: (hud: HudInfo) => void) {
@@ -219,7 +229,41 @@ export class Game {
       if (performance.now() - this.resumedAt > 500) this.setPaused(true);
     };
     this.state = this.newState();
+    this.resumeOffer = loadRun();
   }
+
+  /** Resume the interrupted run: the field is cleared and its saved wave starts again. */
+  resumeRun() {
+    if (!this.resumeOffer) return;
+    restoreRun(this.state, this.resumeOffer);
+    this.renderer.setZoom(this.state.zoom, true);
+    this.resumeOffer = null;
+    this.runSavedWave = this.state.wave;
+    this.needsDraw = true;
+    this.sendHud();
+  }
+
+  /** Don't resume: forget the interrupted run and play a new one. */
+  discardRun() {
+    clearRun();
+    this.resumeOffer = null;
+    this.needsDraw = true;
+    this.sendHud();
+  }
+
+  /** Keep the run's progress saved (every few seconds and at each new wave) so it can be resumed. */
+  private tickRunSave(dt: number) {
+    this.runSaveTimer -= dt;
+    if (this.runSaveTimer > 0 && this.state.wave === this.runSavedWave) return;
+    this.runSaveTimer = CONFIG.runSave.every;
+    this.runSavedWave = this.state.wave;
+    saveRun(this.state);
+  }
+
+  /** The page is being hidden or closed: save the run's progress now. */
+  private onPageHide = () => {
+    if (!this.resumeOffer) saveRun(this.state);
+  };
 
   private newState() {
     const state = createGame((name, tier) => spriteDuration(this.assets.get(tierSprite(this.assets, name, tier))));
@@ -235,6 +279,7 @@ export class Game {
     window.addEventListener('resize', this.onResize);
     window.addEventListener('blur', this.onBlur);
     document.addEventListener('visibilitychange', this.onVisibility);
+    window.addEventListener('pagehide', this.onPageHide);
     this.stopLoop = startLoop(
       (dt) => this.update(dt),
       (frameDt, alpha) => this.render(frameDt, alpha),
@@ -249,6 +294,7 @@ export class Game {
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('blur', this.onBlur);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    window.removeEventListener('pagehide', this.onPageHide);
   }
 
   restart() {
@@ -408,6 +454,14 @@ export class Game {
   private update(dt: number) {
     const i = this.input;
     this.tickAutoMerge(dt);
+    // An interrupted run was found: nothing moves until you choose (the screen asks).
+    if (this.resumeOffer) {
+      i.unlock();
+      i.wasPressed('Space');
+      i.wasPressed('MouseRight');
+      i.wasPressed('Escape');
+      return;
+    }
     if (this.state.gameOver && i.isDown('KeyR')) this.restart();
     if (i.wasPressed('KeyM')) this.toggleSound();
     if (i.wasPressed('KeyQ')) this.autoFire = !this.autoFire;
@@ -433,6 +487,7 @@ export class Game {
     updateGame(this.state, this.readControls(), dt, this.spawnDistance());
     this.playQueuedSounds();
     this.saveIfChanged();
+    this.tickRunSave(dt);
     // Just picked up the Merge Module: pause on the equipment screen with its drawer open
     // (after any level-up cards on screen have been picked).
     if (this.state.unlocked === 'merge-module' && !this.state.cards) {
@@ -444,6 +499,7 @@ export class Game {
     // The run just ended: add it to the run log (once).
     if (this.state.gameOver && !this.runs) {
       this.runs = recordRun(this.state);
+      clearRun();
       this.sendHud();
     }
     // A level-up stops the game until a card is picked: send the cards to the screen now.
@@ -531,7 +587,7 @@ export class Game {
 
   /** True while the game is stopped: paused (equipment screen) or showing level-up cards. */
   private isFrozen() {
-    return this.paused || this.state.cards !== null;
+    return this.paused || this.state.cards !== null || this.resumeOffer !== null;
   }
 
   /** Note where every ship and shot is before a step (see drawAtSmoothPositions). */
@@ -680,6 +736,12 @@ export class Game {
       autoFire: this.autoFire,
       cursorLock: this.input.cursorLock,
       fps: this.fps,
+      resumeOffer: this.resumeOffer && {
+        wave: this.resumeOffer.wave,
+        fleetValue: this.resumeOffer.fleetValue,
+        level: this.resumeOffer.level,
+        savedAt: this.resumeOffer.savedAt,
+      },
       assetProblems: [...this.assets.problems, ...this.sounds.problems],
     });
   }

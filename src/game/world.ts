@@ -522,6 +522,45 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
   return state;
 }
 
+/** Zoom follows the biggest fleet/tier you've had, so it doesn't jump back and forth in a fight. */
+export function zoomFor(state: GameState) {
+  let zoom = Infinity;
+  for (const step of CONFIG.zoomSteps) {
+    const reached = state.maxFleetSize >= (step.minFleet ?? 0) && state.maxTier >= (step.minTier ?? 0);
+    if (reached) zoom = Math.min(zoom, step.zoom);
+  }
+  return zoom;
+}
+
+/**
+ * Replace your fleet with a fresh one worth `value` (resuming an interrupted
+ * run): the same ships merging would give (tierCounts), around the middle,
+ * flown by one of the biggest. Everything else on the field is cleared.
+ */
+export function rebuildPlayerFleet(state: GameState, value: number) {
+  state.ships = [];
+  state.bullets = [];
+  state.wrecks = [];
+  state.effects = [];
+  state.merges = [];
+  state.beams = [];
+  state.mines = [];
+  state.skillObjs = [];
+  state.loot = [];
+  state.enemyFleets = [];
+  state.playerFleet = newFleet('player');
+  const counts = tierCounts(Math.max(1, Math.round(value)));
+  let leader: Ship | null = null;
+  for (let tier = counts.length; tier >= 1; tier--)
+    for (let i = 0; i < counts[tier - 1]; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = leader ? 60 + Math.random() * 60 : 0;
+      const ship = addShip(state, 'player', 'fighter', tier, state.playerFleet, Math.cos(a) * r, Math.sin(a) * r, -Math.PI / 2);
+      leader ??= ship;
+    }
+  state.playerFleet.leader = leader;
+}
+
 function addShip(
   state: GameState,
   team: Team,
@@ -697,13 +736,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   state.maxFleetSize = Math.max(state.maxFleetSize, fleetValue(fleet));
   for (const s of fleet.members) state.maxTier = Math.max(state.maxTier, s.tier);
   unlockSlots(state);
-  // Zoom follows the biggest fleet/tier you've had, so it doesn't jump back and forth in a fight.
-  let zoom = Infinity;
-  for (const step of CONFIG.zoomSteps) {
-    const reached = state.maxFleetSize >= (step.minFleet ?? 0) && state.maxTier >= (step.minTier ?? 0);
-    if (reached) zoom = Math.min(zoom, step.zoom);
-  }
-  state.zoom = zoom;
+  state.zoom = zoomFor(state);
   if (fleet.members.length === 0) {
     state.gameOver = true;
     state.history.push({ time: state.survived, wave: state.wave, value: 0 });

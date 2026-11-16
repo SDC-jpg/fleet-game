@@ -96,13 +96,27 @@ export default function App() {
         </div>
       )}
 
-      {hud && !hud.gameOver && !hud.paused && <BottomHud hud={hud} game={gameRef.current} />}
+      {hud && !hud.gameOver && !hud.paused && !hud.resumeOffer && <BottomHud hud={hud} game={gameRef.current} />}
       {hud?.cards && !hud.gameOver && <CardScreen hud={hud} game={gameRef.current} />}
 
       {hud?.paused && <EquipmentScreen hud={hud} game={gameRef.current} />}
       {hud && !hud.gameOver && !hud.paused && <FoundToast hud={hud} />}
       {hud?.eliteAlert && !hud.gameOver && <div className="elite-toast">Elite incoming!</div>}
       {hud?.swarmAlert && !hud.gameOver && <div className="swarm-toast">Swarm incoming!</div>}
+
+      {hud?.resumeOffer && (
+        <div className="panel center resume-offer">
+          <h1>Resume your last run?</h1>
+          <p>
+            It was interrupted at wave {hud.resumeOffer.wave} ({new Date(hud.resumeOffer.savedAt).toLocaleString()}).
+            <br />
+            Fleet value {hud.resumeOffer.fleetValue} · Level {hud.resumeOffer.level}
+          </p>
+          <p className="hint">The field starts empty and wave {hud.resumeOffer.wave} begins again, with your fleet, level and skills.</p>
+          <button onClick={() => gameRef.current?.resumeRun()}>Resume run</button>
+          <button onClick={() => gameRef.current?.discardRun()}>New run</button>
+        </div>
+      )}
 
       {hud?.gameOver && hud.runs && <RunLog runs={hud.runs} />}
       <div className="build-stamp">{BUILD_STAMP}</div>

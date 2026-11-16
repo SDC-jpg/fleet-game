@@ -888,6 +888,12 @@ export const CONFIG = {
     duration: 5,
   },
 
+  /** Resuming an interrupted run (browser crash, closed tab): its progress is saved while you play. */
+  runSave: {
+    /** Seconds between saves (also saved at each new wave and when the page is hidden or closed). */
+    every: 5,
+  },
+
   /** Markers at the screen edge for things you can't see (arrows for ships and wrecks, dots for loot). */
   edgeMarkers: {
     /** Screen pixels from the screen edge to the middle of the arrows. */
