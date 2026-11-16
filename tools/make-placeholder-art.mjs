@@ -445,6 +445,27 @@ function edgeArrow(fill, dark) {
   return img;
 }
 
+// Loot edge dot: a small round dot in the rarity's colour (7×7 with a dark outline).
+function lootDot(fill) {
+  const img = new Img(7, 7);
+  for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) if (Math.hypot(x + 0.5 - 3.5, y + 0.5 - 3.5) < 2.6) img.set(x, y, hex(fill));
+  outline(img, hex('#14171f'));
+  return img;
+}
+
+// Mythic loot edge dot: the same dot cycling through pastels (8 looping frames).
+function lootDotHolo() {
+  const F = 8;
+  const sheet = new Img(7 * F, 7);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(7, 7);
+    for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) if (Math.hypot(x + 0.5 - 3.5, y + 0.5 - 3.5) < 2.6) frame.set(x, y, pastel((f * 360) / F));
+    outline(frame, hex('#14171f'));
+    sheet.blit(frame, f * 7, 0);
+  }
+  return sheet;
+}
+
 // Elite edge arrow: bigger than the others, orange with a pale tip.
 function eliteArrow() {
   const img = new Img(15, 15);
@@ -1376,6 +1397,14 @@ const FILES = {
   'vfx/laser-warning.png': () => laserWarning(1),
   'ui/elite-marker.png': () => eliteMarker(56),
   'ui/arrow-elite.png': eliteArrow,
+  'ui/dot-loot-common.png': () => lootDot('#e8ecf4'),
+  'ui/dot-loot-uncommon.png': () => lootDot('#6fe07a'),
+  'ui/dot-loot-superior.png': () => lootDot('#4aa8ff'),
+  'ui/dot-loot-rare.png': () => lootDot('#c890ff'),
+  'ui/dot-loot-epic.png': () => lootDot('#ffd34a'),
+  'ui/dot-loot-legendary.png': () => lootDot('#e0484a'),
+  'ui/dot-loot-mythic.png': lootDotHolo,
+  'ui/dot-loot-merge-module.png': () => lootDot('#f4f8ff'),
   'projectiles/missile.png': () => missile(1),
   'parts/flame-missile.png': () => missileFlame(1),
   'vfx/particle-trail.png': () => trailDot(),

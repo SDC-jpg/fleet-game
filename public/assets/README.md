@@ -194,7 +194,8 @@ Sounds: `sfx.gatling` (each bolt), `sfx.crescent`, `sfx.arc`, `sfx.ion-cloud`, `
 | `ui.loot.merge-module-2`, `-3`, `-4` | Its upgrades Merge Mk. II, III and IV (ring in Uncommon green, Superior blue, Rare purple), same layout |
 | `vfx.shimmer` | Sparkles around special drops like the Merge Module, played once each |
 | `ui.cursor` | The game's own cursor, shown while "Keep the mouse inside the game" (Settings) is on |
-| `ui.arrow.loot` | Edge arrow pointing to dropped items |
+| `ui.dot.loot.<rarity>` (`common` … `mythic`, `merge-module`) | Dot at the screen edge toward an off-screen dropped item, in its rarity's colour (7×7; Mythic is a looping flipbook). Doesn't turn. Sits further in than the arrows (`CONFIG.edgeMarkers`) |
+| `ui.arrow.loot` | No longer used (loot uses the dots above) |
 
 Sound: `sfx.loot` (item picked up).
 

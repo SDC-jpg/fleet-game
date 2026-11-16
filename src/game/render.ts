@@ -145,13 +145,20 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   // Arrows at the screen edge pointing to things you can't see.
   const wreckArrow = assets.get('ui.arrow.wreck');
   for (const w of state.wrecks) drawEdgeArrow(r, wreckArrow, w.x, w.y, state.time);
-  const lootArrow = assets.get('ui.arrow.loot');
-  // A quality-of-life drop's arrow pulses gently, so it's noticed.
-  const pulse = 0.6 + 0.4 * Math.sin(state.time * 4);
-  for (const l of state.loot) drawEdgeArrow(r, lootArrow, l.x, l.y, state.time, l.qol ? pulse : 1);
   const enemyArrow = assets.get('ui.arrow.enemy');
   const eliteArrow = assets.get('ui.arrow.elite');
   for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, s.elite ? eliteArrow : enemyArrow, s.x, s.y, state.time);
+  // Loot: a dot in its rarity's colour, on a ring further in than the arrows (a clear gap past the
+  // biggest arrow), so they never overlap. A quality-of-life drop's dot pulses gently, so it's noticed.
+  const E = CONFIG.edgeMarkers;
+  const k = Math.max(1, r.worldScale);
+  const biggestArrow = Math.max(wreckArrow.frames[0].w, enemyArrow.frames[0].w, eliteArrow.frames[0].w);
+  const pulse = 0.6 + 0.4 * Math.sin(state.time * 4);
+  for (const l of state.loot) {
+    const dot = assets.get(`ui.dot.loot.${l.item ? l.item.rarity : 'merge-module'}`);
+    const inset = E.arrowInset + (biggestArrow * k) / 2 + E.lootDotGap + (dot.frames[0].w * k) / 2;
+    drawEdgeArrow(r, dot, l.x, l.y, state.time, l.qol ? pulse : 1, inset, false);
+  }
 }
 
 /** What the newer skills left in the world (see moreSkills.ts), each drawn from its own art. */
@@ -332,19 +339,22 @@ export function drawLayoutArt(
   drawMounts(false);
 }
 
-/** If (x, y) is off-screen, draw `sprite` at the screen edge, pointing toward it. */
-function drawEdgeArrow(r: PixelRenderer, sprite: Sprite, x: number, y: number, time: number, alpha = 1) {
+/**
+ * If (x, y) is off-screen, draw `sprite` near the screen edge (its middle `insetPx` screen pixels in),
+ * in the direction of (x, y); `rotate` turns it to point there (arrows; dots don't turn).
+ */
+function drawEdgeArrow(r: PixelRenderer, sprite: Sprite, x: number, y: number, time: number, alpha = 1, insetPx = CONFIG.edgeMarkers.arrowInset, rotate = true) {
   const v = r.view;
   if (x >= v.x && x <= v.x + v.w && y >= v.y && y <= v.y + v.h) return;
-  // Inset in game pixels, so the arrow stays fully on screen at any zoom.
-  const inset = 10 / r.worldScale;
+  // Inset in game pixels, so the marker stays on screen at any zoom.
+  const inset = insetPx / r.worldScale;
   const cx = v.x + v.w / 2;
   const cy = v.y + v.h / 2;
   const dx = x - cx;
   const dy = y - cy;
   // Shrink the direction until it touches the (slightly inset) screen edge.
   const k = Math.min((v.w / 2 - inset) / Math.abs(dx || 1e-6), (v.h / 2 - inset) / Math.abs(dy || 1e-6));
-  r.drawSprite(sprite, cx + dx * k, cy + dy * k, Math.atan2(dy, dx), time, alpha, true);
+  r.drawSprite(sprite, cx + dx * k, cy + dy * k, rotate ? Math.atan2(dy, dx) : 0, time, alpha, true);
 }
 
 /** The animation time that shows a meter sprite's frame for `fraction` (0 = first frame, 1 = last). */

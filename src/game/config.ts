@@ -888,6 +888,14 @@ export const CONFIG = {
     duration: 5,
   },
 
+  /** Markers at the screen edge for things you can't see (arrows for ships and wrecks, dots for loot). */
+  edgeMarkers: {
+    /** Screen pixels from the screen edge to the middle of the arrows. */
+    arrowInset: 10,
+    /** Screen pixels of empty margin between the arrows' inner edge and the loot dots, so they never overlap. */
+    lootDotGap: 10,
+  },
+
   /**
    * Particles (thrusters, missile trails...). Every emitter's settings, and the
    * defaults per kind of mount, are edited in ShipArt and saved in art.json.

@@ -412,8 +412,9 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
             <div className={textLook(tip).className} style={textLook(tip).style}>
               {tip.title}
             </div>
-            {tip.lines.map((l) => (
-              <div key={l}>{l}</div>
+            {/* Keyed by position: two lines can read the same (e.g. two "+40% damage" substats). */}
+            {tip.lines.map((l, i) => (
+              <div key={i}>{l}</div>
             ))}
           </div>,
           document.body,

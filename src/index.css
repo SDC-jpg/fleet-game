@@ -962,3 +962,31 @@ body {
 .equipment-head .spacer { flex: 1; }
 .equipment-hint { align-self: stretch; text-align: center; margin-top: 4px; }
 .card-index .card { background: #0e1224; }
+
+/* The game page: nothing can be selected (text boxes still can). */
+.game-page {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.game-page input,
+.game-page textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Shown instead of a black page if drawing the screen fails (CrashScreen.tsx). */
+.crash-screen {
+  max-width: 720px;
+  margin: 60px auto;
+  padding: 0 16px;
+}
+.crash-screen textarea {
+  width: 100%;
+  height: 220px;
+  background: #0c1020;
+  color: #dfe8ff;
+  font: 12px ui-monospace, Consolas, monospace;
+}
+.crash-screen button {
+  margin: 8px 8px 0 0;
+}
