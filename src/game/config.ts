@@ -1198,6 +1198,8 @@ export const CONFIG = {
   enemyFireCooldownMultiplier: 6,
   /** Your ships get this much health compared to the same ship flown by enemies. */
   playerHpMultiplier: 1.5,
+  /** Enemies only: each wave, newly arriving enemies have this many times the health of the wave before (1.05 = +5% per wave, compounding; elites too). Your ships never get it. */
+  enemyHealthPerWave: 1.05,
   /** Enemy speed compared to yours. */
   enemySpeedMultiplier: 0.8,
   /** Fleet ships only aim and fire within this many degrees either side of their leader's facing. */

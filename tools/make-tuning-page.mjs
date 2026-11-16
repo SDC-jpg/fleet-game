@@ -175,13 +175,15 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
       'Worked out from the settings above. Enemy fleet value is the fleet that comes in that wave ' +
       '(fleet waves only; see enemyFleetsFromWave and enemyFleetEveryNthWave), including the late-wave growth ' +
       '(lateWavesFrom, lateFleetGrowth; elites follow it too). "Lone ×" multiplies lone enemies (lateWaveGrowth). ' +
+      '"Enemy health ×" multiplies the health of enemies arriving that wave (enemyHealthPerWave). ' +
       'XP columns are for reaching that level.',
-    columns: ['wave / level', 'enemy fleet value', 'late fleet ×', 'lone ×', 'XP for next level', 'total XP to reach it'],
+    columns: ['wave / level', 'enemy fleet value', 'late fleet ×', 'lone ×', 'enemy health ×', 'XP for next level', 'total XP to reach it'],
     items: points.map((n) => [
       String(n),
       String(curves.waveFleetValue(n)),
       curves.lateFleetMultiplier(n) < 100 ? curves.lateFleetMultiplier(n).toFixed(2) : String(Math.round(curves.lateFleetMultiplier(n))),
       curves.lateWaveMultiplier(n).toFixed(2),
+      curves.enemyHealthMultiplier(n) < 100 ? curves.enemyHealthMultiplier(n).toFixed(2) : String(Math.round(curves.enemyHealthMultiplier(n))),
       String(curves.xpToNextLevel(n)),
       String(totals[n]),
     ]),

@@ -4,7 +4,7 @@
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
-import { lateWaveMultiplier, waveFleetValue, xpToNextLevel } from './curves';
+import { enemyHealthMultiplier, lateWaveMultiplier, waveFleetValue, xpToNextLevel } from './curves';
 import { interceptMissiles } from './newSkills';
 import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
@@ -702,10 +702,11 @@ function addShip(
   return ship;
 }
 
-/** A ship's tier stats, with your fleet's health bonus (equipment) for your ships. */
+/** A ship's tier stats, with your fleet's health bonus (equipment) for your ships, and the wave's health growth for enemies. */
 function shipStats(state: GameState, type: ShipTypeId, team: Team, tier: number) {
   const stats = statsFor(type, team, tier);
   if (team === 'player') stats.maxHp = Math.round(stats.maxHp * state.bonus.health);
+  else stats.maxHp = Math.max(1, Math.round(stats.maxHp * enemyHealthMultiplier(state.wave)));
   return stats;
 }
 
@@ -1785,7 +1786,7 @@ function spawnElite(state: GameState, near: Ship, distance: number) {
   const normal = ship.stats.maxHp;
   const tier1 = statsFor('fighter', 'enemy', 1).maxHp;
   const random = randRange(1 - E.healthRandom, 1 + E.healthRandom);
-  ship.stats.maxHp = Math.max(1, Math.round(tier1 * E.healthPerFleetValue * waveFleetValue(state.wave) * random));
+  ship.stats.maxHp = Math.max(1, Math.round(tier1 * E.healthPerFleetValue * waveFleetValue(state.wave) * random * enemyHealthMultiplier(state.wave)));
   ship.hp = ship.stats.maxHp;
   ship.elite = { skills: makeEliteSkills(state.elitesSpawned), laserCharge: 0, healthScale: ship.stats.maxHp / normal };
   ship.x = near.x + Math.cos(a) * (distance + ship.stats.radius);

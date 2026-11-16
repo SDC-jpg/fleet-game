@@ -24,6 +24,11 @@ export function waveFleetValue(wave: number) {
   return Math.max(1, Math.round(enemyFleetValue(wave) * lateFleetMultiplier(wave)));
 }
 
+/** Enemies only: their health multiplier in this wave (enemyHealthPerWave, compounding from wave 1). */
+export function enemyHealthMultiplier(wave: number) {
+  return CONFIG.enemyHealthPerWave ** Math.max(0, wave - 1);
+}
+
 /** XP needed to go from `level` to the next one. */
 export function xpToNextLevel(level: number) {
   const L = CONFIG.levels;
