@@ -55,6 +55,7 @@ export default function App() {
       {error && <div className="panel center">Couldn't start: {error}</div>}
       {!hud && !error && <div className="panel center">Loading…</div>}
 
+      <div className="top-stack">
       {/* Keyboard help (not on touch screens, which have their own controls). */}
       {hud && !IS_TOUCH_DEVICE && (
         <div className="top-bar">
@@ -67,6 +68,22 @@ export default function App() {
           )}
         </div>
       )}
+
+      {/* Wave timer: the current wave, a thin bar filling up until the next one, and what the next one brings. */}
+      {hud && !hud.gameOver && (
+        <div className="wave-timer">
+          <span className="wave-num">Wave {hud.wave}</span>
+          <span className="wave-bar">
+            <span style={{ width: `${Math.min(100, Math.max(0, hud.waveProgress * 100))}%` }} />
+          </span>
+          <span className="wave-next" title="Next wave: F = enemy fleet, E = elite, S = swarm">
+            {hud.nextWave.fleet && <b className="f">F</b>}
+            {hud.nextWave.elite && <b className="e">E</b>}
+            {hud.nextWave.swarm && <b className="s">S</b>}
+          </span>
+        </div>
+      )}
+      </div>
 
       {hud && (
         <div className="hud">

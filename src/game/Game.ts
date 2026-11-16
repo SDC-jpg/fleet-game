@@ -24,6 +24,7 @@ import { Particles } from './particles';
 import type { ArtLayoutsFile } from './artLayout';
 import {
   controlledShip,
+  wavePlan,
   eliteAlertTime,
   createGame,
   fleetValue,
@@ -99,6 +100,9 @@ export interface HudInfo {
   eliteSkills: string[][];
   /** Time Dilation is running (everything but your fleet is slow). */
   timeDilation: boolean;
+  /** How far along the wait for the next wave is (0–1), and what that wave brings besides lone fighters. */
+  waveProgress: number;
+  nextWave: { fleet: boolean; elite: boolean; swarm: boolean };
   /** Long-Range Radar: you have it (the bottom HUD shows its minimap canvas). */
   radar: boolean;
   /** A swarm wave just arrived (shows "Swarm incoming"). */
@@ -936,6 +940,8 @@ export class Game {
       eliteAlert: st.time - st.eliteAlertTime < eliteAlertTime(st),
       eliteSkills: ownedSkill(st, 'techScanner') ? st.eliteAlertSkills.map((list) => list.map((id) => SKILLS[id].name)) : [],
       timeDilation: st.timeDilation > 0,
+      waveProgress: st.waveLength > 0 ? 1 - st.waveTimer / st.waveLength : 0,
+      nextWave: (({ fleet, elite, swarm }) => ({ fleet, elite, swarm }))(wavePlan(st, st.wave + 1)),
       radar: !!ownedSkill(st, 'radar'),
       swarmAlert: st.time - st.swarmAlertTime < CONFIG.swarm.alertSeconds,
       stats: { ...st.stats },

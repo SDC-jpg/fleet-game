@@ -378,6 +378,10 @@ export interface GameState {
   enemyFleets: Fleet[];
   wave: number;
   waveTimer: number;
+  /** Length of the current gap between waves (for the wave timer bar). */
+  waveLength: number;
+  /** Whether the next elite slot brings a swarm instead (rolled one wave ahead, so the HUD can say so). */
+  nextSwarm: boolean;
   /** Seconds until you can dash again (0 = ready). */
   dashCooldown: number;
   /** Your level, and XP gathered toward the next one. */
@@ -556,6 +560,8 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     enemyFleets: [],
     wave: 0,
     waveTimer: CONFIG.firstWaveDelay,
+    waveLength: CONFIG.firstWaveDelay,
+    nextSwarm: Math.random() < CONFIG.swarm.chance,
     dashCooldown: 0,
     level: 1,
     xp: 0,
@@ -1692,6 +1698,24 @@ function updateWrecks(state: GameState, dt: number) {
 
 // ---------- Enemy waves ----------
 
+/**
+ * What wave `wave` brings besides lone fighters: an enemy fleet (every few waves),
+ * and in an elite slot either an elite or a swarm (decided ahead by `nextSwarm`).
+ * An elite slot that lands on a fleet wave waits for the next wave (`eliteDue`).
+ * Used to spawn the wave and, for the next wave, by the wave timer on screen.
+ */
+export function wavePlan(state: GameState, wave: number) {
+  const E = CONFIG.elite;
+  const first = CONFIG.enemyFleetsFromWave;
+  const fleet = wave >= first && (wave - first) % CONFIG.enemyFleetEveryNthWave === 0;
+  const eliteSlot =
+    state.eliteDue || ((state.elitesEnabled || CONFIG.swarm.enabled) && wave >= E.firstWave && wave % E.everyNthWave === 0);
+  const special = eliteSlot && !fleet;
+  const swarm = special && CONFIG.swarm.enabled && state.nextSwarm;
+  const elite = special && !swarm && state.elitesEnabled;
+  return { fleet, eliteSlot, swarm, elite };
+}
+
 function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   state.waveTimer -= dt;
   if (state.waveTimer > 0) return;
@@ -1700,23 +1724,21 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   const base = CONFIG.waveInterval * CONFIG.waveIntervalShrink ** (state.wave - 1);
   const swing = randRange(1 - CONFIG.waveIntervalRandom, 1 + CONFIG.waveIntervalRandom);
   state.waveTimer = Math.max(CONFIG.waveIntervalMin, base * swing);
+  state.waveLength = state.waveTimer;
   state.history.push({ time: state.survived, wave: state.wave, value: fleetValue(state.playerFleet) });
   const center = controlledShip(state);
   if (!center) return;
 
   const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
-  const first = CONFIG.enemyFleetsFromWave;
-  const fleetWave = state.wave >= first && (state.wave - first) % CONFIG.enemyFleetEveryNthWave === 0;
+  const plan = wavePlan(state, state.wave);
+  const fleetWave = plan.fleet;
 
   // Every few waves an elite comes. If this wave already brings a fleet, it waits for the next one.
-  const E = CONFIG.elite;
-  if ((state.elitesEnabled || CONFIG.swarm.enabled) && state.wave >= E.firstWave && state.wave % E.everyNthWave === 0) state.eliteDue = true;
-  // Sometimes a swarm comes instead of the elite.
-  if (state.eliteDue && !fleetWave) {
-    state.eliteDue = false;
-    if (CONFIG.swarm.enabled && Math.random() < CONFIG.swarm.chance) spawnSwarm(state, center, spawnDistance, room);
-    else if (state.elitesEnabled) spawnElite(state, center, spawnDistance);
-  }
+  // Sometimes a swarm comes instead of the elite (decided one wave ahead: nextSwarm).
+  state.eliteDue = plan.eliteSlot && fleetWave;
+  if (plan.swarm) spawnSwarm(state, center, spawnDistance, room);
+  else if (plan.elite) spawnElite(state, center, spawnDistance);
+  if (plan.swarm || plan.elite) state.nextSwarm = Math.random() < CONFIG.swarm.chance;
 
   if (fleetWave) {
     // One enemy fleet in formation. It grows with the wave number (see curves.ts), not with your fleet.

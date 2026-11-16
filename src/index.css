@@ -1215,3 +1215,57 @@ body {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Top middle: the keyboard help bar, then the wave timer under it. */
+.top-stack {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.top-stack .top-bar {
+  position: static;
+  align-self: stretch;
+}
+/* Wave timer: "Wave N", a 2 px bar as wide as the XP bar, and what the next wave brings (F, E, S). */
+.wave-timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+  text-shadow: 0 1px 2px #000;
+}
+.wave-num {
+  min-width: 56px;
+  text-align: right;
+  opacity: 0.85;
+}
+.wave-bar {
+  display: block;
+  width: 25vw;
+  height: 2px;
+  background: rgba(58, 65, 96, 0.8);
+}
+.wave-bar span {
+  display: block;
+  height: 100%;
+  background: #9fd3ff;
+  transition: width 0.1s linear;
+}
+.wave-next {
+  min-width: 56px;
+  display: flex;
+  gap: 4px;
+}
+.wave-next b {
+  font-weight: bold;
+}
+.wave-next .f { color: #e0484a; }
+.wave-next .e { color: #ff9a3a; }
+.wave-next .s { color: #ffd34a; }
