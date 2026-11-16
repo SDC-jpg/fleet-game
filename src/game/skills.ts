@@ -107,6 +107,7 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
     sk.timer = cooldownOf(state, sk);
     // A skill with nothing to work on (no target in range...) stays ready.
     if (USE[sk.id](state, ship, c, sk) === false) sk.timer = 0;
+    else state.stats.skillUses[sk.id] = (state.stats.skillUses[sk.id] ?? 0) + 1;
   }
 }
 
@@ -161,7 +162,7 @@ function fireLaser(state: GameState, ship: Ship, sk: OwnedSkill) {
     const along = (s.x - x0) * dx + (s.y - y0) * dy;
     const side = Math.abs((s.x - x0) * dy - (s.y - y0) * dx);
     if (along < -s.stats.radius || along > length + s.stats.radius || side > s.stats.radius + halfWidth) continue;
-    damageShip(state, s, damage);
+    damageShip(state, s, damage, 'laser');
     addEffect(state, 'vfx.hit', s.x, s.y, 0, ship.tier + 1);
   }
   state.beams.push({ team: ship.team, tier: ship.tier, x: x0, y: y0, angle: a, length, width: mods.size, age: 0 });
@@ -192,6 +193,7 @@ function launchMissiles(state: GameState, ship: Ship, c: Controls, sk: OwnedSkil
     state.bullets.push({
       team: ship.team,
       sprite: 'projectile.missile',
+      source: 'missiles',
       tier: ship.tier,
       x: ship.x + Math.cos(a) * edge,
       y: ship.y + Math.sin(a) * edge,
@@ -269,7 +271,7 @@ function updateMines(state: GameState, dt: number) {
     if (!near) continue;
     for (const s of state.ships) {
       if (s.team === m.team || s.dead || s.merge) continue;
-      if (distSq(s.x, s.y, m.x, m.y) < (m.blastRadius + s.stats.radius) ** 2) damageShip(state, s, m.damage);
+      if (distSq(s.x, s.y, m.x, m.y) < (m.blastRadius + s.stats.radius) ** 2) damageShip(state, s, m.damage, 'mines');
     }
     // The blast appears at the mine's Blast point (placed in ShipArt).
     addEffect(state, 'vfx.mine-blast', m.x, m.y, 0, m.tier, m.scale).at = { sprite: 'projectile.mine', tier: m.tier, angle: 0, point: 'blast' };
@@ -309,7 +311,7 @@ function repulse(state: GameState, ship: Ship, sk: OwnedSkill) {
     const a = d > 0 ? Math.atan2(s.y - ship.y, s.x - ship.x) : wrapAngle(ship.angle);
     s.vx += Math.cos(a) * R.push * mods.power;
     s.vy += Math.sin(a) * R.push * mods.power;
-    damageShip(state, s, damage);
+    damageShip(state, s, damage, 'repulse');
   }
   state.bullets = state.bullets.filter((b) => b.team === ship.team || distSq(b.x, b.y, ship.x, ship.y) > radius * radius);
   addEffect(state, 'vfx.repulse', ship.x, ship.y, 0, ship.tier, mods.size);

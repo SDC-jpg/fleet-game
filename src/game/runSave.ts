@@ -11,7 +11,7 @@
 import { CONFIG, SKILLS, skillEnabled, type SkillId } from './config';
 import { updateBonuses } from './equipment';
 import { BUILD } from './save';
-import { fleetValue, rebuildPlayerFleet, zoomFor, type GameState, type HistoryPoint, type OwnedSkill, type RunStats } from './world';
+import { emptyStats, fleetValue, rebuildPlayerFleet, zoomFor, type GameState, type HistoryPoint, type OwnedSkill, type RunStats } from './world';
 
 const KEY = 'fleet-game.run';
 
@@ -58,7 +58,7 @@ export function saveRun(state: GameState) {
     pendingLevels: state.pendingLevels + (state.cards ? 1 : 0),
     skills: state.skills.map((sk) => ({ ...sk, mods: { ...sk.mods } })),
     cardBonus: { ...state.cardBonus },
-    stats: { ...state.stats },
+    stats: emptyStats(state.stats),
     history: state.history.map((p) => ({ ...p })),
     maxFleetSize: state.maxFleetSize,
     maxTier: state.maxTier,
@@ -104,7 +104,7 @@ export function restoreRun(state: GameState, snap: RunSnapshot) {
     .filter((sk) => sk.id in SKILLS && skillEnabled(sk.id as SkillId))
     .map((sk) => ({ ...sk, timer: 0 }));
   state.cardBonus = { ...snap.cardBonus };
-  state.stats = { ...snap.stats };
+  state.stats = emptyStats(snap.stats);
   state.maxFleetSize = snap.maxFleetSize;
   state.maxTier = snap.maxTier;
   state.elitesSpawned = snap.elitesSpawned;

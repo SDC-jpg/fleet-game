@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- The defeat screen now shows items collected and merges, plus a "Destroyed by" chart of kills (or fleet value) per weapon and skill. The game also starts keeping lifetime statistics for a future stats screen.
 - Merge Mk. III/IV settings: a ▲▼ button flips whether QuickMerge and AutoMerge use your least rare or your rarest items first; the rarity list is now one column, shown in the order it will be used.
 - Splitting Beam is switched off for now (no more cards for it).
 - If your game is interrupted (browser crash, closed tab, reload), it now offers to resume your run: your fleet, level and skills come back and the wave you were on starts again.

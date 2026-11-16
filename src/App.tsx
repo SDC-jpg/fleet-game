@@ -11,6 +11,7 @@ import { BottomHud } from './BottomHud';
 import { RunLog } from './RunLog';
 import { BUILD } from './game/save';
 import { EquipmentScreen, FoundToast } from './EquipmentScreen';
+import { KillChart } from './KillChart';
 
 /** "2026/11/13 v20": when this version was built (in the viewer's time zone) and its number. */
 const BUILD_STAMP = (() => {
@@ -147,7 +148,11 @@ export default function App() {
               </tr>
             </tbody>
           </table>
+          <p className="report-items">
+            Items collected: {hud.stats.itemsCollected} · Merges: {hud.stats.merges}
+          </p>
           <FleetGraph points={hud.history} waves={hud.wave} />
+          <KillChart bySource={hud.stats.killsBySource} />
           <button onClick={() => gameRef.current?.restart()}>Play again (R)</button>
         </div>
       )}

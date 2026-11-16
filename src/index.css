@@ -538,6 +538,9 @@ body {
 .report {
   width: 480px;
   box-sizing: border-box;
+  /* Scrolls on short screens instead of running off them. */
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
 }
 .report.beside-log {
   left: calc((100vw - var(--run-log-width)) / 2);
@@ -1012,4 +1015,45 @@ body {
 }
 .resume-offer button {
   margin: 8px 6px 0;
+}
+
+/* End-of-run "Destroyed by" chart (KillChart.tsx): one bar per weapon, Kills / Fleet value toggle. */
+.kill-chart {
+  margin: 10px 0 4px;
+  text-align: left;
+  font-size: 12px;
+}
+.kill-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.panel .kill-chart-toggle button {
+  margin: 0 0 0 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: #141a30;
+  border: 1px solid #2c5a9e;
+}
+.panel .kill-chart-toggle button.on {
+  background: #2c5a9e;
+}
+.kill-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.kill-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kill-row .run-cell {
+  display: block;
+}
+.report-items {
+  margin: 6px 0;
+  font-size: 13px;
 }

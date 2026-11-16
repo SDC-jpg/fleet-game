@@ -450,7 +450,7 @@ export function wrecksplosion(state: GameState, ship: Ship, c: Controls, sk: Own
 
 /** A round blast: every enemy of `team` within `radius` takes `damage`. */
 function blast(state: GameState, team: Team, x: number, y: number, radius: number, damage: number) {
-  for (const t of targetsOf(state, team)) if (distSq(t.x, t.y, x, y) < (radius + t.stats.radius) ** 2) damageShip(state, t, damage);
+  for (const t of targetsOf(state, team)) if (distSq(t.x, t.y, x, y) < (radius + t.stats.radius) ** 2) damageShip(state, t, damage, 'wrecksplosion');
   addEffect(state, 'vfx.wreck-blast', x, y, Math.random() * Math.PI * 2, 1, radius / CONFIG.wrecksplosion.blastRadius);
 }
 
@@ -660,6 +660,7 @@ function updateGatling(state: GameState, o: SkillObj, dt: number) {
     state.bullets.push({
       team: ship.team,
       sprite: 'projectile.gatling',
+      source: 'gatling',
       tier: ship.tier,
       x: ship.x + Math.cos(a) * ship.stats.gunOffset,
       y: ship.y + Math.sin(a) * ship.stats.gunOffset,
@@ -687,7 +688,7 @@ function updateCrescent(state: GameState, o: SkillObj, dt: number) {
   for (const t of targetsOf(state, o.team)) {
     if (o.hit!.has(t) || distSq(t.x, t.y, o.x, o.y) > (o.radius + t.stats.radius) ** 2) continue;
     o.hit!.add(t);
-    damageShip(state, t, o.damage);
+    damageShip(state, t, o.damage, 'crescent');
     addEffect(state, 'vfx.hit', t.x, t.y, 0, o.tier);
     if (o.maxHits && o.hit!.size >= o.maxHits) {
       o.life = 0;
@@ -707,7 +708,7 @@ function updateArcChain(state: GameState, o: SkillObj, dt: number) {
   }
   // Strike: a bolt from the last spot to this target.
   o.hit!.add(t);
-  damageShip(state, t, o.damage);
+  damageShip(state, t, o.damage, 'arcImpulse');
   state.skillObjs.push({
     kind: 'arcBolt',
     team: o.team,
@@ -764,7 +765,7 @@ function updateIonBall(state: GameState, o: SkillObj, dt: number) {
   if (o.age < o.life) return;
   // Fuse ran out: blow up.
   for (const t of targetsOf(state, o.team))
-    if (distSq(t.x, t.y, o.x, o.y) < (o.radius + t.stats.radius) ** 2) damageShip(state, t, o.damage);
+    if (distSq(t.x, t.y, o.x, o.y) < (o.radius + t.stats.radius) ** 2) damageShip(state, t, o.damage, 'ionCloud');
   addEffect(state, 'vfx.ion-pop', o.x, o.y, Math.random() * Math.PI * 2, 1, o.scale);
   addSound(state, 'sfx.ion-pop', o, o.tier, 0.5);
 }
@@ -795,7 +796,7 @@ function updateLance(state: GameState, o: SkillObj, dt: number) {
       if (n >= CONFIG.elite.lanceHitsPerShip) continue;
       o.cuts.set(t, n + 1);
     }
-    damageShip(state, t, o.damage);
+    damageShip(state, t, o.damage, 'plasmaLance');
     addEffect(state, 'vfx.plasma-hit', t.x, t.y, Math.random() * Math.PI * 2, 1, o.scale);
   }
 }
@@ -807,7 +808,7 @@ function updateSplitBeam(state: GameState, o: SkillObj, dt: number) {
   for (const t of targetsOf(state, o.team)) {
     // Ships it already hit (or split from) don't count, so new beams don't hit them again at once.
     if (o.hit!.has(t) || distSq(t.x, t.y, o.x, o.y) > (o.radius + t.stats.radius) ** 2) continue;
-    damageShip(state, t, o.damage);
+    damageShip(state, t, o.damage, 'splitBeam');
     addEffect(state, 'vfx.split-burst', t.x, t.y, Math.random() * Math.PI * 2, 1, o.scale);
     o.life = 0;
     if ((o.splits ?? 0) > 0) {
@@ -852,6 +853,7 @@ function updatePod(state: GameState, o: SkillObj, dt: number) {
   state.bullets.push({
     team: o.team,
     sprite: 'projectile.pod-shot',
+    source: 'laserPods',
     tier: o.tier,
     x: o.x,
     y: o.y,
@@ -952,11 +954,11 @@ function updateThrown(state: GameState, o: SkillObj, dt: number) {
   }
   for (const s of targetsOf(state, o.team)) {
     if (distSq(s.x, s.y, o.x, o.y) > (o.radius + s.stats.radius) ** 2) continue;
-    damageShip(state, s, o.damage);
+    damageShip(state, s, o.damage, 'tractorBeam');
     // Enemies close by take part of it.
     const splash = T.splashRadius * o.scale;
     for (const n of targetsOf(state, o.team))
-      if (n !== s && distSq(n.x, n.y, o.x, o.y) < (splash + n.stats.radius) ** 2) damageShip(state, n, o.damage * T.splash);
+      if (n !== s && distSq(n.x, n.y, o.x, o.y) < (splash + n.stats.radius) ** 2) damageShip(state, n, o.damage * T.splash, 'tractorBeam');
     addEffect(state, 'vfx.explosion', o.x, o.y, Math.random() * Math.PI * 2, o.tier);
     addSound(state, 'sfx.explosion', o, o.tier);
     o.life = 0;

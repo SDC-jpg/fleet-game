@@ -78,6 +78,10 @@ export interface Ship {
   shieldTime: number;
   /** Set for elite enemies: their skills, and the laser warning countdown. */
   elite: EliteInfo | null;
+  /** What dealt the hit that destroyed it (see DamageSource). */
+  killedBy?: DamageSource;
+  /** Enemies: came as part of a fleet formation (not a lone fighter). */
+  inFleet?: boolean;
   /** Personal randomness so ships in a formation don't move in perfect sync. */
   quirk: { phaseX: number; phaseY: number; speedX: number; speedY: number; delay: number };
 }
@@ -182,6 +186,8 @@ export interface Bullet {
   spent?: boolean;
   /** A spent missile's spin (radians per second). */
   spin?: number;
+  /** What fired it, for the kills-by-weapon stats (missing = a ship's gun). */
+  source?: DamageSource;
 }
 
 export interface Wreck {
@@ -237,7 +243,37 @@ export interface RunStats {
   killValue: number;
   losses: number;
   lossValue: number;
+  /** Items picked up. */
+  itemsCollected: number;
+  /** Merges done in the Merge Module (each uses 3 items). */
+  merges: number;
+  /** Enemies destroyed per tier ("1", "2"...). */
+  killsByTier: Record<string, number>;
+  /** Enemies destroyed per enemy class: "elite", "swarm", "fleet" (in an enemy fleet formation) or "lone". */
+  killsByClass: Record<string, number>;
+  /** What destroyed them: "gun" (your ships' guns), "merge" (merge bursts), "hijack" (ships you took over), or a skill id. */
+  killsBySource: Record<string, { kills: number; value: number }>;
+  /** Times each of your skills was used. */
+  skillUses: Record<string, number>;
 }
+
+/** What dealt a hit (for the kills-by-weapon stats): "gun", "merge", "hijack", or a skill id. */
+export type DamageSource = string;
+
+/** Empty run stats (also fills in what older saved stats don't have). */
+export const emptyStats = (from: Partial<RunStats> = {}): RunStats => ({
+  kills: 0,
+  killValue: 0,
+  losses: 0,
+  lossValue: 0,
+  itemsCollected: 0,
+  merges: 0,
+  ...from,
+  killsByTier: { ...from.killsByTier },
+  killsByClass: { ...from.killsByClass },
+  killsBySource: Object.fromEntries(Object.entries(from.killsBySource ?? {}).map(([k, v]) => [k, { ...v }])),
+  skillUses: { ...from.skillUses },
+});
 
 /** Fleet value at one moment (one point per wave, for the end-of-run graph). */
 export interface HistoryPoint {
@@ -510,7 +546,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     boostStamina: 1,
     boostLocked: false,
     boostRest: 0,
-    stats: { kills: 0, killValue: 0, losses: 0, lossValue: 0 },
+    stats: emptyStats(),
     history: [{ time: 0, wave: 0, value: 1 }],
     maxFleetSize: 1,
     maxTier: 1,
@@ -1135,9 +1171,11 @@ function fire(state: GameState, ship: Ship, cooldown: number, spread: number) {
 }
 
 /** One shot from `ship` (with its tier's damage, speed and range), starting at (x, y). */
-function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: number) {
+function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: number, source: DamageSource = 'gun') {
   const st = ship.stats;
   state.bullets.push({
+    // A ship you took over (Hijack) fighting for you counts as Hijack's work.
+    source: ship.hijackedFrom === 'enemy' && ship.team === 'player' ? 'hijack' : source,
     team: ship.team,
     sprite: typeOf(ship).sprites.bullet,
     tier: ship.tier,
@@ -1157,7 +1195,7 @@ function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: nu
  * Damage a ship: a Shield soaks it up first, then health. Your ships take no
  * damage in invincible test mode. Returns true if this destroyed it.
  */
-export function damageShip(state: GameState, s: Ship, amount: number) {
+export function damageShip(state: GameState, s: Ship, amount: number, source: DamageSource = 'gun') {
   if (s.dead) return false;
   if (s.shield > 0) {
     const absorbed = Math.min(s.shield, amount);
@@ -1165,7 +1203,10 @@ export function damageShip(state: GameState, s: Ship, amount: number) {
     amount -= absorbed;
   }
   if (!(s.team === 'player' && state.invincible)) s.hp -= amount;
-  if (s.hp <= 0) s.dead = true;
+  if (s.hp <= 0) {
+    s.dead = true;
+    s.killedBy = source;
+  }
   return s.dead;
 }
 
@@ -1263,7 +1304,7 @@ function updateBullets(state: GameState, dt: number) {
       if (s.team === b.team || s.dead || s.merge) continue;
       const r = s.stats.radius + b.radius;
       if (distSq(b.x, b.y, s.x, s.y) > r * r) continue;
-      damageShip(state, s, b.damage);
+      damageShip(state, s, b.damage, b.source);
       b.life = 0;
       if (b.homing > 0) {
         // Missiles burst in a small round explosion of their own.
@@ -1306,6 +1347,13 @@ function bounceOffShips(state: GameState, b: Bullet) {
   }
 }
 
+/** An enemy's class, for the kill stats: "elite", "swarm", "fleet" or "lone". New kinds of enemies go here. */
+function enemyClass(s: Ship) {
+  if (s.elite) return 'elite';
+  if (s.fleet.swarm) return 'swarm';
+  return s.inFleet ? 'fleet' : 'lone';
+}
+
 function removeDeadShips(state: GameState) {
   for (const s of state.ships) {
     if (!s.dead) continue;
@@ -1314,8 +1362,16 @@ function removeDeadShips(state: GameState) {
     // A hijacked ship still counts for the side it came from (yours: a loss; an enemy: XP and drops).
     const wasEnemy = (s.hijackedFrom ?? s.team) === 'enemy';
     if (wasEnemy) {
-      state.stats.kills++;
-      state.stats.killValue += tierValue(s.tier);
+      const st = state.stats;
+      const value = tierValue(s.tier);
+      st.kills++;
+      st.killValue += value;
+      st.killsByTier[s.tier] = (st.killsByTier[s.tier] ?? 0) + 1;
+      const cls = enemyClass(s);
+      st.killsByClass[cls] = (st.killsByClass[cls] ?? 0) + 1;
+      const by = (st.killsBySource[s.killedBy ?? 'gun'] ??= { kills: 0, value: 0 });
+      by.kills++;
+      by.value += value;
       const levels = state.pendingLevels;
       const xp = tierValue(s.tier) * CONFIG.levels.xpPerValue;
       // An elite gives more, but never more than CONFIG.elite.xpMaxLevels levels' worth.
@@ -1485,7 +1541,7 @@ function finishMerge(state: GameState, m: Merge) {
   const n = CONFIG.tiers.mergeBurstShots;
   for (let i = 0; i < n; i++) {
     const a = core.angle + (i / n) * Math.PI * 2;
-    addBullet(state, core, core.x + Math.cos(a) * core.stats.radius, core.y + Math.sin(a) * core.stats.radius, a);
+    addBullet(state, core, core.x + Math.cos(a) * core.stats.radius, core.y + Math.sin(a) * core.stats.radius, a, 'merge');
   }
   if (n > 0) addSound(state, core.team === 'enemy' ? 'sfx.shoot.enemy' : 'sfx.shoot', core, core.tier);
 }
@@ -1597,6 +1653,7 @@ function spawnEnemyFleet(state: GameState, near: Ship, distance: number, value: 
     for (let i = 0; i < counts[t]; i++) addShip(state, 'enemy', 'fighter', t + 1, fleet, 0, 0, facing);
   const [leader, ...rest] = fleet.members;
   fleet.leader = leader;
+  if (rest.length) for (const m of fleet.members) m.inFleet = true;
   // Big fleets start further out, so they don't appear on screen.
   const followers = formationOrder(rest);
   const slots = formationSlots(leader, followers);

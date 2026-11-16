@@ -13,6 +13,7 @@ import { xpToNextLevel } from './curves';
 import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { clearEquipment, loadEquipment, saveEquipment } from './save';
 import { recordRun, type RunRecord } from './runLog';
+import { addRunToLifetime, clearLifetime } from './lifetime';
 import { clearRun, loadRun, restoreRun, saveRun, type RunSnapshot } from './runSave';
 import { MAX_MERGE_LEVEL, MERGE_LEVELS, autoMerge, describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item, type MergeOrder } from './equipment';
 import { rarityTier, rollRarity } from './rarity';
@@ -336,6 +337,7 @@ export class Game {
   /** Settings → General: wipe saved equipment (items, slots, loot count, Merge Module). */
   clearProgress() {
     clearEquipment(this.state);
+    clearLifetime();
     this.saveIfChanged();
     this.sendHud();
   }
@@ -502,6 +504,7 @@ export class Game {
     // The run just ended: add it to the run log (once).
     if (this.state.gameOver && !this.runs) {
       this.runs = recordRun(this.state);
+      addRunToLifetime(this.state);
       clearRun();
       this.sendHud();
     }

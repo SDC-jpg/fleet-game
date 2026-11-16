@@ -28,6 +28,13 @@ export interface RunRecord {
   lossValue: number;
   /** Gearscore of the equipped items when the run ended. Missing on older runs. */
   gearscore?: number;
+  /** Detailed stats (missing on older runs): items picked up, merges, kills per tier, class and weapon, skill uses. */
+  itemsCollected?: number;
+  merges?: number;
+  killsByTier?: Record<string, number>;
+  killsByClass?: Record<string, number>;
+  killsBySource?: Record<string, { kills: number; value: number }>;
+  skillUses?: Record<string, number>;
 }
 
 const KEY = 'fleet-game.runs';
@@ -74,6 +81,12 @@ export function recordRun(state: GameState): RunRecord[] {
     killValue: s.killValue,
     lossValue: s.lossValue,
     gearscore: gearscore(state),
+    itemsCollected: s.itemsCollected,
+    merges: s.merges,
+    killsByTier: s.killsByTier,
+    killsByClass: s.killsByClass,
+    killsBySource: s.killsBySource,
+    skillUses: s.skillUses,
   };
   const runs = [...loadRuns(), run].slice(-MAX_RUNS);
   saveSetting(KEY, JSON.stringify(runs));

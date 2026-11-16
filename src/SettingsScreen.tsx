@@ -51,7 +51,7 @@ function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
         <span>
           <b>Clear saved progress</b>
           <span className="note">
-            Deletes all your items, equipped slots, unlocked slot tiers, your loot count and the Merge Module, in this browser. Your
+            Deletes all your items, equipped slots, unlocked slot tiers, your loot count, the Merge Module and your lifetime statistics, in this browser. Your
             run log and settings stay. This can't be undone.
           </span>
           <span className="clear-buttons">

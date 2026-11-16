@@ -218,6 +218,7 @@ export function updateLoot(state: GameState, dt: number) {
 function pickUpItem(state: GameState, item: Item) {
   state.items.push(item);
   state.looted++;
+  state.stats.itemsCollected++;
   state.equipmentChanged = true;
   state.found = { item, time: state.time };
   // Fill an empty slot straight away, so a new item helps without a trip to the menu.
@@ -314,6 +315,7 @@ export function mergeItems(state: GameState, ids: number[]): Item | null {
   state.items = state.items.filter((it) => !ids.includes(it.id));
   state.items.push(result);
   state.equipmentChanged = true;
+  state.stats.merges++;
   addSound(state, 'sfx.merge', { x: 0, y: 0 }, 1, 1, true);
   return result;
 }
