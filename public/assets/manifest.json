@@ -210,6 +210,8 @@
     "sfx.recruit": { "file": "sfx/recruit.wav", "volume": 0.45, "maxVoices": 3, "pitchVariation": 0, "pitchPerTier": 1.12 },
     "sfx.merge": { "file": "sfx/merge.wav", "volume": 0.6, "maxVoices": 2, "pitchVariation": 0 },
     "sfx.boost": { "file": "sfx/boost.wav", "volume": 0.35, "maxVoices": 1 },
+    "sfx.engine-move": { "file": "sfx/engine-move.wav", "volume": 0.08 },
+    "sfx.engine-boost": { "file": "sfx/engine-boost.wav", "volume": 0.14 },
     "sfx.dash": { "file": "sfx/dash.wav", "volume": 0.5, "maxVoices": 1, "pitchVariation": 0.03 },
     "sfx.laser": { "file": "sfx/laser.wav", "volume": 0.4, "maxVoices": 2 },
     "sfx.missile": { "file": "sfx/missile.wav", "volume": 0.3, "maxVoices": 2 },

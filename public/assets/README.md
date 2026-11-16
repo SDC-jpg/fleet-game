@@ -272,6 +272,8 @@ file name in the manifest).
 | `sfx.recruit` | `recruit.wav` | you pick up a wreck |
 | `sfx.merge` | `merge.wav` | 16 ships start merging (charge-up, then flash ~0.5 s in) |
 | `sfx.boost` | `boost.wav` | you start boosting |
+| `sfx.engine-move` | `engine-move.wav` | **loop** while the ship you fly moves (a faint hum). Must loop seamlessly; the game fades it in and out and plays it deeper for bigger tiers |
+| `sfx.engine-boost` | `engine-boost.wav` | **loop** on top of the hum while you boost (a stronger roar). Same rules |
 | `sfx.dash` | `dash.wav` | you dash (Space) |
 | `sfx.alert` | `alert.wav` | an enemy fleet arrives |
 | `sfx.command` | `command.wav` | your flagship dies and command passes on |

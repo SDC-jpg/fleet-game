@@ -4,6 +4,9 @@ Player-facing changes, newest first. When a new version goes live, the lines
 added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
+## 2026-11-16
+- Your ship now has engine sounds: a faint hum while you fly and a stronger roar while you boost (the short boost sound still plays when you start).
+
 ## 2026-11-15
 - Fixed: Crisis Jump and Tech Scanner no longer get broken "+x% undefined" upgrade cards at level-up (they have nothing to upgrade). The radar minimap now sits above the skill icons.
 - New defence skills (right click): Cannibalize (take apart a small ship to repair your flagship) and Time Dilation (everything but your fleet slows to half speed).

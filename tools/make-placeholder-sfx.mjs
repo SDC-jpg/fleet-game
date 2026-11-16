@@ -89,6 +89,22 @@ function render(seconds, fn) {
   return out;
 }
 
+/**
+ * Make a seamless loop of `seconds`: renders a little extra and blends that
+ * tail into the start, so the end runs straight into the beginning with no click.
+ */
+function renderLoop(seconds, fn, blend = 0.3) {
+  const n = Math.round(seconds * RATE);
+  const b = Math.round(blend * RATE);
+  const raw = new Float32Array(n + b);
+  for (let i = 0; i < n + b; i++) raw[i] = fn(i / RATE);
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) out[i] = i < b ? raw[i] * (i / b) + raw[n + i] * (1 - i / b) : raw[i];
+  const peak = out.reduce((m, v) => Math.max(m, Math.abs(v)), 1e-6);
+  for (let i = 0; i < n; i++) out[i] = (out[i] / peak) * 0.9;
+  return out;
+}
+
 /** Quick attack, then exponential fade (`speed` higher = shorter). */
 const decay = (t, speed, attack = 0.003) => Math.min(1, t / attack) * Math.exp(-t * speed);
 
@@ -205,6 +221,33 @@ function boost() {
   const r = rng(5);
   const lp = lowpass();
   return render(0.4, (t, k) => lp(r() * 2 - 1, sweep(400, 2500, Math.min(1, k * 1.5))) * decay(t, 6, 0.05));
+}
+
+/** Engine hum (loop) while the ship you fly moves: a soft, low rumble with a faint drone. */
+function engineMove() {
+  const r = rng(61);
+  const lp = lowpass();
+  const lp2 = lowpass();
+  const hum = oscillator('sine');
+  return renderLoop(2, (t) => {
+    const rumble = lp2(lp(r() * 2 - 1, 260), 180) * 3;
+    const wobble = 1 + 0.08 * Math.sin(t * 2 * Math.PI * 3);
+    return (rumble * 0.8 + hum(58) * 0.25) * wobble;
+  });
+}
+
+/** Engine roar (loop) while boosting, on top of the hum: brighter rushing noise with a buzzing drone and a slight flutter. */
+function engineBoost() {
+  const r = rng(62);
+  const lp = lowpass();
+  const drone = oscillator('saw');
+  const lpd = lowpass();
+  return renderLoop(2, (t) => {
+    const rush = lp(r() * 2 - 1, 1100) * 1.6;
+    const buzz = lpd(drone(82), 400) * 0.5;
+    const flutter = 1 + 0.12 * Math.sin(t * 2 * Math.PI * 9);
+    return (rush + buzz) * flutter;
+  });
 }
 
 /** Dash: a quick "fwoosh" of noise that opens up, plus a rising zip. */
@@ -542,6 +585,8 @@ const FILES = {
   'cloak.wav': cloak,
   'hijack.wav': hijack,
   'pdc.wav': pdc,
+  'engine-move.wav': engineMove,
+  'engine-boost.wav': engineBoost,
   'time-dilation.wav': timeDilation,
   'command.wav': command,
   'gameover.wav': gameOver,

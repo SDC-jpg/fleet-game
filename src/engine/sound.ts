@@ -55,6 +55,8 @@ export class Sounds {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private sounds = new Map<string, LoadedSound>();
+  /** Looping sounds playing now (engine hum...), by name: see setLoop. */
+  private loops = new Map<string, { source: AudioBufferSourceNode; gain: GainNode }>();
   private masterVolume = 1;
   /** Is sound switched on (the M key / speaker button)? Remembered between visits. */
   enabled = readSavedOn();
@@ -139,6 +141,42 @@ export class Sounds {
   /** The sound's own pitch change per tier from the manifest, if it has one. */
   pitchPerTier(name: string) {
     return this.sounds.get(name)?.pitchPerTier;
+  }
+
+  /**
+   * A looping sound (an engine hum...): call it every step with how loud it
+   * should be now (0–1, times its manifest volume) and its pitch. It fades
+   * smoothly to the new level; at 0 it fades out and stops. Muting (M) silences it too.
+   */
+  setLoop(name: string, level: number, pitch = 1) {
+    const ctx = this.ctx;
+    const s = this.sounds.get(name);
+    if (!ctx || !this.master || !s) return;
+    const now = ctx.currentTime;
+    let loop = this.loops.get(name);
+    if (level <= 0.001) {
+      if (!loop) return;
+      // Fade out, then stop.
+      loop.gain.gain.setTargetAtTime(0, now, 0.06);
+      loop.source.stop(now + 0.4);
+      this.loops.delete(name);
+      return;
+    }
+    if (!loop) {
+      if (ctx.state !== 'running') return;
+      const source = ctx.createBufferSource();
+      source.buffer = s.buffer;
+      source.loop = true;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      source.connect(gain).connect(this.master);
+      // Start somewhere in the loop, so it doesn't always begin the same way.
+      source.start(now, Math.random() * s.buffer.duration);
+      loop = { source, gain };
+      this.loops.set(name, loop);
+    }
+    loop.gain.gain.setTargetAtTime(s.volume * level, now, 0.08);
+    loop.source.playbackRate.setTargetAtTime(pitch, now, 0.15);
   }
 
   /** Play a sound by name. Quietly does nothing if it's missing, muted or playing too often. */
