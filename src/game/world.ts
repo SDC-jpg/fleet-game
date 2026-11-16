@@ -440,6 +440,8 @@ export interface GameState {
   elitesEnabled: boolean;
   /** Elites spawned so far this run (each new one gets more skills). */
   elitesSpawned: number;
+  /** Elites spawned with skills (from CONFIG.elite.skillsFromWave); each new one gets more skills. */
+  skilledElites: number;
   /** An elite is waiting to come (its wave brought an enemy fleet, so it comes next wave). */
   eliteDue: boolean;
   /** When the last elite arrived (for the "Elite incoming" message). */
@@ -591,6 +593,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     skillObjs: [],
     elitesEnabled: CONFIG.elite.enabled,
     elitesSpawned: 0,
+    skilledElites: 0,
     eliteDue: false,
     eliteAlertTime: -Infinity,
     swarmAlertTime: -Infinity,
@@ -1810,7 +1813,7 @@ function spawnElite(state: GameState, near: Ship, distance: number) {
   const random = randRange(1 - E.healthRandom, 1 + E.healthRandom);
   ship.stats.maxHp = Math.max(1, Math.round(tier1 * E.healthPerFleetValue * waveFleetValue(state.wave) * random * enemyHealthMultiplier(state.wave)));
   ship.hp = ship.stats.maxHp;
-  ship.elite = { skills: makeEliteSkills(state.elitesSpawned), laserCharge: 0, healthScale: ship.stats.maxHp / normal };
+  ship.elite = { skills: state.wave >= CONFIG.elite.skillsFromWave ? makeEliteSkills(state.skilledElites++) : [], laserCharge: 0, healthScale: ship.stats.maxHp / normal };
   ship.x = near.x + Math.cos(a) * (distance + ship.stats.radius);
   ship.y = near.y + Math.sin(a) * (distance + ship.stats.radius);
   fleet.leader = ship;

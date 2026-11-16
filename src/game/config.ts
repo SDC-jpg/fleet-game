@@ -1341,11 +1341,13 @@ export const CONFIG = {
     xpMultiplier: 3,
     /** An elite never gives more XP than this many times what your current level needs (1.5 = at most 2 level-ups). */
     xpMaxLevels: 1.5,
-    /** Skills the first elite has; each later elite has one more, up to maxSkills. */
+    /** Elites before this wave have no skills (time to power up first). */
+    skillsFromWave: 25,
+    /** Skills the first elite from skillsFromWave has; each later elite has one more, up to maxSkills. */
     firstSkills: 1,
     /** Most skills an elite can have. */
     maxSkills: 3,
-    /** From this elite on (4 = the 4th), each new elite's skills are one rank higher (up to rank 5). */
+    /** From this skilled elite on (4 = the 4th from skillsFromWave), each new elite's skills are one rank higher (up to rank 5). */
     rankUpFrom: 4,
     /** Each rank above 1 improves one random stat of the skill by this (0.15 = +15%). */
     rankBonus: 0.15,

@@ -37,6 +37,7 @@ export interface RunSnapshot {
   maxFleetSize: number;
   maxTier: number;
   elitesSpawned: number;
+  skilledElites?: number;
   eliteDue: boolean;
 }
 
@@ -66,6 +67,7 @@ export function saveRun(state: GameState) {
     maxFleetSize: state.maxFleetSize,
     maxTier: state.maxTier,
     elitesSpawned: state.elitesSpawned,
+    skilledElites: state.skilledElites,
     eliteDue: state.eliteDue,
   };
   try {
@@ -112,6 +114,7 @@ export function restoreRun(state: GameState, snap: RunSnapshot) {
   state.maxFleetSize = snap.maxFleetSize;
   state.maxTier = snap.maxTier;
   state.elitesSpawned = snap.elitesSpawned;
+  state.skilledElites = snap.skilledElites ?? 0;
   state.eliteDue = snap.eliteDue;
   // The saved wave comes again shortly (its start is added to the graph again then).
   state.wave = snap.wave - 1;

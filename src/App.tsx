@@ -130,7 +130,7 @@ export default function App() {
           {hud.eliteSkills.map((names, i) => (
             <div key={i} className="elite-skills">
               {hud.eliteSkills.length > 1 ? `Elite ${i + 1}: ` : 'Skills: '}
-              {names.join(' · ')}
+              {names.length ? names.join(' · ') : 'none'}
             </div>
           ))}
         </div>
