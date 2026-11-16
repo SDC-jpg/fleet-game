@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- Missiles steer more lazily (turn rate 0.5), so they are easier to dodge.
 - The blow that destroys your last ship now freezes time for a moment and zooms in before it explodes, and the wreckage drifts slowly away like in space.
 - Losing the ship you fly is now a proper spectacle: a big explosion with a shockwave, a deep boom, a screen shake and spinning wreckage that keeps flying the way you were going. The end-of-run screen waits a second so you can watch.
 - With cursor lock on, the mouse is now freed when a run ends, so you can click the end-of-run screen.

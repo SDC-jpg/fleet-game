@@ -70,169 +70,184 @@ export type ShipTypeId = keyof typeof SHIP_TYPES;
  */
 export const SKILLS = {
   laser: {
-    name: 'Laser',
+    name: "Laser",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.laser',
-    text: 'A beam that pierces every ship in a line.',
+    side: "left",
+    icon: "ui.skill.laser",
+    text: "A beam that pierces every ship in a line.",
     /** What each upgradeable stat is called on rank-up cards. */
-    stats: { power: 'damage', rate: 'fire rate', size: 'beam size' },
+    stats: { power: "damage", rate: "fire rate", size: "beam size" },
   },
   missiles: {
-    name: 'Missiles',
+    name: "Missiles",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.missiles',
-    text: 'A cluster of homing missiles.',
-    stats: { power: 'damage', rate: 'fire rate', count: 'missile' },
+    side: "left",
+    icon: "ui.skill.missiles",
+    text: "A cluster of homing missiles.",
+    stats: { power: "damage", rate: "fire rate", count: "missile" },
   },
   mines: {
-    name: 'Mines',
+    name: "Mines",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.mines',
-    text: 'Drops a mine that blows up when an enemy comes near.',
-    stats: { power: 'damage', rate: 'drop rate', size: 'blast size', count: 'mine' },
+    side: "left",
+    icon: "ui.skill.mines",
+    text: "Drops a mine that blows up when an enemy comes near.",
+    stats: {
+      power: "damage",
+      rate: "drop rate",
+      size: "blast size",
+      count: "mine",
+    },
   },
   shield: {
-    name: 'Shield',
+    name: "Shield",
     enabled: true,
-    side: 'right',
-    icon: 'ui.skill.shield',
-    text: 'A bubble that soaks up damage, on you and nearby ships.',
-    stats: { power: 'strength', rate: 'recharge', size: 'reach' },
+    side: "right",
+    icon: "ui.skill.shield",
+    text: "A bubble that soaks up damage, on you and nearby ships.",
+    stats: { power: "strength", rate: "recharge", size: "reach" },
   },
   repulse: {
-    name: 'Repulse',
+    name: "Repulse",
     enabled: true,
-    side: 'right',
-    icon: 'ui.skill.repulse',
-    text: 'A shockwave that pushes enemies and their shots away.',
-    stats: { power: 'force', rate: 'recharge', size: 'reach' },
+    side: "right",
+    icon: "ui.skill.repulse",
+    text: "A shockwave that pushes enemies and their shots away.",
+    stats: { power: "force", rate: "recharge", size: "reach" },
   },
   freeze: {
-    name: 'Freeze',
+    name: "Freeze",
     enabled: true,
-    side: 'right',
-    icon: 'ui.skill.freeze',
-    text: 'Enemies in a cone in front of you stop moving and shooting for a moment.',
-    stats: { power: 'duration', rate: 'recharge', size: 'cone size', reach: 'range' },
+    side: "right",
+    icon: "ui.skill.freeze",
+    text: "Enemies in a cone in front of you stop moving and shooting for a moment.",
+    stats: {
+      power: "duration",
+      rate: "recharge",
+      size: "cone size",
+      reach: "range",
+    },
   },
   // New skills (docs/SKILLS.md). Left click:
   gatling: {
-    name: 'Gatling Laser',
+    name: "Gatling Laser",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.gatling',
-    text: 'A rapid volley of laser bolts toward the cursor.',
-    stats: { power: 'damage', rate: 'fire rate', count: 'bolt' },
+    side: "left",
+    icon: "ui.skill.gatling",
+    text: "A rapid volley of laser bolts toward the cursor.",
+    stats: { power: "damage", rate: "fire rate", count: "bolt" },
   },
   crescent: {
-    name: 'Crescent Strike',
+    name: "Crescent Strike",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.crescent',
-    text: 'A spinning golden crescent that curves out and slices through enemies.',
-    stats: { power: 'damage', rate: 'fire rate', size: 'crescent size' },
+    side: "left",
+    icon: "ui.skill.crescent",
+    text: "A spinning golden crescent that curves out and slices through enemies.",
+    stats: { power: "damage", rate: "fire rate", size: "crescent size" },
   },
   arcImpulse: {
-    name: 'Arc Impulse',
+    name: "Arc Impulse",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.arc-impulse',
-    text: 'An electric arc hits the enemy nearest the cursor, then bounces to others nearby.',
-    stats: { count: 'bounce', power: 'damage', rate: 'fire rate' },
+    side: "left",
+    icon: "ui.skill.arc-impulse",
+    text: "An electric arc hits the enemy nearest the cursor, then bounces to others nearby.",
+    stats: { count: "bounce", power: "damage", rate: "fire rate" },
   },
   ionCloud: {
-    name: 'Ion Cloud',
+    name: "Ion Cloud",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.ion-cloud',
-    text: 'A cloud of glowing balls that each blow up after a moment.',
-    stats: { size: 'cloud size', count: 'ball', power: 'damage', rate: 'fire rate' },
+    side: "left",
+    icon: "ui.skill.ion-cloud",
+    text: "A cloud of glowing balls that each blow up after a moment.",
+    stats: {
+      size: "cloud size",
+      count: "ball",
+      power: "damage",
+      rate: "fire rate",
+    },
   },
   plasmaLance: {
-    name: 'Plasma Lance',
+    name: "Plasma Lance",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.plasma-lance',
-    text: 'An energy blade sticks out of your ship for a moment, cutting what it touches.',
-    stats: { power: 'damage', rate: 'fire rate', size: 'blade size' },
+    side: "left",
+    icon: "ui.skill.plasma-lance",
+    text: "An energy blade sticks out of your ship for a moment, cutting what it touches.",
+    stats: { power: "damage", rate: "fire rate", size: "blade size" },
   },
   splitBeam: {
-    name: 'Splitting Beam',
+    name: "Splitting Beam",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.split-beam',
-    text: 'A fast beam that splits in two each time it hits.',
-    stats: { count: 'split', power: 'damage', rate: 'fire rate' },
+    side: "left",
+    icon: "ui.skill.split-beam",
+    text: "A fast beam that splits in two each time it hits.",
+    stats: { count: "split", power: "damage", rate: "fire rate" },
   },
   laserPods: {
-    name: 'Laser Pods',
+    name: "Laser Pods",
     enabled: true,
-    side: 'left',
-    icon: 'ui.skill.laser-pods',
-    text: 'Launches pods that each pick a target and shoot it with precise lasers.',
-    stats: { count: 'pod', power: 'damage', rate: 'fire rate' },
+    side: "left",
+    icon: "ui.skill.laser-pods",
+    text: "Launches pods that each pick a target and shoot it with precise lasers.",
+    stats: { count: "pod", power: "damage", rate: "fire rate" },
   },
   // Right click:
   gravityWell: {
-    name: 'Gravity Well',
+    name: "Gravity Well",
     enabled: true,
-    side: 'right',
-    icon: 'ui.skill.gravity-well',
-    text: 'Enemies around the cursor are dragged toward it, harder near the middle.',
-    stats: { size: 'radius', power: 'pull', rate: 'recharge' },
+    side: "right",
+    icon: "ui.skill.gravity-well",
+    text: "Enemies around the cursor are dragged toward it, harder near the middle.",
+    stats: { size: "radius", power: "pull", rate: "recharge" },
   },
   scramble: {
-    name: 'Scramble',
+    name: "Scramble",
     enabled: true,
-    side: 'right',
-    icon: 'ui.skill.scramble',
-    text: 'A wave of disruption in front of you: enemies it hits turn and fly at random for a while.',
-    stats: { power: 'duration', rate: 'recharge', size: 'wave width' },
+    side: "right",
+    icon: "ui.skill.scramble",
+    text: "A wave of disruption in front of you: enemies it hits turn and fly at random for a while.",
+    stats: { power: "duration", rate: "recharge", size: "wave width" },
   },
   // Batch 3. Left click:
   wrecksplosion: {
-    name: 'Wrecksplosion',
+    name: "Wrecksplosion",
     enabled: false,
-    side: 'left',
-    icon: 'ui.skill.wrecksplosion',
-    text: 'Every wreck near the cursor blows up, hurting enemies around it. Uses up those wrecks, but hits hard.',
-    stats: { power: 'damage', rate: 'fire rate' },
+    side: "left",
+    icon: "ui.skill.wrecksplosion",
+    text: "Every wreck near the cursor blows up, hurting enemies around it. Uses up those wrecks, but hits hard.",
+    stats: { power: "damage", rate: "fire rate" },
   },
   tractorBeam: {
-    name: 'Tractor Beam',
+    name: "Tractor Beam",
     enabled: false,
-    side: 'left',
-    icon: 'ui.skill.tractor-beam',
-    text: 'Grabs a nearby wreck and hurls it at the enemy nearest the cursor. Uses up the wreck, but hits hard.',
-    stats: { count: 'beam', power: 'damage', rate: 'fire rate' },
+    side: "left",
+    icon: "ui.skill.tractor-beam",
+    text: "Grabs a nearby wreck and hurls it at the enemy nearest the cursor. Uses up the wreck, but hits hard.",
+    stats: { count: "beam", power: "damage", rate: "fire rate" },
   },
   // Right click:
   forceWall: {
-    name: 'Force Wall',
+    name: "Force Wall",
     enabled: true,
-    side: 'right',
-    icon: 'ui.skill.force-wall',
-    text: 'Hold right click to draw a wall with the cursor. Enemies and their shots can\'t cross it.',
-    stats: { power: 'drawing time', rate: 'recharge' },
+    side: "right",
+    icon: "ui.skill.force-wall",
+    text: "Hold right click to draw a wall with the cursor. Enemies and their shots can't cross it.",
+    stats: { power: "drawing time", rate: "recharge" },
   },
   cloak: {
-    name: 'Cloaking',
+    name: "Cloaking",
     enabled: true,
-    side: 'right',
-    icon: 'ui.skill.cloak',
-    text: 'Your fleet turns invisible for a moment. Enemies keep shooting where you were.',
-    stats: { power: 'duration', rate: 'recharge' },
+    side: "right",
+    icon: "ui.skill.cloak",
+    text: "Your fleet turns invisible for a moment. Enemies keep shooting where you were.",
+    stats: { power: "duration", rate: "recharge" },
   },
   hijack: {
-    name: 'Hijack',
+    name: "Hijack",
     enabled: true,
-    side: 'right',
-    icon: 'ui.skill.hijack',
-    text: 'A pulse turns nearby enemies (up to a total fleet value) against their allies for a while.',
-    stats: { power: 'fleet value', rate: 'recharge' },
+    side: "right",
+    icon: "ui.skill.hijack",
+    text: "A pulse turns nearby enemies (up to a total fleet value) against their allies for a while.",
+    stats: { power: "fleet value", rate: "recharge" },
   },
 } satisfies Record<
   string,
@@ -240,7 +255,7 @@ export const SKILLS = {
     name: string;
     /** false = the skill is switched off: never offered on cards or items, never used by elites. */
     enabled: boolean;
-    side: 'left' | 'right';
+    side: "left" | "right";
     icon: string;
     text: string;
     /** The stats its rank-up cards can improve, and what each is called (count: one item, e.g. "missile"). */
@@ -251,17 +266,19 @@ export const SKILLS = {
 export type SkillId = keyof typeof SKILLS;
 
 /** True if a skill exists and is switched on (`enabled` in SKILLS). Old saves may name skills that no longer exist. */
-export const skillEnabled = (id: string): id is SkillId => (SKILLS as Record<string, { enabled: boolean }>)[id]?.enabled === true;
+export const skillEnabled = (id: string): id is SkillId =>
+  (SKILLS as Record<string, { enabled: boolean }>)[id]?.enabled === true;
 
 /** Every skill that is switched on. */
-export const enabledSkills = () => (Object.keys(SKILLS) as SkillId[]).filter(skillEnabled);
+export const enabledSkills = () =>
+  (Object.keys(SKILLS) as SkillId[]).filter(skillEnabled);
 
 /**
  * What a rank-up card improves: power (damage, strength...), rate (shorter
  * cooldown), size, count (more missiles or mines, whole numbers) or reach
  * (Freeze's range).
  */
-export type SkillStat = 'power' | 'rate' | 'size' | 'count' | 'reach';
+export type SkillStat = "power" | "rate" | "size" | "count" | "reach";
 
 /**
  * Rarity of cards and equipment, from tier 1 (Common) to 7 (Mythic): name and
@@ -269,17 +286,25 @@ export type SkillStat = 'power' | 'rate' | 'size' | 'count' | 'reach';
  * used where it can't). Odds and bonuses are in CONFIG.rarity.
  */
 export const RARITIES = {
-  common: { name: 'Common', color: '#e8ecf4' },
-  uncommon: { name: 'Uncommon', color: '#6fe07a' },
-  superior: { name: 'Superior', color: '#4aa8ff' },
-  rare: { name: 'Rare', color: '#c890ff' },
-  epic: { name: 'Epic', color: '#ffd34a' },
-  legendary: { name: 'Legendary', color: '#e0484a' },
-  mythic: { name: 'Mythic', color: '#f4c8ff', holo: true },
+  common: { name: "Common", color: "#e8ecf4" },
+  uncommon: { name: "Uncommon", color: "#6fe07a" },
+  superior: { name: "Superior", color: "#4aa8ff" },
+  rare: { name: "Rare", color: "#c890ff" },
+  epic: { name: "Epic", color: "#ffd34a" },
+  legendary: { name: "Legendary", color: "#e0484a" },
+  mythic: { name: "Mythic", color: "#f4c8ff", holo: true },
 } as Record<string, { name: string; color: string; holo?: boolean }>;
 
 /** Every rarity, from tier 1 (Common) to tier 7 (Mythic). */
-export const RARITY_ORDER = ['common', 'uncommon', 'superior', 'rare', 'epic', 'legendary', 'mythic'] as const;
+export const RARITY_ORDER = [
+  "common",
+  "uncommon",
+  "superior",
+  "rare",
+  "epic",
+  "legendary",
+  "mythic",
+] as const;
 
 export type Rarity = (typeof RARITY_ORDER)[number];
 
@@ -288,13 +313,29 @@ export type Rarity = (typeof RARITY_ORDER)[number];
  * its rarity (see CONFIG.items for the common-rarity bonus of each).
  */
 export const ITEM_STATS = {
-  damage: { name: 'Targeting Computer', bonus: 'damage', icon: 'ui.item.damage' },
-  fireRate: { name: 'Autoloader', bonus: 'fire rate', icon: 'ui.item.fire-rate' },
-  health: { name: 'Hull Plating', bonus: 'max health', icon: 'ui.item.health' },
-  speed: { name: 'Thrusters', bonus: 'speed', icon: 'ui.item.speed' },
-  stamina: { name: 'Fuel Cells', bonus: 'boost time', icon: 'ui.item.stamina' },
-  boostSpeed: { name: 'Afterburner', bonus: 'boost speed', icon: 'ui.item.boost-speed' },
-  skillRate: { name: 'Capacitor', bonus: 'skill recharge', icon: 'ui.item.skill-rate' },
+  damage: {
+    name: "Targeting Computer",
+    bonus: "damage",
+    icon: "ui.item.damage",
+  },
+  fireRate: {
+    name: "Autoloader",
+    bonus: "fire rate",
+    icon: "ui.item.fire-rate",
+  },
+  health: { name: "Hull Plating", bonus: "max health", icon: "ui.item.health" },
+  speed: { name: "Thrusters", bonus: "speed", icon: "ui.item.speed" },
+  stamina: { name: "Fuel Cells", bonus: "boost time", icon: "ui.item.stamina" },
+  boostSpeed: {
+    name: "Afterburner",
+    bonus: "boost speed",
+    icon: "ui.item.boost-speed",
+  },
+  skillRate: {
+    name: "Capacitor",
+    bonus: "skill recharge",
+    icon: "ui.item.skill-rate",
+  },
 };
 
 export type ItemStat = keyof typeof ITEM_STATS;
@@ -525,7 +566,7 @@ export const CONFIG = {
     /** Mk. IV: seconds between AutoMerges while it's on. */
     autoMergeEvery: 12,
     /** QuickMerge and AutoMerge may use items up to this rarity at first (changed in the module's settings). */
-    quickMergeUpTo: 'epic' as Rarity,
+    quickMergeUpTo: "epic" as Rarity,
     /** How strongly a quality-of-life drop (like the Merge Module) drifts toward you (pixels per second). */
     qolDriftSpeed: 25,
   },
@@ -574,7 +615,7 @@ export const CONFIG = {
     /** Seconds to go from drifting to top speed. */
     rampTime: 0.6,
     /** How fast they steer toward their target while speeding (radians per second). */
-    turnRate: 2,
+    turnRate: 0.5,
     /** Fuel: seconds after launch that a missile keeps flying and steering. Then it goes dead and tumbles. */
     life: 2,
     /** Seconds a dead missile (out of fuel) tumbles on, harmless, bouncing off ships, before it disappears. */
@@ -911,7 +952,7 @@ export const CONFIG = {
     /** How long that moment lasts, in real seconds (0 = no slow-motion). */
     slowmoTime: 0.8,
     /** Meanwhile the camera zooms in on it this much (1.4 = 40% closer), then back out as it explodes. */
-    slowmoZoom: 1.4,
+    slowmoZoom: 1.0,
     /** Debris pieces from a tier-1 ship, and how many more per tier up. */
     debrisCount: 10,
     debrisPerTier: 4,
