@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-16
+- Fleets with ships of different sizes fly in a much tighter formation: smaller ships now fill the gaps around your biggest ones instead of circling far outside.
 - Elites have no skills before wave 25, giving you time to power up first.
 - The first 10 waves send three times as many lone enemies, so the start of a run gets going faster.
 - From wave 10 on, wrecks no longer have the yellow marker brackets around them.

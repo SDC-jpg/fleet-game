@@ -6,6 +6,9 @@
 // - A `// == Title: note ==` line starts a new section on the page.
 // Keep each description to one clear line.
 
+/** How ships fill formation rings (see CONFIG.formationMode). */
+export type FormationMode = "original" | "fill";
+
 export interface ShipType {
   /** Hit size (radius). Separate from the art size. */
   radius: number;
@@ -1170,6 +1173,8 @@ export const CONFIG = {
   // == Formation: how your wingmen follow ==
   /** Distance between rings in a formation. */
   formationSpacing: 40,
+  /** How ships fill the rings around their leader. "original" = one tier per ring; "fill" = smaller ships fill leftover room in a bigger ship's ring (tighter mixed-tier fleets). Test key F switches it. */
+  formationMode: "fill" as FormationMode,
   /** false = your ships fly over/under each other freely; true = they push apart (enemies always do). */
   playerShipsCollide: false,
   /** Seconds before the first ring of followers reacts to the leader. */

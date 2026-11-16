@@ -3,7 +3,7 @@
 
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { rarityWeights } from './rarity';
-import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
+import { CONFIG, SHIP_TYPES, type FormationMode, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyHealthMultiplier, lateWaveMultiplier, waveFleetValue, waveGapBase, xpToNextLevel } from './curves';
 import { interceptMissiles } from './newSkills';
 import { drawCards, gainXp } from './progress';
@@ -439,6 +439,8 @@ export interface GameState {
   /** Whether elites come this run (CONFIG.elite.enabled, or the test key O). */
   elitesEnabled: boolean;
   /** Elites spawned so far this run (each new one gets more skills). */
+  /** How ships fill formation rings (CONFIG.formationMode; the test key F switches it). */
+  formationMode: FormationMode;
   elitesSpawned: number;
   /** Elites spawned with skills (from CONFIG.elite.skillsFromWave); each new one gets more skills. */
   skilledElites: number;
@@ -592,6 +594,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     mines: [],
     skillObjs: [],
     elitesEnabled: CONFIG.elite.enabled,
+    formationMode: CONFIG.formationMode,
     elitesSpawned: 0,
     skilledElites: 0,
     eliteDue: false,
@@ -733,14 +736,77 @@ const spacingOf = (s: Ship) => CONFIG.formationSpacing * s.stats.size;
 /** Followers in formation order: biggest ships first (inner rings), then oldest first. */
 const formationOrder = (followers: Ship[]) => followers.sort((a, b) => b.tier - a.tier || a.id - b.id);
 
+type Slot = { x: number; y: number; ring: number };
+
+/** Spots around the leader for each follower (already in formation order), using the chosen method. */
+export function formationSlots(mode: FormationMode, leader: Ship, followers: Ship[]) {
+  return mode === 'fill' ? fillSlots(leader, followers) : originalSlots(leader, followers);
+}
+
 /**
- * Spots around the leader for each follower (already in formation order).
- * Ships fill rings around the leader. Each ring holds one tier, spaced to fit
- * that tier, and a ring that isn't full spreads its ships evenly.
+ * "Fill": rings are spaced to fit the biggest ship in them, and smaller ships
+ * fill whatever room is left, so a lone big ship doesn't leave its ring empty.
+ * Each tier in a ring is spread evenly around it, and every ship takes up room
+ * by its own size. With only tier-1 ships this gives the same rings as Original.
+ */
+function fillSlots(leader: Ship, followers: Ship[]) {
+  const slots: Slot[] = [];
+  let ring = 0;
+  let prevRadius = 0;
+  let prevSpacing = spacingOf(leader);
+  let i = 0;
+  while (i < followers.length) {
+    ring++;
+    const biggest = spacingOf(followers[i]);
+    const radius = prevRadius + (prevSpacing + biggest) / 2;
+    const room = 2 * Math.PI * radius;
+    // Take ships (biggest first) while they fit around the ring; always at least one.
+    const members: Ship[] = [];
+    let used = 0;
+    while (i < followers.length) {
+      const sp = spacingOf(followers[i]);
+      if (members.length > 0 && used + sp > room) break;
+      members.push(followers[i++]);
+      used += sp;
+    }
+    // Spread each tier evenly: a ship's place is its share through its own tier (bigger first on ties).
+    const perTier = new Map<number, number>();
+    for (const s of members) perTier.set(s.tier, (perTier.get(s.tier) ?? 0) + 1);
+    const seen = new Map<number, number>();
+    const placed = members
+      .map((s) => {
+        const k = seen.get(s.tier) ?? 0;
+        seen.set(s.tier, k + 1);
+        return { s, at: (k + 0.5) / perTier.get(s.tier)! };
+      })
+      .sort((a, b) => a.at - b.at || b.s.tier - a.s.tier);
+    // Each ship gets an arc by its size; spare room is shared out so the ring stays even.
+    const scale = (2 * Math.PI) / used;
+    let a = -Math.PI / 2 + (ring % 2 === 0 ? Math.PI / members.length : 0);
+    const angleOf = new Map<Ship, number>();
+    for (const { s } of placed) {
+      const arc = spacingOf(s) * scale;
+      angleOf.set(s, a + arc / 2);
+      a += arc;
+    }
+    // Slots stay in formation order (followers[i] gets slots[i]).
+    for (const s of members) {
+      const t = angleOf.get(s)!;
+      slots.push({ x: Math.cos(t) * radius, y: Math.sin(t) * radius, ring });
+    }
+    prevRadius = radius;
+    prevSpacing = biggest;
+  }
+  return slots;
+}
+
+/**
+ * "Original": ships fill rings around the leader. Each ring holds one tier, spaced
+ * to fit that tier, and a ring that isn't full spreads its ships evenly.
  * With only tier-1 ships this gives rings of 6, 12, 18...
  */
-function formationSlots(leader: Ship, followers: Ship[]) {
-  const slots: { x: number; y: number; ring: number }[] = [];
+function originalSlots(leader: Ship, followers: Ship[]) {
+  const slots: Slot[] = [];
   let ring = 0;
   let prevRadius = 0;
   let prevSpacing = spacingOf(leader);
@@ -988,7 +1054,7 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
   // Ships flying into a merge are steered by updateMerges instead.
   const followers = formationOrder(fleet.members.filter((s) => s !== leader && !isMergePart(s)));
   // A swarm chevron keeps its V shape; other fleets fly in rings.
-  const slots = fleet.swarm ? [] : formationSlots(leader, followers);
+  const slots = fleet.swarm ? [] : formationSlots(state.formationMode, leader, followers);
   followers.forEach((ship, i) => {
     const t = typeOf(ship);
     const q = ship.quirk;
@@ -1780,7 +1846,7 @@ function spawnEnemyFleet(state: GameState, near: Ship, distance: number, value: 
   if (rest.length) for (const m of fleet.members) m.inFleet = true;
   // Big fleets start further out, so they don't appear on screen.
   const followers = formationOrder(rest);
-  const slots = formationSlots(leader, followers);
+  const slots = formationSlots(state.formationMode, leader, followers);
   const extent = Math.max(0, ...slots.map((s) => Math.hypot(s.x, s.y)));
   const x = near.x + Math.cos(a) * (distance + extent);
   const y = near.y + Math.sin(a) * (distance + extent);

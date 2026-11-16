@@ -9,7 +9,7 @@ import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
 import { renderGame, tierSprite } from './render';
-import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type ItemStat, type Rarity, type SkillId } from './config';
+import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { applyCard, describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { clearEquipment, loadEquipment, saveEquipment } from './save';
@@ -53,6 +53,7 @@ export const TEST_KEYS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_TES
 
 /** Browser storage key for the elite test switch. */
 const ELITES_SETTING = 'fleet-game.elites';
+const FORMATION_SETTING = 'fleet-game.formation';
 /** Cursor lock (Settings): keep the mouse inside the game, for several monitors. Remembered in this browser. */
 const CURSOR_LOCK_SETTING = 'fleet-game.cursor-lock';
 
@@ -113,6 +114,7 @@ export interface HudInfo {
   invincible: boolean;
   /** Whether elites come this run (test key O). */
   elitesEnabled: boolean;
+  formationMode: FormationMode;
   /** How rotated ships are drawn (test key U). */
   rotation: RotationMode;
   /** Monitor size, display scaling and pixel zoom, for checking the zoom (test bar). */
@@ -367,6 +369,9 @@ export class Game {
     // The elite test switch (key O) is remembered in this browser between runs and visits.
     const stored = TEST_KEYS_ENABLED ? loadSetting(ELITES_SETTING) : null;
     if (stored !== null) state.elitesEnabled = stored === 'on';
+    // The formation test switch (key F) too.
+    const formation = TEST_KEYS_ENABLED ? loadSetting(FORMATION_SETTING) : null;
+    if (formation === 'original' || formation === 'fill') state.formationMode = formation;
     loadEquipment(state);
     this.renderer.setZoom(state.zoom, true);
     return state;
@@ -761,6 +766,10 @@ export class Game {
       s.elitesEnabled = !s.elitesEnabled;
       saveSetting(ELITES_SETTING, s.elitesEnabled ? 'on' : 'off');
     }
+    if (i.wasPressed('KeyF')) {
+      s.formationMode = s.formationMode === 'fill' ? 'original' : 'fill';
+      saveSetting(FORMATION_SETTING, s.formationMode);
+    }
     if (i.wasPressed('KeyU')) {
       const modes = ROTATION_MODES;
       this.renderer.rotation = modes[(modes.indexOf(this.renderer.rotation) + 1) % modes.length];
@@ -948,6 +957,7 @@ export class Game {
       history: st.history,
       invincible: st.invincible,
       elitesEnabled: st.elitesEnabled,
+      formationMode: st.formationMode,
       rotation: this.renderer.rotation,
       display: displayText(this.renderer.displayInfo),
       runs: this.runs,
