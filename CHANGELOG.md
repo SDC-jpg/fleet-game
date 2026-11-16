@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-16
+- The first 10 waves send three times as many lone enemies, so the start of a run gets going faster.
 - From wave 10 on, wrecks no longer have the yellow marker brackets around them.
 - New wave timer at the top of the screen: the current wave, a thin bar filling up until the next one, and letters for what the next wave brings: F (enemy fleet), E (elite), S (swarm).
 - Up to 500 enemies can now be on the field at once (was 120), so big late waves are no longer cut short.

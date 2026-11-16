@@ -1248,8 +1248,8 @@ export const CONFIG = {
   loneEnemiesPerWave: 0.25,
   /** Most lone enemies in one wave. */
   maxLoneEnemiesPerWave: 12,
-  /** Extra lone enemies in the first waves (0.3 = 30% more, rounded to whole ships), up to earlyWavesUntil. */
-  earlyWaveExtraEnemies: 0.3,
+  /** Extra lone enemies in the first waves (2 = 200% more, i.e. three times as many, rounded to whole ships), up to earlyWavesUntil. */
+  earlyWaveExtraEnemies: 2,
   /** Last wave that gets earlyWaveExtraEnemies. */
   earlyWavesUntil: 10,
   /** Most enemies alive at once. */
