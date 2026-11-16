@@ -537,6 +537,39 @@ function lootDotHolo() {
   return sheet;
 }
 
+// Point Defense Cannon: a small grey turret with a thin barrel, facing right (sky blue base = team colour). 8×6.
+function pdcCannon() {
+  const img = new Img(8, 6);
+  disc(img, 2.5, 3, 2.2, TIER_BLUES.hull);
+  rect(img, 3, 2.5, 5, 1, TIER_GREYS.tip);
+  outline(img, TIER_GREYS.line);
+  return img;
+}
+
+// PDC shot: a tiny bright dot (2×2, no outline so it stays tiny).
+function pdcShot() {
+  const img = new Img(2, 2);
+  rect(img, 0, 0, 2, 2, hex('#fff2a8'));
+  return img;
+}
+
+// Time Dilation: a pale blue ring of clock ticks spreading out and fading. 8 frames, plays once.
+function timeDilationSheet(S = 96) {
+  const F = 8, c = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    const rr = 8 + (S / 2 - 10) * (f / (F - 1));
+    for (let i = 0; i < 24; i++) {
+      if (f > 4 && i % 2) continue;
+      const a = (i / 24) * Math.PI * 2;
+      for (let t = -1.5; t <= 1.5; t += 0.5) frame.set(Math.round(c + Math.cos(a) * (rr + t)), Math.round(c + Math.sin(a) * (rr + t)), hex(f < 4 ? '#dff6ff' : '#9fd3ff'));
+    }
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 // Elite edge arrow: bigger than the others, orange with a pale tip.
 function eliteArrow() {
   const img = new Img(15, 15);
@@ -1264,6 +1297,55 @@ const SKILL_ICONS = {
     fillPolygon(img, [[5, 5], [11, 8], [5, 11]], () => hex('#ff6b5a'));
     rect(img, 9, 7, 3, 2, hex('#41a6d9'));
   },
+  pdc: (img) => {
+    // Two small turrets with streams of tiny shots.
+    for (const y of [4, 11]) {
+      disc(img, 4, y, 2.2, hex('#8a93a6'));
+      rect(img, 5, y - 0.5, 4, 1, hex('#c9ced8'));
+      for (const x of [10, 12, 14]) img.set(x, y, hex('#fff2a8'));
+    }
+  },
+  cannibalize: (img) => {
+    // A small ship broken into parts, flowing into a green repair cross.
+    fillPolygon(img, [[1, 3], [5, 5], [1, 7]], () => hex('#8a93a6'));
+    for (const [x, y] of [[6, 7], [7, 9], [5, 10]]) img.set(x, y, hex('#c9ced8'));
+    rect(img, 10, 6, 2, 8, hex('#7fe07f'));
+    rect(img, 7, 9, 8, 2, hex('#7fe07f'));
+  },
+  'time-dilation': (img) => {
+    // An hourglass.
+    fillPolygon(img, [[3, 2], [13, 2], [8, 8]], () => hex('#9fd3ff'));
+    fillPolygon(img, [[8, 8], [13, 14], [3, 14]], () => hex('#41a6d9'));
+    rect(img, 3, 1, 10, 1, hex('#c9ced8'));
+    rect(img, 3, 14, 10, 1, hex('#c9ced8'));
+  },
+  'force-dash': (img) => {
+    // Speed lines into a burst.
+    for (const y of [4, 8, 12]) rect(img, 1, y, 6, 1, hex('#9fd3ff'));
+    disc(img, 11, 8, 3.2, hex('#ffb347'));
+    disc(img, 11, 8, 1.4, hex('#fff2a8'));
+  },
+  'crisis-jump': (img) => {
+    // Two rings: where you were (faint) and where you warp to.
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) {
+        if (Math.abs(Math.hypot(x + 0.5 - 4, y + 0.5 - 11) - 2.5) < 0.6) img.set(x, y, hex('#5d6578'));
+        if (Math.abs(Math.hypot(x + 0.5 - 11, y + 0.5 - 5) - 3.5) < 0.7) img.set(x, y, hex('#c890ff'));
+      }
+    for (const [x, y] of [[6, 9], [8, 7]]) img.set(x, y, hex('#c890ff'));
+  },
+  'tech-scanner': (img) => {
+    // A scanner sweep over a dot.
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) if (Math.abs(Math.hypot(x + 0.5 - 8, y + 0.5 - 8) - 6.5) < 0.6) img.set(x, y, hex('#7fe0b0'));
+    for (let t = 0; t <= 6; t++) img.set(Math.round(8 + t * 0.7), Math.round(8 - t * 0.7), hex('#7fe0b0'));
+    disc(img, 5, 10, 1.4, hex('#ff9a3a'));
+  },
+  radar: (img) => {
+    // A small screen with dots.
+    rect(img, 1, 3, 14, 10, hex('#16233a'));
+    for (const [x, y, c] of [[8, 8, '#ffffff'], [4, 5, '#e0484a'], [12, 10, '#e0484a'], [11, 5, '#ff9a3a'], [6, 11, '#41a6d9']]) rect(img, x, y, 1, 1, hex(c));
+  },
   'card-damage': (img) => {
     fillPolygon(img, [[8, 0.5], [10, 6], [15.5, 6], [11, 9.5], [13, 15.5], [8, 11.5], [3, 15.5], [5, 9.5], [0.5, 6], [6, 6]], () => hex('#ff7a3c'));
     disc(img, 8, 8.5, 2, hex('#ffd34a'));
@@ -1470,6 +1552,9 @@ const FILES = {
   'vfx/laser-warning.png': () => laserWarning(1),
   'ui/elite-marker.png': () => eliteMarker(56),
   'ui/arrow-elite.png': eliteArrow,
+  'ships/pdc-cannon.png': pdcCannon,
+  'projectiles/pdc-shot.png': pdcShot,
+  'vfx/time-dilation.png': () => timeDilationSheet(96),
   'ui/dot-loot-common.png': () => lootDot('#e8ecf4'),
   'ui/dot-loot-uncommon.png': () => lootDot('#6fe07a'),
   'ui/dot-loot-superior.png': () => lootDot('#4aa8ff'),

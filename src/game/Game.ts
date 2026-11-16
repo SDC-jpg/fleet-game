@@ -9,7 +9,7 @@ import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
 import { renderGame, tierSprite } from './render';
-import { CONFIG, ITEM_STATS, SHIP_TYPES, SKILLS, type ItemStat, type Rarity, type SkillId } from './config';
+import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { applyCard, describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { clearEquipment, loadEquipment, saveEquipment } from './save';
@@ -19,6 +19,7 @@ import { clearRun, loadRun, restoreRun, saveRun, type RunSnapshot } from './runS
 import { MAX_MERGE_LEVEL, MERGE_LEVELS, autoMerge, describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item, type MergeOrder } from './equipment';
 import { rarityTier, rollRarity } from './rarity';
 import { activeWeaponSkill, cooldownOf, selectWeapon } from './skills';
+import { ownedSkill, radarRange } from './newSkills';
 import { Particles } from './particles';
 import type { ArtLayoutsFile } from './artLayout';
 import {
@@ -75,7 +76,7 @@ export interface HudInfo {
   skills: {
     id: SkillId;
     name: string;
-    side: 'left' | 'right';
+    side: 'left' | 'right' | 'passive';
     icon: string;
     rank: number;
     cooldown: number;
@@ -93,6 +94,12 @@ export interface HudInfo {
   found: ItemInfo | null;
   /** True for a few seconds after an elite arrives. */
   eliteAlert: boolean;
+  /** Tech Scanner: the skill names of each elite in the current warning (empty without the scanner). */
+  eliteSkills: string[][];
+  /** Time Dilation is running (everything but your fleet is slow). */
+  timeDilation: boolean;
+  /** Long-Range Radar: you have it (the bottom HUD shows its minimap canvas). */
+  radar: boolean;
   /** A swarm wave just arrived (shows "Swarm incoming"). */
   swarmAlert: boolean;
   stats: RunStats;
@@ -226,6 +233,63 @@ export class Game {
   private previous = new Map<object, { x: number; y: number; angle: number }>();
   /** While paused the picture doesn't change, so it's only drawn again when needed. */
   private needsDraw = true;
+  /** Long-Range Radar's minimap canvas (in the bottom HUD), drawn every frame. */
+  private radarCanvas: HTMLCanvasElement | null = null;
+
+  /** The bottom HUD hands over (or takes back) the radar's canvas. */
+  setRadarCanvas(canvas: HTMLCanvasElement | null) {
+    this.radarCanvas = canvas;
+  }
+
+  /**
+   * Long-Range Radar: a minimap centred on your flagship, a 1 px frame over a
+   * see-through background, with dots: wrecks, loot (rarity colour), enemies,
+   * elites (bigger), your fleet and your flagship (CONFIG.radar). A faint box
+   * shows what's on screen now.
+   */
+  private drawRadar() {
+    const c = this.radarCanvas;
+    if (!c) return;
+    const R = CONFIG.radar;
+    const st = this.state;
+    const dpr = window.devicePixelRatio || 1;
+    const w = R.width;
+    const h = R.height;
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+    }
+    const ctx = c.getContext('2d')!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(159, 211, 255, 0.7)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+    const r = this.renderer;
+    const range = radarRange(st, r.viewWidth);
+    if (!range) return;
+    const cx = r.camX;
+    const cy = r.camY;
+    const k = (w / 2 - 2) / range;
+    const dot = (x: number, y: number, color: string, size: number) => {
+      const px = w / 2 + (x - cx) * k;
+      const py = h / 2 + (y - cy) * k;
+      if (px < 1 || py < 1 || px > w - 1 || py > h - 1) return;
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.round(px - size / 2), Math.round(py - size / 2), size, size);
+    };
+    // What's on screen right now.
+    ctx.strokeStyle = 'rgba(159, 211, 255, 0.2)';
+    ctx.strokeRect(Math.round(w / 2 - (r.viewWidth / 2) * k) + 0.5, Math.round(h / 2 - (r.viewHeight / 2) * k) + 0.5, Math.round(r.viewWidth * k), Math.round(r.viewHeight * k));
+    const col = R.colors;
+    for (const wr of st.wrecks) dot(wr.x, wr.y, col.wreck, 2);
+    for (const l of st.loot) dot(l.x, l.y, l.item ? RARITIES[l.item.rarity].color : col.mergeModule, 2);
+    for (const s of st.ships) if (s.team === 'enemy' && !s.elite) dot(s.x, s.y, col.enemy, 2);
+    for (const s of st.ships) if (s.team === 'enemy' && s.elite) dot(s.x, s.y, col.elite, 4);
+    const flagship = controlledShip(st);
+    for (const s of st.ships) if (s.team === 'player' && s !== flagship) dot(s.x, s.y, col.fleet, 2);
+    if (flagship) dot(flagship.x, flagship.y, col.flagship, 3);
+  }
   private onResize = () => {
     this.renderer.resize();
     this.needsDraw = true;
@@ -803,6 +867,8 @@ export class Game {
       }
     });
 
+    this.drawRadar();
+
     // Count frames drawn; work out frames per second every half second (real clock time).
     this.fpsFrames++;
     const now = performance.now();
@@ -840,15 +906,19 @@ export class Game {
         side: SKILLS[sk.id].side,
         icon: SKILLS[sk.id].icon,
         rank: sk.rank,
-        cooldown: sk.timer,
-        total: cooldownOf(st, sk),
+        // Point Defense Cannons show their ammo instead of a cooldown.
+        cooldown: sk.id === 'pdc' ? 1 - st.pdc.ammo : sk.timer,
+        total: sk.id === 'pdc' ? 1 : cooldownOf(st, sk),
         active: sk === activeWeapon,
         slot: st.skills.filter((k) => SKILLS[k.id].side === 'left').indexOf(sk),
       })),
       cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
       equipment: this.paused ? equipmentInfo(st, this.openMerge, this.openLog, this.autoMergeState) : null,
       found: st.found && st.time - st.found.time < 3 ? itemInfo(st, st.found.item) : null,
-      eliteAlert: st.time - st.eliteAlertTime < 3,
+      eliteAlert: st.time - st.eliteAlertTime < CONFIG.elite.alertTime,
+      eliteSkills: ownedSkill(st, 'techScanner') ? st.eliteAlertSkills.map((list) => list.map((id) => SKILLS[id].name)) : [],
+      timeDilation: st.timeDilation > 0,
+      radar: !!ownedSkill(st, 'radar'),
       swarmAlert: st.time - st.swarmAlertTime < CONFIG.swarm.alertSeconds,
       stats: { ...st.stats },
       history: st.history,

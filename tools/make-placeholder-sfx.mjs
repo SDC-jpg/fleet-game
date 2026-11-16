@@ -154,6 +154,23 @@ function flagshipExplosion(tier = 1) {
   });
 }
 
+/** Point Defense Cannon: a tiny dry tick (played for some of the many shots). */
+function pdc() {
+  const r = rng(808);
+  const lp = lowpass();
+  return render(0.03, (t) => (lp(r() * 2 - 1, 5000) * 0.8 + Math.sin(t * 2 * Math.PI * 2400) * 0.3) * decay(t, 140, 0.0005));
+}
+
+/** Time Dilation: a falling, slowing "wooo" with a soft shimmer, like time winding down. */
+function timeDilation() {
+  const osc = oscillator('triangle');
+  const shimmer = oscillator('sine');
+  return render(1.1, (t, k) => {
+    const f = sweep(700, 110, Math.min(1, k * 1.3));
+    return (osc(f) * 0.7 + shimmer(f * 3.01) * 0.15) * decay(t, 2.2, 0.02);
+  });
+}
+
 function recruit() {
   const osc = oscillator('square');
   const notes = [660, 880, 1320];
@@ -524,6 +541,8 @@ const FILES = {
   'force-wall-hit.wav': forceWallHit,
   'cloak.wav': cloak,
   'hijack.wav': hijack,
+  'pdc.wav': pdc,
+  'time-dilation.wav': timeDilation,
   'command.wav': command,
   'gameover.wav': gameOver,
 };

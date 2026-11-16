@@ -249,13 +249,80 @@ export const SKILLS = {
     text: "A pulse turns nearby enemies (up to a total fleet value) against their allies for a while.",
     stats: { power: "fleet value", rate: "recharge" },
   },
+  pdc: {
+    name: "Point Defense Cannons",
+    enabled: true,
+    side: "right",
+    icon: "ui.skill.pdc",
+    text: "Two rapid-fire cannons on your flagship shoot down incoming missiles by themselves, while they have ammo.",
+    stats: { size: "lock range", power: "ammo", rate: "reload speed" },
+    elites: false,
+  },
+  cannibalize: {
+    name: "Cannibalize",
+    enabled: true,
+    side: "right",
+    icon: "ui.skill.cannibalize",
+    text: "Breaks down one of your tier-1 ships to repair your flagship.",
+    stats: { power: "repair", rate: "recharge" },
+    elites: false,
+  },
+  timeDilation: {
+    name: "Time Dilation",
+    enabled: true,
+    side: "right",
+    icon: "ui.skill.time-dilation",
+    text: "Everything except your fleet slows to half speed for a few seconds.",
+    stats: { power: "duration", rate: "recharge" },
+    elites: false,
+  },
+  // Passive (always on, no button):
+  forceDash: {
+    name: "Force Dash",
+    enabled: true,
+    side: "passive",
+    icon: "ui.skill.force-dash",
+    text: "Enemies your fleet dashes through take damage.",
+    stats: { power: "damage", size: "impact size" },
+    elites: false,
+  },
+  crisisJump: {
+    name: "Crisis Jump",
+    enabled: true,
+    side: "passive",
+    icon: "ui.skill.crisis-jump",
+    text: "When your flagship drops below 1/5 health, your fleet warps ahead to a safer spot.",
+    stats: { rate: "recharge", reach: "jump distance" },
+    elites: false,
+  },
+  techScanner: {
+    name: "Tech Scanner",
+    enabled: true,
+    side: "passive",
+    icon: "ui.skill.tech-scanner",
+    text: "The \"Elite incoming\" warning also shows which skills each elite carries.",
+    stats: {},
+    elites: false,
+  },
+  radar: {
+    name: "Long-Range Radar",
+    enabled: true,
+    side: "passive",
+    icon: "ui.skill.radar",
+    text: "A minimap above your XP bar shows your fleet, enemies, elites, wrecks and loot far around you.",
+    stats: { reach: "radar range" },
+    elites: false,
+  },
 } satisfies Record<
   string,
   {
     name: string;
     /** false = the skill is switched off: never offered on cards or items, never used by elites. */
     enabled: boolean;
-    side: "left" | "right";
+    /** left = weapon (left click, one selected at a time), right = defence (right click), passive = always on. */
+    side: "left" | "right" | "passive";
+    /** false = elites never get it (skills only you can use). */
+    elites?: false;
     icon: string;
     text: string;
     /** The stats its rank-up cards can improve, and what each is called (count: one item, e.g. "missile"). */
@@ -449,6 +516,8 @@ export const CONFIG = {
     maxWeapons: 3,
     /** Most defence skills (right click) you can have at once. */
     maxDefences: 2,
+    /** Most passive skills (always on, no button) you can have at once. */
+    maxPassives: 4,
     /** How much more likely a new-skill card is than a bonus card. */
     newSkillWeight: 3,
     /** How much more likely a rank-up card (for a skill you have) is than a bonus card. */
@@ -939,6 +1008,95 @@ export const CONFIG = {
     /** Seconds hijacked ships fight on your side. */
     duration: 5,
   },
+  /** Point Defense Cannons (right-click skill slot, fires by itself): shoot down incoming missiles. */
+  pdc: {
+    /** How far from your flagship the cannons lock onto missiles and fire (lock range cards add more). */
+    range: 300,
+    /** The cannons start turning toward a missile this many times further out than the lock range, so they're ready when it arrives (missiles are fast). */
+    trackRange: 2,
+    /** Turn speed of each cannon, in degrees per second. */
+    turnRate: 90,
+    /** A cannon only fires when its target is within this many degrees of where it points (a 20° arc = 10 either way). */
+    fireArc: 20,
+    /** Shots per second from each cannon. */
+    shotsPerSecond: 25,
+    /** Shot speed (plus the flagship's own movement). */
+    shotSpeed: 900,
+    /** How long a shot lasts (seconds). */
+    shotLife: 0.5,
+    /** Hit size of a shot against a missile. */
+    shotRadius: 5,
+    /** Random aim error, either way, at the edge of the lock range (degrees). It shrinks as the missile comes closer. */
+    spreadFar: 9,
+    /** Random aim error, either way, right next to the flagship (degrees). */
+    spreadNear: 1.5,
+    /** Seconds of firing a full ammo store lasts (ammo cards add more). */
+    ammoTime: 8,
+    /** Seconds to reload from empty to full (reload speed cards make it quicker). */
+    reloadTime: 16,
+    /** After running dry, the cannons wait until this share of the ammo is back (0.25 = 25%). */
+    restartAt: 0.25,
+    /** The cannons sit this far out on either side of the flagship, as a share of its hit size. */
+    sideOffset: 0.8,
+  },
+
+  /** Cannibalize (right click): break down one of your tier-1 ships to repair the flagship. */
+  cannibalize: {
+    /** Seconds between uses. */
+    cooldown: 8,
+    /** Health repaired, as a share of the flagship's maximum health (repair cards add more). */
+    repair: 0.3,
+  },
+
+  /** Time Dilation (right click): everything except your fleet slows down. */
+  timeDilation: {
+    /** Seconds between uses. */
+    cooldown: 25,
+    /** Seconds it lasts (duration cards add more). */
+    duration: 4,
+    /** Speed of everything else meanwhile (0.5 = half speed). */
+    slowTo: 0.5,
+  },
+
+  /** Force Dash (passive): enemies your fleet dashes through take damage. */
+  forceDash: {
+    /** Damage to each enemy a ship of yours dashes through (tier 1; grows with tier like skills). Once per enemy per dash. */
+    damage: 6,
+    /** Extra reach around each of your ships, as a share of its hit size (impact size cards add more). */
+    reach: 1.3,
+  },
+
+  /** Crisis Jump (passive): below a share of health, the fleet warps ahead to a safer spot. */
+  crisisJump: {
+    /** Health share of the flagship that sets it off (0.2 = 1/5). */
+    healthBelow: 0.2,
+    /** Seconds before it can happen again (recharge cards make it shorter). */
+    cooldown: 30,
+    /** How far it jumps (tier 1, × the flagship's size; jump distance cards add more). */
+    distance: 450,
+    /** Spots tried, spread this many degrees either side of straight ahead; the one with the fewest enemies nearby wins. */
+    spreadDegrees: 60,
+    /** Radius around each spot where enemies and their shots are counted. */
+    dangerRadius: 300,
+  },
+
+  /** Long-Range Radar (passive): minimap above the XP bar. */
+  radar: {
+    /** Width and height of the minimap, in screen pixels. */
+    width: 220,
+    height: 110,
+    /** How far it sees, in screen widths of the current view (radar range cards add more). */
+    rangeViews: 3,
+    /** Dot colours. */
+    colors: {
+      flagship: "#ffffff",
+      fleet: "#41a6d9",
+      enemy: "#e0484a",
+      elite: "#ff9a3a",
+      wreck: "#9aa3bd",
+      mergeModule: "#f4f8ff",
+    },
+  },
 
   /**
    * The ship you fly being destroyed: its own big explosion (vfx.flagship-explosion, sfx.flagship-explosion),
@@ -1160,6 +1318,8 @@ export const CONFIG = {
   elite: {
     /** true = elites appear; false = no elites at all. (Test key O switches them for your browser only.) */
     enabled: true,
+    /** Seconds the "Elite incoming!" warning stays on screen. */
+    alertTime: 3,
     /** An elite comes every this-many waves (5 = waves 10, 15, 20... from firstWave). If that wave brings an enemy fleet, the elite waits one wave. */
     everyNthWave: 5,
     /** No elite before this wave (10 = the wave-5 one is skipped). */

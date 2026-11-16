@@ -5,6 +5,9 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- New defence skills: Point Defense Cannons (two turrets that shoot down incoming missiles on their own, with ammo that reloads), Cannibalize (take apart a small ship to repair your flagship) and Time Dilation (everything but your fleet slows to half speed).
+- New passive skills (always on): Force Dash (dashing through enemies hurts them), Crisis Jump (your fleet warps to safety when your flagship gets low), Tech Scanner (see which skills an incoming elite has) and Long-Range Radar (a minimap above your XP bar).
+- Missiles now fly through Force Walls; only Point Defense Cannons and Repulse stop them.
 - Missiles steer more lazily (turn rate 0.5), so they are easier to dodge.
 - The blow that destroys your last ship now freezes time for a moment and zooms in before it explodes, and the wreckage drifts slowly away like in space.
 - Losing the ship you fly is now a proper spectacle: a big explosion with a shockwave, a deep boom, a screen shake and spinning wreckage that keeps flying the way you were going. The end-of-run screen waits a second so you can watch.

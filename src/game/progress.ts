@@ -25,7 +25,7 @@ function newSkillOptions(state: GameState): SkillId[] {
   const C = CONFIG.cards;
   const owned = state.skills.map((s) => s.id);
   const count = (side: string) => owned.filter((id) => SKILLS[id].side === side).length;
-  const room = { left: count('left') < C.maxWeapons, right: count('right') < C.maxDefences };
+  const room = { left: count('left') < C.maxWeapons, right: count('right') < C.maxDefences, passive: count('passive') < C.maxPassives };
   return enabledSkills().filter((id) => !owned.includes(id) && room[SKILLS[id].side]);
 }
 

@@ -5,6 +5,7 @@
 
 import { distSq, randRange, wrapAngle } from '../engine/math';
 import { CONFIG, SKILLS, enabledSkills, type SkillId, type SkillStat } from './config';
+import { cannibalize, startTimeDilation, updateCrisisJump, updateForceDash, updatePdc } from './newSkills';
 import {
   eliteWantsMore,
   fireArc,
@@ -60,6 +61,14 @@ const COOLDOWNS: Record<SkillId, () => number> = {
   forceWall: () => CONFIG.forceWall.cooldown,
   cloak: () => CONFIG.cloak.cooldown,
   hijack: () => CONFIG.hijack.cooldown,
+  // Point Defense Cannons fire by themselves (their ammo is the meter); passives have no button.
+  pdc: () => 0,
+  cannibalize: () => CONFIG.cannibalize.cooldown,
+  timeDilation: () => CONFIG.timeDilation.cooldown,
+  forceDash: () => 0,
+  crisisJump: () => CONFIG.crisisJump.cooldown,
+  techScanner: () => 0,
+  radar: () => 0,
 };
 
 /**
@@ -122,12 +131,16 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
     const wants = weapon ? c.fire : c.defend;
     // A frozen ship can't shoot, but defences still work.
     if (!wants || (weapon && ship.frozen > 0)) continue;
-    if (!SKILLS[sk.id].enabled) continue;
+    if (!SKILLS[sk.id].enabled || SKILLS[sk.id].side === 'passive' || sk.id === 'pdc') continue;
     sk.timer = cooldownOf(state, sk);
     // A skill with nothing to work on (no target in range...) stays ready.
     if (USE[sk.id](state, ship, c, sk) === false) sk.timer = 0;
     else state.stats.skillUses[sk.id] = (state.stats.skillUses[sk.id] ?? 0) + 1;
   }
+  // Skills that work by themselves: Point Defense Cannons, Force Dash, Crisis Jump.
+  updatePdc(state, dt);
+  updateForceDash(state);
+  updateCrisisJump(state);
 }
 
 /**
@@ -161,6 +174,14 @@ const USE: Record<SkillId, Use> = {
   forceWall,
   cloak: (state, ship, _c, sk) => cloak(state, ship, sk),
   hijack: (state, ship, _c, sk) => hijackPulse(state, ship, sk),
+  // These work by themselves (newSkills.ts), never from a click.
+  pdc: () => false,
+  cannibalize: (state, ship, _c, sk) => cannibalize(state, ship, sk),
+  timeDilation: (state, ship, _c, sk) => startTimeDilation(state, ship, sk),
+  forceDash: () => false,
+  crisisJump: () => false,
+  techScanner: () => false,
+  radar: () => false,
 };
 
 /** Laser: everything along the beam in front of you takes damage at once. */
@@ -371,7 +392,10 @@ const freezeLength = (ship: Ship, mods: SkillMods) => CONFIG.freeze.length * shi
  */
 export function makeEliteSkills(index: number): OwnedSkill[] {
   const E = CONFIG.elite;
-  const ids = enabledSkills().sort(() => Math.random() - 0.5);
+  // Skills marked `elites: false` (and passives) are yours only.
+  const ids = enabledSkills()
+    .filter((id) => SKILLS[id].side !== 'passive' && !('elites' in SKILLS[id] && SKILLS[id].elites === false))
+    .sort(() => Math.random() - 0.5);
   const count = Math.min(E.maxSkills, E.firstSkills + index, ids.length);
   const rank = Math.min(CONFIG.cards.maxRank, 1 + Math.max(0, index + 2 - E.rankUpFrom));
   return ids.slice(0, count).map((id) => {

@@ -213,4 +213,15 @@ The batches are ordered by how much new engine work they need:
 
 ### Passive
 
-None in this batch. Passive skills would need a third group on the skill bar and in the card limits (e.g. up to 2 passives), and would act all the time without a button.
+Added 2026-11-15 (rules in `src/game/newSkills.ts`, numbers in CONFIG): a third "Passive" group on the skill bar, up to `cards.maxPassives` 4. Passives (and PDC, Cannibalize, Time Dilation) are yours only (`elites: false`).
+
+- **Force Dash** (`forceDash`): while your fleet dashes, each enemy one of your ships passes through takes damage, once per dash. Upgrades: power (damage), size (impact size).
+- **Crisis Jump** (`crisisJump`): when the flagship drops below 1/5 health, the whole fleet warps 450 px (× ship size) ahead, to whichever of 7 spots (±60°) has the fewest enemies and enemy shots nearby. 30 s recharge. Upgrades: rate (recharge), reach (jump distance).
+- **Tech Scanner** (`techScanner`): "Elite incoming!" also lists each elite's skills. No upgrades.
+- **Long-Range Radar** (`radar`): a minimap above the XP bar (220×110, 1 px frame, see-through): flagship, fleet, enemies, elites (bigger), wrecks, loot (rarity colour); a faint box shows the screen. Sees 3 screen widths. Upgrades: reach (radar range).
+
+### Right Click (added 2026-11-15)
+
+- **Point Defense Cannons** (`pdc`): two cannons either side of the flagship fire by themselves (no click) at incoming missiles: lock range 300 (they start turning at 2× that, `trackRange`), 90°/s turn, 20° firing arc, 25 shots/s each, aimed ahead of the missile with an error that shrinks as it closes in (9° → 1.5°). Rounds only hit missiles. Ammo lasts 8 s of firing, reloads in 16 s; after running dry it waits for 25%. The skill bar icon shows the ammo. Upgrades: size (lock range), power (ammo), rate (reload speed). Only PDC and Repulse stop missiles (Force Wall lets them through).
+- **Cannibalize** (`cannibalize`): takes apart your nearest tier-1 ship (not a loss) to repair 30% of the flagship's health. Stays ready when there's no tier-1 ship or the flagship is unhurt. 8 s. Upgrades: power (repair), rate (recharge).
+- **Time Dilation** (`timeDilation`): for 4 s everything except your fleet (enemy ships, their shots, missiles and skills) runs at half speed. 25 s. Upgrades: power (duration), rate (recharge).

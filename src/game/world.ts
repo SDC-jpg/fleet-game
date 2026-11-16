@@ -5,6 +5,7 @@ import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../en
 import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { lateWaveMultiplier, waveFleetValue, xpToNextLevel } from './curves';
+import { interceptMissiles } from './newSkills';
 import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
@@ -118,6 +119,8 @@ export interface Fleet {
   /** Direction of the current dash. */
   dashX: number;
   dashY: number;
+  /** Force Dash: enemies already hit during the current dash. */
+  dashHits?: Set<Ship>;
   /** Set for a chevron of a swarm wave: it flies its own curving path (see updateEnemyLeader). */
   swarm: SwarmInfo | null;
   /** Seconds left cloaked (Cloaking skill): enemies can't see its ships, only where they were. */
@@ -188,6 +191,8 @@ export interface Bullet {
   spin?: number;
   /** What fired it, for the kills-by-weapon stats (missing = a ship's gun). */
   source?: DamageSource;
+  /** Point Defense Cannon round: it only hits enemy missiles (shooting them down), never ships. */
+  interceptor?: boolean;
 }
 
 export interface Wreck {
@@ -437,6 +442,12 @@ export interface GameState {
   eliteAlertTime: number;
   /** When the last swarm wave arrived (for the "Swarm incoming" message). */
   swarmAlertTime: number;
+  /** Skills of the elites announced by the current "Elite incoming" warning (Tech Scanner shows them). */
+  eliteAlertSkills: SkillId[][];
+  /** Point Defense Cannons (your skill): ammo (0–1), whether they ran dry and wait to reload, the missile they're locked on, each cannon's aim. */
+  pdc: { ammo: number; dry: boolean; target: Bullet | null; cannons: { angle: number; timer: number }[]; firing: boolean };
+  /** Time Dilation: seconds left of everything except your fleet running slow. */
+  timeDilation: number;
   /** Boost stamina, 0–1 (shown by the ring around the ship you fly). */
   boostStamina: number;
   /** True after the bar ran dry, until it refills to CONFIG.boost.restartAt. */
@@ -577,6 +588,9 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     eliteDue: false,
     eliteAlertTime: -Infinity,
     swarmAlertTime: -Infinity,
+    eliteAlertSkills: [],
+    pdc: { ammo: 1, dry: false, target: null, cannons: [{ angle: 0, timer: 0 }, { angle: 0, timer: 0 }], firing: false },
+    timeDilation: 0,
     boostStamina: 1,
     boostLocked: false,
     boostRest: 0,
@@ -767,13 +781,17 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   // After the end, the world keeps going for a moment so you see your flagship go up; then it stops.
   if (state.gameOver && state.time - state.gameOverAt >= CONFIG.death.screenDelay) return;
   if (!state.gameOver) state.survived += dt;
+  // Time Dilation: everything except your fleet runs slow (enemies, their shots and skills).
+  state.timeDilation = Math.max(0, state.timeDilation - dt);
+  const edt = state.timeDilation > 0 ? dt * CONFIG.timeDilation.slowTo : dt;
+  const dtOf = (s: Ship) => (s.team === 'player' ? dt : edt);
   state.dashCooldown = Math.max(0, state.dashCooldown - dt);
-  for (const f of [state.playerFleet, ...state.enemyFleets]) f.dashTime = Math.max(0, f.dashTime - dt);
+  for (const f of [state.playerFleet, ...state.enemyFleets]) f.dashTime = Math.max(0, f.dashTime - (f.team === 'player' ? dt : edt));
 
   updatePlayerLeader(state, controls, dt);
-  for (const fleet of [state.playerFleet, ...state.enemyFleets]) updateFleet(state, fleet, dt);
+  for (const fleet of [state.playerFleet, ...state.enemyFleets]) updateFleet(state, fleet, fleet.team === 'player' ? dt : edt);
   updateSkills(state, controls, dt);
-  updateEliteSkills(state, dt);
+  updateEliteSkills(state, edt);
   updateScrambled(state, dt);
   updateHijacked(state, dt);
   updateMerges(state, dt);
@@ -788,12 +806,12 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
         continue;
       }
     }
-    s.x += s.vx * dt;
-    s.y += s.vy * dt;
-    s.fireTimer -= dt;
+    s.x += s.vx * dtOf(s);
+    s.y += s.vy * dtOf(s);
+    s.fireTimer -= dtOf(s);
   }
 
-  updateBullets(state, dt);
+  updateBullets(state, dt, edt);
   removeDeadShips(state);
   updateWrecks(state, dt);
   updateLoot(state, dt);
@@ -916,6 +934,7 @@ function startDash(state: GameState, fleet: Fleet, leader: Ship, mx: number, my:
   fleet.dashPower = 1 + (d.speedMultiplier - 1) * zoomScale;
   const speed = typeOf(leader).maxSpeed * state.bonus.speed * directionFactor(leader.angle, mx, my) * fleet.dashPower;
   fleet.dashTime = d.duration;
+  fleet.dashHits = new Set();
   fleet.dashX = mx;
   fleet.dashY = my;
   state.dashCooldown = d.cooldown;
@@ -1336,8 +1355,10 @@ function retargetMissile(state: GameState, b: Bullet): Ship | null {
   return best;
 }
 
-function updateBullets(state: GameState, dt: number) {
+function updateBullets(state: GameState, playerDt: number, enemyDt: number) {
   for (const b of state.bullets) {
+    // Enemy shots run slow during Time Dilation.
+    const dt = b.team === 'player' ? playerDt : enemyDt;
     if (b.homing > 0) steerMissile(state, b, dt);
     b.x += b.vx * dt;
     b.y += b.vy * dt;
@@ -1352,6 +1373,10 @@ function updateBullets(state: GameState, dt: number) {
     }
     if (b.spent) {
       bounceOffShips(state, b);
+      continue;
+    }
+    if (b.interceptor) {
+      interceptMissiles(state, b);
       continue;
     }
     for (const s of state.ships) {
@@ -1764,6 +1789,9 @@ function spawnElite(state: GameState, near: Ship, distance: number) {
   fleet.leader = ship;
   state.enemyFleets.push(fleet);
   state.elitesSpawned++;
+  // A new warning lists this elite's skills; elites arriving during the same warning are added to it.
+  const showing = state.time - state.eliteAlertTime < CONFIG.elite.alertTime;
+  state.eliteAlertSkills = [...(showing ? state.eliteAlertSkills : []), ship.elite.skills.map((sk) => sk.id)];
   state.eliteAlertTime = state.time;
   addSound(state, 'sfx.alert', near, 1, 1, true);
 }

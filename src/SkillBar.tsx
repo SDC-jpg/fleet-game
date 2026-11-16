@@ -12,13 +12,13 @@ export function SkillBar({ hud, game }: { hud: HudInfo; game: Game | null }) {
   if (!hud.skills.length) return null;
   return (
     <div className="skill-bar">
-      {(['left', 'right'] as const).map((side) => {
+      {(['left', 'right', 'passive'] as const).map((side) => {
         const list = hud.skills.filter((sk) => sk.side === side);
         if (!list.length) return null;
         return (
           <div key={side} className="skill-group">
             <div className="skill-group-label">
-              {side === 'left' ? 'Left click' : 'Right click'}
+              {side === 'left' ? 'Left click' : side === 'right' ? 'Right click' : 'Passive'}
               {side === 'left' && list.length > 1 && <span className="skill-keys-hint"> · {list.map((sk) => sk.slot + 1).join(' ')} / wheel</span>}
             </div>
             <div className="skill-row">

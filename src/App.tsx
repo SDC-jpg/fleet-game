@@ -106,7 +106,20 @@ export default function App() {
 
       {hud?.paused && <EquipmentScreen hud={hud} game={gameRef.current} />}
       {hud && !hud.gameOver && !hud.paused && <FoundToast hud={hud} />}
-      {hud?.eliteAlert && !hud.gameOver && <div className="elite-toast">Elite incoming!</div>}
+      {hud?.eliteAlert && !hud.gameOver && (
+        <div className="elite-toast">
+          Elite incoming!
+          {/* Tech Scanner: each elite's skills. */}
+          {hud.eliteSkills.map((names, i) => (
+            <div key={i} className="elite-skills">
+              {hud.eliteSkills.length > 1 ? `Elite ${i + 1}: ` : 'Skills: '}
+              {names.join(' · ')}
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Time Dilation: a cool tint at the screen's edges while the world runs slow. */}
+      {hud?.timeDilation && !hud.gameOver && <div className="time-dilation-tint" />}
       {hud?.swarmAlert && !hud.gameOver && <div className="swarm-toast">Swarm incoming!</div>}
 
       {hud?.resumeOffer && (

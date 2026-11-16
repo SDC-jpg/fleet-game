@@ -184,6 +184,23 @@ Sounds: `sfx.gatling` (each bolt), `sfx.crescent`, `sfx.arc`, `sfx.ion-cloud`, `
 `sfx.pods`, `sfx.pod-shot`, `sfx.gravity-well`, `sfx.scramble`, `sfx.wrecksplosion`, `sfx.tractor-beam`, `sfx.force-wall`,
 `sfx.force-wall-hit`, `sfx.cloak`, `sfx.hijack`.
 
+### Skills added 2026-11-15
+
+Icons `ui.skill.<name>`: `pdc`, `cannibalize`, `time-dilation`, `force-dash`, `crisis-jump`, `tech-scanner`, `radar`.
+
+| Name | What it is |
+| --- | --- |
+| `pdc.cannon` | Point Defense Cannon turret (8×6, faces right, sky blue = team colour). Two sit on the flagship and turn toward missiles; scaled with the ship |
+| `projectile.pdc` | Its tiny shot (2×2) |
+| `vfx.time-dilation` | Time Dilation ring of clock ticks, plays once (the blue edge tint while it lasts is drawn by the page, `.time-dilation-tint`) |
+| `vfx.cannibalize` | Where a ship is taken apart, and on the repaired flagship (**uses the recruit art for now**: point it at your own file) |
+| `vfx.warp` | Crisis Jump, where the fleet leaves and arrives (**uses the recruit art for now**) |
+
+The Long-Range Radar minimap is drawn by the game (1 px frame, coloured dots; colours in `CONFIG.radar.colors`).
+
+Sounds: `sfx.pdc` (a quiet tick for some of the shots), `sfx.time-dilation`, `sfx.cannibalize` (**the recruit sound for now**),
+`sfx.warp` (**the dash sound for now**).
+
 ## Equipment
 
 | Name | What it is |

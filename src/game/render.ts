@@ -6,6 +6,7 @@ import { clamp } from '../engine/math';
 import { SHIP_TYPES, CONFIG } from './config';
 import { laserLength } from './skills';
 import type { Particles } from './particles';
+import { ownedSkill, pdcPositions } from './newSkills';
 import { fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile } from './artLayout';
 import { controlledShip, isMergePart, typeOf, type GameState, type Ship, type Team } from './world';
 
@@ -121,6 +122,13 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   }
 
   drawSkillObjects(state, r, assets, extras);
+
+  // Point Defense Cannons: two small turrets on the flagship, pointing where they aim.
+  const pdcShip = controlledShip(state);
+  if (pdcShip && !pdcShip.dead && ownedSkill(state, 'pdc')) {
+    const cannon = teamSprite(assets, 'pdc.cannon', 'player');
+    pdcPositions(pdcShip).forEach((p, i) => r.drawSprite(cannon, p.x, p.y, state.pdc.cannons[i].angle, state.time, 1, false, pdcShip.stats.size));
+  }
 
   for (const b of state.bullets) {
     const name = tierSprite(assets, b.sprite, b.tier);
