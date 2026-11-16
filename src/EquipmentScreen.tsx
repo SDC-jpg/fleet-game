@@ -313,6 +313,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
               full={merge.full}
               free={eq.inventory.filter((it) => !merge.isPlaced(it.id))}
               allow={eq.mergeAllow}
+              order={eq.mergeOrder}
               autoMerge={autoOn}
               autoProgress={eq.autoProgress}
               made={made}
@@ -321,7 +322,12 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
               onFill={merge.fill}
               onMergeIds={mergeIds}
               onTip={setTip}
-              style={boxes.inventory ? { top: boxes.inventory.y } : undefined}
+              // Its bottom edge level with the inventory's (it grows upward); hidden until measured.
+              style={
+                boxes.inventory && boxes.drawer
+                  ? { top: boxes.inventory.y + boxes.inventory.h - boxes.drawer.h }
+                  : { top: boxes.inventory?.y ?? 0, visibility: 'hidden' }
+              }
             />
           )}
 

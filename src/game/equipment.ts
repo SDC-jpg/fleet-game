@@ -318,6 +318,9 @@ export function mergeItems(state: GameState, ids: number[]): Item | null {
   return result;
 }
 
+/** Which rarity QuickMerge and AutoMerge use first: the least rare (default) or the rarest. */
+export type MergeOrder = 'low' | 'high';
+
 /** What merge picking needs to know about an item (game items and on-screen ItemInfo both fit). */
 interface Mergeable {
   id: number;
@@ -333,7 +336,7 @@ interface Mergeable {
  * of them first. With `like` (items already in the slots), only that group.
  * Returns null if there aren't enough.
  */
-export function pickMergeSet<T extends Mergeable>(items: T[], count = MERGE_COUNT, allowed?: Rarity[], like?: Mergeable): T[] | null {
+export function pickMergeSet<T extends Mergeable>(items: T[], count = MERGE_COUNT, allowed?: Rarity[], like?: Mergeable, order: MergeOrder = 'low'): T[] | null {
   const groups = new Map<string, T[]>();
   for (const it of items) {
     if (allowed && !allowed.includes(it.rarity)) continue;
@@ -343,15 +346,15 @@ export function pickMergeSet<T extends Mergeable>(items: T[], count = MERGE_COUN
   }
   const best = [...groups.values()]
     .filter((g) => g.length >= count)
-    .sort((a, b) => rarityTier(a[0].rarity) - rarityTier(b[0].rarity) || (a[0].plus ?? 0) - (b[0].plus ?? 0))[0];
+    .sort((a, b) => (rarityTier(a[0].rarity) - rarityTier(b[0].rarity) || (a[0].plus ?? 0) - (b[0].plus ?? 0)) * (order === 'high' ? -1 : 1))[0];
   return best ? [...best].sort((a, b) => a.amount - b.amount).slice(0, count) : null;
 }
 
-/** AutoMerge (Mk. IV): merge the lowest-rarity allowed set, if there is one. Returns the new item. */
+/** AutoMerge (Mk. IV): merge the next allowed set in the chosen order (lowest or highest rarity first), if there is one. Returns the new item. */
 export function autoMerge(state: GameState): Item | null {
   if (state.mergeLevel < MAX_MERGE_LEVEL) return null;
   const free = state.items.filter((it) => slotOf(state, it.id) < 0);
-  const set = pickMergeSet(free, MERGE_COUNT, state.mergeAllow);
+  const set = pickMergeSet(free, MERGE_COUNT, state.mergeAllow, undefined, state.mergeOrder);
   return set ? mergeItems(state, set.map((it) => it.id)) : null;
 }
 

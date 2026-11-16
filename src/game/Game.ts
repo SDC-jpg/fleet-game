@@ -14,7 +14,7 @@ import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from
 import { clearEquipment, loadEquipment, saveEquipment } from './save';
 import { recordRun, type RunRecord } from './runLog';
 import { clearRun, loadRun, restoreRun, saveRun, type RunSnapshot } from './runSave';
-import { MAX_MERGE_LEVEL, MERGE_LEVELS, autoMerge, describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item } from './equipment';
+import { MAX_MERGE_LEVEL, MERGE_LEVELS, autoMerge, describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item, type MergeOrder } from './equipment';
 import { rarityTier, rollRarity } from './rarity';
 import { cooldownOf } from './skills';
 import { Particles } from './particles';
@@ -152,6 +152,8 @@ export interface EquipmentInfo {
   mergeName: string;
   /** Rarities QuickMerge and AutoMerge may use. */
   mergeAllow: Rarity[];
+  /** Least rare first ('low') or rarest first ('high'). */
+  mergeOrder: MergeOrder;
   /** AutoMerge is on, and how far along the next one is (0–1). */
   autoMerge: boolean;
   autoProgress: number;
@@ -375,9 +377,10 @@ export class Game {
     return item ? itemInfo(this.state, item) : null;
   }
 
-  /** Merge Mk. III settings: which rarities QuickMerge and AutoMerge may use. */
-  setMergeAllow(rarities: Rarity[]) {
+  /** Merge Mk. III settings: which rarities QuickMerge and AutoMerge may use, and in which order. */
+  setMergeAllow(rarities: Rarity[], order: MergeOrder) {
     this.state.mergeAllow = rarities;
+    this.state.mergeOrder = order;
     this.state.equipmentChanged = true;
     this.saveIfChanged();
     this.sendHud();
@@ -790,6 +793,7 @@ function equipmentInfo(state: GameState, openMerge: number, auto: { time: number
     mergeLevel: state.mergeLevel,
     mergeName: MERGE_LEVELS[state.mergeLevel]?.name ?? '',
     mergeAllow: state.mergeAllow,
+    mergeOrder: state.mergeOrder,
     autoMerge: state.autoMerge && state.mergeLevel >= MAX_MERGE_LEVEL,
     autoProgress: auto.time / CONFIG.items.autoMergeEvery,
     autoMade: auto.made ? itemInfo(state, auto.made) : null,

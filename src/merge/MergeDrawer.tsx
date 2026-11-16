@@ -9,14 +9,15 @@
 //   with the 3 lowest-rarity items that can merge, one by one, then turns back
 //   into "Merge".
 // - Mk. III: "QuickMerge" loads and merges in one click. A gear left of it
-//   slides the drawer over to rarity switches (which rarities it may use).
+//   slides the drawer over to its settings: which rarities it may use, listed
+//   in the order they're used (▲▼ flips least rare first / rarest first).
 // - Mk. IV: "AutoMerge" switches merging by itself on and off (every
 //   CONFIG.items.autoMergeEvery seconds; the button fills up meanwhile).
 
 import { forwardRef, useState } from 'react';
 import { CONFIG, RARITIES, RARITY_ORDER, type Rarity } from '../game/config';
 import type { Game, ItemInfo } from '../game/Game';
-import { MERGE_COUNT, pickMergeSet } from '../game/equipment';
+import { MERGE_COUNT, pickMergeSet, type MergeOrder } from '../game/equipment';
 import { Tile } from '../ItemTile';
 import { itemTip, type Tip } from '../itemTip';
 import { textLook } from '../rarityLook';
@@ -44,6 +45,8 @@ export interface MergeDrawerProps {
   free: ItemInfo[];
   /** Rarities QuickMerge and AutoMerge may use. */
   allow: Rarity[];
+  /** QuickMerge and AutoMerge use the least rare items first ('low') or the rarest ('high'). */
+  order: MergeOrder;
   autoMerge: boolean;
   /** How far along the next AutoMerge is (0–1). */
   autoProgress: number;
@@ -60,18 +63,21 @@ export interface MergeDrawerProps {
 }
 
 export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function MergeDrawer(p, ref) {
-  const { game, level, slots, full, free, allow, autoMerge, onTip } = p;
+  const { game, level, slots, full, free, allow, order, autoMerge, onTip } = p;
   /** Load or QuickMerge in progress (the button waits). */
   const [busy, setBusy] = useState(false);
   /** Mk. III settings view open, and the rarity switches being edited. */
   const [settings, setSettings] = useState(false);
   const [draft, setDraft] = useState<Rarity[]>(allow);
+  const [draftOrder, setDraftOrder] = useState<MergeOrder>(order);
+  /** What uses the settings (named in their caption). */
+  const user = level >= 4 ? 'AutoMerge' : 'QuickMerge';
 
   const placed = slots.filter((s): s is ItemInfo => !!s);
   const first = placed[0] ?? null;
   const result = first ? mergeResult(first) : null;
   // Load uses any rarity; QuickMerge and AutoMerge only the allowed ones.
-  const candidates = pickMergeSet(free, MERGE_COUNT - placed.length, level >= 3 ? allow : undefined, first ?? undefined);
+  const candidates = level >= 3 ? pickMergeSet(free, MERGE_COUNT - placed.length, allow, first ?? undefined, order) : pickMergeSet(free, MERGE_COUNT - placed.length, undefined, first ?? undefined);
 
   const load = (quick: boolean) => {
     if (!candidates || busy) return;
@@ -87,8 +93,11 @@ export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function
 
   const toggleSettings = () => {
     // Closing saves the switches.
-    if (settings) game?.setMergeAllow(RARITY_ORDER.filter((r) => draft.includes(r)));
-    else setDraft(allow);
+    if (settings) game?.setMergeAllow(RARITY_ORDER.filter((r) => draft.includes(r)), draftOrder);
+    else {
+      setDraft(allow);
+      setDraftOrder(order);
+    }
     setSettings(!settings);
   };
 
@@ -99,7 +108,9 @@ export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function
       label: 'AutoMerge',
       enabled: true,
       onClick: () => game?.setAutoMerge(!autoMerge),
-      tip: autoMerge ? 'AutoMerge is on: click to stop it.' : `Click to merge the lowest-rarity allowed items every ${CONFIG.items.autoMergeEvery} seconds.`,
+      tip: autoMerge
+        ? 'AutoMerge is on: click to stop it.'
+        : `Click to merge the ${order === 'high' ? 'rarest' : 'least rare'} allowed items every ${CONFIG.items.autoMergeEvery} seconds.`,
       className: 'auto' + (autoMerge ? ' on' : ''),
     };
   } else if (level >= 2 && (!full || busy)) {
@@ -113,7 +124,7 @@ export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function
   } else button = { label: 'Merge', enabled: full, onClick: p.onMerge };
 
   // With AutoMerge on, the slots show the items it will merge next.
-  const preview = level >= 4 && autoMerge ? (pickMergeSet(free, MERGE_COUNT, allow) ?? []) : null;
+  const preview = level >= 4 && autoMerge ? (pickMergeSet(free, MERGE_COUNT, allow, undefined, order) ?? []) : null;
   const shown = preview ? Array.from({ length: MERGE_COUNT }, (_, i) => preview[i] ?? null) : slots;
   const shownFirst = shown.find((s) => s) ?? null;
   const shownResult = preview ? (shownFirst ? mergeResult(shownFirst) : null) : result;
@@ -123,11 +134,25 @@ export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function
       <h2>{p.name}</h2>
       <div className="merge-view">
         <div className={'merge-track' + (settings ? ' slid' : '')}>
-          {/* Settings (Mk. III and up): which rarities QuickMerge and AutoMerge may use. */}
+          {/* Settings (Mk. III and up): which rarities QuickMerge and AutoMerge may use, listed in the order they're used. */}
           <div className="merge-pane merge-settings">
-            <div className="note">QuickMerge{level >= 4 ? ' and AutoMerge' : ''} may use:</div>
+            <div className="merge-order-head">
+              <div className="note">{user} will consume in this order, from top to bottom:</div>
+              <button
+                className="sort-toggle on merge-order"
+                onClick={() => setDraftOrder(draftOrder === 'low' ? 'high' : 'low')}
+                onMouseEnter={() =>
+                  onTip({ title: 'Order', color: '#9aa3bd', lines: [draftOrder === 'low' ? 'Least rare first (click for rarest first)' : 'Rarest first (click for least rare first)'] })
+                }
+                onMouseLeave={() => onTip(null)}
+                aria-label="Flip the order"
+              >
+                <span className={draftOrder === 'high' ? 'lit' : ''}>▲</span>
+                <span className={draftOrder === 'low' ? 'lit' : ''}>▼</span>
+              </button>
+            </div>
             <div className="merge-allow">
-              {RARITY_ORDER.map((r) => (
+              {(draftOrder === 'high' ? [...RARITY_ORDER].reverse() : RARITY_ORDER).map((r) => (
                 <label key={r} style={{ color: RARITIES[r].color }}>
                   <input
                     type="checkbox"
@@ -179,7 +204,7 @@ export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function
           <button
             className={'merge-gear' + (settings ? ' on' : '')}
             onClick={toggleSettings}
-            onMouseEnter={() => onTip({ title: settings ? 'Save settings' : 'Settings', color: '#9aa3bd', lines: [settings ? 'Save and go back.' : 'Choose which rarities QuickMerge may use.'] })}
+            onMouseEnter={() => onTip({ title: settings ? 'Save settings' : 'Settings', color: '#9aa3bd', lines: [settings ? 'Save and go back.' : `Choose which rarities ${user} may use, and in which order.`] })}
             onMouseLeave={() => onTip(null)}
           >
             ⚙

@@ -6,7 +6,7 @@ import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyFleetValue, xpToNextLevel } from './curves';
 import { drawCards, gainXp } from './progress';
-import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type QolDrop } from './equipment';
+import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 import type { SkillObj } from './moreSkills';
 
@@ -351,6 +351,8 @@ export interface GameState {
   mergeLevel: number;
   /** Rarities QuickMerge and AutoMerge may use (saved; set in the module's settings, Mk. III and up). */
   mergeAllow: Rarity[];
+  /** Whether QuickMerge and AutoMerge use the least rare items first ('low', default) or the rarest ('high') (saved; Mk. III and up). */
+  mergeOrder: MergeOrder;
   /** AutoMerge is switched on (saved; Mk. IV). */
   autoMerge: boolean;
   /** A quality-of-life drop just picked up (the game opens its screen, then clears this). */
@@ -494,6 +496,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     looted: 0,
     mergeLevel: 0,
     mergeAllow: defaultMergeAllow(),
+    mergeOrder: 'low',
     autoMerge: false,
     unlocked: null,
     beams: [],

@@ -4,7 +4,7 @@
 // version that changes gameplay can start everyone fresh.
 
 import { CONFIG } from './config';
-import { MAX_MERGE_LEVEL, defaultMergeAllow, gearscore, unlockSlots, updateBonuses, type Item } from './equipment';
+import { MAX_MERGE_LEVEL, defaultMergeAllow, gearscore, unlockSlots, updateBonuses, type Item, type MergeOrder } from './equipment';
 import { RARITY_ORDER, type Rarity } from './rarity';
 import type { GameState } from './world';
 
@@ -46,6 +46,8 @@ interface SavedEquipment {
   mergeAllow?: Rarity[];
   /** AutoMerge switched on. */
   autoMerge?: boolean;
+  /** QuickMerge/AutoMerge order: least rare first ('low') or rarest first ('high'). Older saves: 'low'. */
+  mergeOrder?: MergeOrder;
   /** Gearscore of the equipped items when saved (older saves don't have it; it's worked out again on load anyway). */
   gearscore?: number;
 }
@@ -78,6 +80,7 @@ export function saveEquipment(state: GameState) {
     mergeLevel: state.mergeLevel,
     mergeAllow: state.mergeAllow,
     autoMerge: state.autoMerge,
+    mergeOrder: state.mergeOrder,
     gearscore: gearscore(state),
   };
   try {
@@ -105,6 +108,7 @@ export function clearEquipment(state: GameState) {
   state.mergeLevel = 0;
   state.mergeAllow = defaultMergeAllow();
   state.autoMerge = false;
+  state.mergeOrder = 'low';
   state.found = null;
   // Slots of tiers reached in this run open again, as they would have anyway.
   unlockSlots(state);
@@ -130,6 +134,7 @@ export function loadEquipment(state: GameState) {
   state.mergeLevel = Math.min(MAX_MERGE_LEVEL, Math.max(0, data.mergeLevel ?? (data.mergeModule ? 1 : 0)));
   if (Array.isArray(data.mergeAllow)) state.mergeAllow = data.mergeAllow.filter((r) => RARITY_ORDER.includes(r));
   state.autoMerge = !!data.autoMerge;
+  state.mergeOrder = data.mergeOrder === 'high' ? 'high' : 'low';
   const ids = new Set(state.items.map((it) => it.id));
   // Keep the slot layout (ignoring anything that doesn't match an item).
   state.slots = state.slots.map((_, i) => {

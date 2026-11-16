@@ -855,11 +855,25 @@ body {
   flex: none;
 }
 .merge-allow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   text-align: left;
-  font-size: 11px;
+  font-size: 12px;
+}
+/* The settings' caption, with the ▲▼ order button beside it. */
+.merge-order-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+}
+.merge-order-head .note {
+  flex: 1;
+}
+.panel .merge-drawer button.merge-order {
+  margin: 0;
+  padding: 2px 6px;
 }
 .merge-allow label {
   display: flex;
