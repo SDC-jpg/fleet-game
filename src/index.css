@@ -1154,3 +1154,32 @@ body {
   background: rgba(8, 10, 22, 0.8);
   color: #dfe8ff;
 }
+
+/* Only the selected weapon fires (keys 1, 2, 3 or the mouse wheel switch): it's highlighted, the others dimmed. */
+.skill-slot.active {
+  border-color: #ffd34a;
+  box-shadow: 0 0 0 2px rgba(255, 211, 74, 0.35), 0 0 10px rgba(255, 211, 74, 0.45);
+}
+.skill-slot.idle {
+  opacity: 0.55;
+}
+/* The weapon's key, small in the top-left corner. */
+.skill-key {
+  position: absolute;
+  top: -1px;
+  left: 2px;
+  font-size: 9px;
+  opacity: 0.75;
+  z-index: 1;
+}
+.skill-keys-hint {
+  opacity: 0.75;
+}
+/* Touch screens: tap a weapon to select it. */
+.touch-device .skill-slot {
+  pointer-events: auto;
+}
+.dev-note {
+  color: #ffb36b;
+  margin-bottom: 8px;
+}

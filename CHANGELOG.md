@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- Only one weapon skill fires at a time now: pick it with 1, 2, 3 or the mouse wheel (tap it on touch screens). The selected one is highlighted in the skill bar. Defence skills still all go off together with right click.
 - Phones and tablets get on-screen controls: a thumbstick to move and aim, Attack and Defend buttons, Dash and Boost, and a pause button.
 - New Run log tab in the pause screen, also opened with the Tab key, to look at your past runs mid-game.
 - Late waves hit harder: from wave 30, each wave brings more lone enemies and bigger enemy fleets (about twice as many by wave 55, three times by wave 80).

@@ -79,6 +79,13 @@ export class Input {
       if ((e as MouseEvent).button === 2) this.rightDown = false;
     });
     this.listen(target, 'contextmenu', (e) => e.preventDefault());
+    // Mouse wheel over the game: "WheelDown" / "WheelUp" presses (read them with wasPressed).
+    this.listen(target, 'wheel', (e) => {
+      const dy = (e as WheelEvent).deltaY;
+      if (dy === 0) return;
+      const code = dy > 0 ? 'WheelDown' : 'WheelUp';
+      this.presses.set(code, Math.min((this.presses.get(code) ?? 0) + 1, 20));
+    });
   }
 
   /** True while the mouse is locked inside the game. */

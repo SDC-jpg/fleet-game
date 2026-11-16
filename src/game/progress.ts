@@ -60,12 +60,22 @@ export function drawCards(state: GameState): Card[] {
 }
 
 /** Take one of the offered cards. If more level-ups are waiting, new cards come up straight away. */
-export function pickCard(state: GameState, index: number) {
-  const card = state.cards?.[index];
-  if (!card) return;
+/**
+ * A card's effect: a new skill (a new weapon gets selected), a rank-up, or a
+ * fleet bonus. `force` (dev card index): an upgrade for a skill you don't have
+ * gives you the skill first, and having a skill already doesn't stop it.
+ */
+export function applyCard(state: GameState, card: Card, force = false) {
   const C = CONFIG.cards;
-  if (card.kind === 'skill') state.skills.push({ id: card.skill, rank: 1, timer: 0, mods: newMods() });
-  else if (card.kind === 'rank') {
+  const has = (id: SkillId) => state.skills.some((k) => k.id === id);
+  const addSkill = (id: SkillId) => {
+    state.skills.push({ id, rank: 1, timer: 0, mods: newMods() });
+    if (SKILLS[id].side === 'left') state.activeWeapon = state.skills.filter((k) => SKILLS[k.id].side === 'left').length - 1;
+  };
+  if (card.kind === 'skill') {
+    if (!has(card.skill) || !force) addSkill(card.skill);
+  } else if (card.kind === 'rank') {
+    if (force && !has(card.skill)) addSkill(card.skill);
     const sk = state.skills.find((k) => k.id === card.skill);
     if (sk) {
       sk.rank++;
@@ -76,6 +86,12 @@ export function pickCard(state: GameState, index: number) {
   else for (const s of state.playerFleet.members) s.hp = s.stats.maxHp;
   updateBonuses(state);
   addSound(state, 'sfx.card', { x: 0, y: 0 }, 1, 1, true);
+}
+
+export function pickCard(state: GameState, index: number) {
+  const card = state.cards?.[index];
+  if (!card) return;
+  applyCard(state, card);
   state.pendingLevels--;
   state.cards = state.pendingLevels > 0 ? drawCards(state) : null;
 }
@@ -124,7 +140,8 @@ export function describeCard(card: Card, state: GameState): CardInfo {
 /** A group in the card index: one kind of card, with every rarity it can come in (a single card if it has no rarity). */
 export interface CardGroup {
   title: string;
-  cards: CardInfo[];
+  /** Each card as shown, with the card itself (the dev card index can give it to you). */
+  cards: (CardInfo & { card: Card })[];
 }
 
 /**
@@ -137,7 +154,7 @@ export function cardIndex(): { section: string; groups: CardGroup[] }[] {
   const skills = enabledSkills();
   // A blank game is enough to describe cards (rank numbers show as rank 2).
   const blank = { skills: [] } as unknown as GameState;
-  const card = (c: Card) => describeCard(c, blank);
+  const card = (c: Card) => ({ ...describeCard(c, blank), card: c });
   return [
     { section: 'New skills', groups: skills.map((skill) => ({ title: SKILLS[skill].name, cards: [card({ kind: 'skill', skill })] })) },
     {

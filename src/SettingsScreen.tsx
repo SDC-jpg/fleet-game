@@ -2,7 +2,7 @@
 // (every level-up card the game can offer, each upgrade's rarities stacked).
 
 import { useMemo, useState } from 'react';
-import type { Game, HudInfo } from './game/Game';
+import { TEST_KEYS_ENABLED, type Game, type HudInfo } from './game/Game';
 import { cardIndex } from './game/progress';
 import { CardView } from './CardView';
 
@@ -84,8 +84,13 @@ function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
 /** Every card, grouped. Upgrades show all their rarities as a stack (hover one to bring it forward). */
 function CardIndex({ game }: { game: Game | null }) {
   const sections = useMemo(() => cardIndex(), []);
+  /** Dev only: the last card taken (shown so a click visibly did something). */
+  const [taken, setTaken] = useState('');
   return (
     <div className="card-index">
+      {TEST_KEYS_ENABLED && (
+        <div className="note dev-note">Dev: click a card to get it now{taken && ` · Got: ${taken}`}</div>
+      )}
       {sections.map((s) => (
         <section key={s.section}>
           <h2>{s.section}</h2>
@@ -96,7 +101,18 @@ function CardIndex({ game }: { game: Game | null }) {
                 <div className="card-stack" style={{ width: 150 + (g.cards.length - 1) * STACK_X, height: 210 + (g.cards.length - 1) * STACK_Y }}>
                   {g.cards.map((c, i) => (
                     <div key={i} className="stacked" style={{ left: i * STACK_X, top: i * STACK_Y, zIndex: i }}>
-                      <CardView card={c} game={game} />
+                      <CardView
+                        card={c}
+                        game={game}
+                        onPick={
+                          TEST_KEYS_ENABLED
+                            ? () => {
+                                game?.debugGiveCard(c.card);
+                                setTaken(`${c.title}${c.card.kind === 'rank' ? ` (${c.card.rarity})` : ''}`);
+                              }
+                            : undefined
+                        }
+                      />
                     </div>
                   ))}
                 </div>

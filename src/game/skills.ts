@@ -81,6 +81,23 @@ export const cooldownOf = (state: GameState, sk: OwnedSkill) => {
   return COOLDOWNS[sk.id]() / (rate * state.bonus.skillRate);
 };
 
+/** Your weapon skills (left click), in the order you got them. */
+export const weaponSkills = (state: GameState) => state.skills.filter((sk) => SKILLS[sk.id].side === 'left');
+
+/** The weapon skill that's selected (the only one that fires), if you have any. */
+export function activeWeaponSkill(state: GameState) {
+  const list = weaponSkills(state);
+  return list.length ? list[Math.min(state.activeWeapon, list.length - 1)] : undefined;
+}
+
+/** Select a weapon skill by its place (0 = first); `step` moves to the next/previous one, wrapping around. */
+export function selectWeapon(state: GameState, index: number, step = false) {
+  const n = weaponSkills(state).length;
+  if (!n) return;
+  if (step) state.activeWeapon = (((Math.min(state.activeWeapon, n - 1) + index) % n) + n) % n;
+  else if (index >= 0 && index < n) state.activeWeapon = index;
+}
+
 export function updateSkills(state: GameState, c: Controls, dt: number) {
   // Shields fade; beams and mines age.
   for (const s of state.ships)
@@ -96,10 +113,12 @@ export function updateSkills(state: GameState, c: Controls, dt: number) {
   for (const sk of state.skills) sk.timer = Math.max(0, sk.timer - dt);
   const ship = controlledShip(state);
   if (!ship || ship.merge) return;
+  const active = activeWeaponSkill(state);
   for (const sk of state.skills) {
     if (sk.timer > 0) continue;
-    // Weapons fire while you hold left click; defences go off when you right-click.
+    // The selected weapon fires while you hold left click; defences all go off when you right-click.
     const weapon = SKILLS[sk.id].side === 'left';
+    if (weapon && sk !== active) continue;
     const wants = weapon ? c.fire : c.defend;
     // A frozen ship can't shoot, but defences still work.
     if (!wants || (weapon && ship.frozen > 0)) continue;

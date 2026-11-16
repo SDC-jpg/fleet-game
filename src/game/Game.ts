@@ -11,14 +11,14 @@ import { clamp, wrapAngle } from '../engine/math';
 import { renderGame, tierSprite } from './render';
 import { CONFIG, ITEM_STATS, SHIP_TYPES, SKILLS, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
-import { describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
+import { applyCard, describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
 import { clearEquipment, loadEquipment, saveEquipment } from './save';
 import { recordRun, type RunRecord } from './runLog';
 import { addRunToLifetime, clearLifetime } from './lifetime';
 import { clearRun, loadRun, restoreRun, saveRun, type RunSnapshot } from './runSave';
 import { MAX_MERGE_LEVEL, MERGE_LEVELS, autoMerge, describeItem, equip, gearscore, mergeItems, rollItem, slotOf, slotTier, slotUnlocked, unequip, updateBonuses, type Item, type MergeOrder } from './equipment';
 import { rarityTier, rollRarity } from './rarity';
-import { cooldownOf } from './skills';
+import { activeWeaponSkill, cooldownOf, selectWeapon } from './skills';
 import { Particles } from './particles';
 import type { ArtLayoutsFile } from './artLayout';
 import {
@@ -34,6 +34,7 @@ import {
   typeOf,
   testRemoveShip,
   updateGame,
+  type Card,
   type Controls,
   type GameState,
   type HistoryPoint,
@@ -71,7 +72,19 @@ export interface HudInfo {
   xp: number;
   xpNext: number;
   /** Your skills and seconds until each is ready. */
-  skills: { id: SkillId; name: string; side: 'left' | 'right'; icon: string; rank: number; cooldown: number; total: number }[];
+  skills: {
+    id: SkillId;
+    name: string;
+    side: 'left' | 'right';
+    icon: string;
+    rank: number;
+    cooldown: number;
+    total: number;
+    /** Weapons: the selected one (the only one that fires). */
+    active: boolean;
+    /** Weapons: their place (0 = first), for keys 1, 2, 3... */
+    slot: number;
+  }[];
   /** Level-up cards on offer (the game is paused meanwhile), or null. */
   cards: CardInfo[] | null;
   /** Your equipment (only sent while paused, for the equipment screen). */
@@ -436,6 +449,20 @@ export class Game {
   }
 
   /** Take level-up card number `index` (click, or keys 1–3). */
+  /** Skill bar: select a weapon skill by its place (clicked or tapped). */
+  selectWeapon(slot: number) {
+    selectWeapon(this.state, slot);
+    this.sendHud();
+  }
+
+  /** Card index, dev only: get this card's effect now (a skill, an upgrade, a fleet bonus). */
+  debugGiveCard(card: Card) {
+    if (!TEST_KEYS_ENABLED) return;
+    applyCard(this.state, card, true);
+    this.playQueuedSounds();
+    this.sendHud();
+  }
+
   pickCard(index: number) {
     pickCard(this.state, index);
     this.playQueuedSounds();
@@ -519,6 +546,11 @@ export class Game {
     if (cards && !this.paused) {
       const n = cards.findIndex((_, k) => i.wasPressed(`Digit${k + 1}`));
       if (n >= 0) this.pickCard(n);
+    } else if (!this.paused && !this.state.gameOver) {
+      // Otherwise 1–9 select a weapon skill, and the mouse wheel steps through them.
+      for (let k = 0; k < 9; k++) if (i.wasPressed(`Digit${k + 1}`)) selectWeapon(this.state, k);
+      const steps = (i.wasPressed('WheelDown') ? 1 : 0) - (i.wasPressed('WheelUp') ? 1 : 0);
+      if (steps) selectWeapon(this.state, steps, true);
     }
     if (this.paused || this.state.cards) {
       // Menus and cards need the real cursor.
@@ -751,6 +783,7 @@ export class Game {
   private sendHud() {
     this.hudTimer = 0.1;
     const st = this.state;
+    const activeWeapon = activeWeaponSkill(st);
     this.onHud({
       fleetSize: fleetValue(st.playerFleet),
       fleetMix: fleetMix(st),
@@ -771,6 +804,8 @@ export class Game {
         rank: sk.rank,
         cooldown: sk.timer,
         total: cooldownOf(st, sk),
+        active: sk === activeWeapon,
+        slot: st.skills.filter((k) => SKILLS[k.id].side === 'left').indexOf(sk),
       })),
       cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
       equipment: this.paused ? equipmentInfo(st, this.openMerge, this.openLog, this.autoMergeState) : null,
