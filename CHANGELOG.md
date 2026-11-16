@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- Splitting Beam is switched off for now (no more cards for it).
 - If your game is interrupted (browser crash, closed tab, reload), it now offers to resume your run: your fleet, level and skills come back and the wave you were on starts again.
 - Off-screen loot now shows as a dot in its rarity's colour, a little further in from the edge than the enemy arrows so they don't overlap.
 - Fixed a likely cause of the screen going black after merging items (items with two identical bonus lines). If the game ever hits an error, it now shows what went wrong instead of a black screen.

@@ -161,7 +161,7 @@ export const SKILLS = {
   },
   splitBeam: {
     name: 'Splitting Beam',
-    enabled: true,
+    enabled: false,
     side: 'left',
     icon: 'ui.skill.split-beam',
     text: 'A fast beam that splits in two each time it hits.',
