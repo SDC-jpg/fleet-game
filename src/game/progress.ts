@@ -41,7 +41,8 @@ export function rankCard(skill: SkillId, rarity = rollRarity(), stats = skillSta
  */
 export function drawCards(state: GameState): Card[] {
   const C = CONFIG.cards;
-  const canRankUp = state.skills.filter((sk) => sk.rank < C.maxRank);
+  // Skills with nothing to upgrade (Crisis Jump, Tech Scanner: no stats) never get upgrade cards.
+  const canRankUp = state.skills.filter((sk) => sk.rank < C.maxRank && skillStats(sk.id).length > 0);
   const pool: { card: Card; weight: number }[] = [
     ...newSkillOptions(state).map((skill) => ({ card: { kind: 'skill', skill } as Card, weight: C.newSkillWeight })),
     ...canRankUp.map((sk) => ({ card: rankCard(sk.id), weight: C.rankUpWeight })),

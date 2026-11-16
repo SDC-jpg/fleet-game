@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- Fixed: Crisis Jump and Tech Scanner no longer get broken "+x% undefined" upgrade cards at level-up (they have nothing to upgrade). The radar minimap now sits above the skill icons.
 - New defence skills (right click): Cannibalize (take apart a small ship to repair your flagship) and Time Dilation (everything but your fleet slows to half speed).
 - New passive skills (always on, no button): Point Defense Cannons (two turrets that shoot down incoming missiles on their own, with ammo that reloads), Force Dash (dashing through enemies hurts them), Crisis Jump (your fleet warps to safety when your flagship gets low, with a warp-out flash where it leaves and a warp-in burst where it lands), Tech Scanner (see which skills an incoming elite has; the warning stays up longer so you can read them) and Long-Range Radar (a minimap above your XP bar).
 - Missiles now fly through Force Walls; only Point Defense Cannons and Repulse stop them.
