@@ -78,11 +78,12 @@ export class PixelRenderer {
   }
 
   /** Set the zoom step (e.g. 4, 3, 2, 1, 0.5). The change animates. */
-  setZoom(step: number, instant = false) {
+  setZoom(step: number, instant = false, unrounded = false) {
     // At 1× and above, round so each game pixel is a whole number of real
     // screen pixels, even with Windows display scaling (125%, 150%...).
+    // `unrounded`: a brief dramatic zoom in between (pixels may be a little uneven meanwhile).
     const exact = step * this.zoomUnit;
-    this.targetScale = exact >= 1 ? Math.round(exact) : exact;
+    this.targetScale = exact >= 1 && !unrounded ? Math.round(exact) : exact;
     if (instant) this.scale = this.targetScale;
   }
 

@@ -361,6 +361,11 @@ export interface GameState {
   shake: { time: number; strength: number };
   /** Game time when the run ended (the end-of-run screen waits CONFIG.death.screenDelay after it). */
   gameOverAt: number;
+  /**
+   * The blow that destroyed your last ship: it hangs on in slow motion (Game.ts slows time and zooms in)
+   * until `ready`, then explodes as usual.
+   */
+  finalBlow: { ship: Ship; ready: boolean } | null;
   merges: Merge[];
   /** Sounds announced this step. Game.ts plays and clears them. */
   sounds: SoundEvent[];
@@ -533,6 +538,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     debris: [],
     shake: { time: 0, strength: 0 },
     gameOverAt: 0,
+    finalBlow: null,
     merges: [],
     sounds: [],
     playerFleet: newFleet('player'),
@@ -615,6 +621,7 @@ export function rebuildPlayerFleet(state: GameState, value: number) {
   state.skillObjs = [];
   state.loot = [];
   state.debris = [];
+  state.finalBlow = null;
   state.enemyFleets = [];
   state.playerFleet = newFleet('player');
   const counts = tierCounts(Math.max(1, Math.round(value)));
@@ -847,7 +854,7 @@ function dashMultiplier(fleet: Fleet) {
 
 function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   const ship = controlledShip(state);
-  if (!ship) return;
+  if (!ship || ship.dead) return;
   const fleet = state.playerFleet;
   const t = typeOf(ship);
   const len = Math.hypot(c.moveX, c.moveY);
@@ -1405,6 +1412,14 @@ function enemyClass(s: Ship) {
 function removeDeadShips(state: GameState) {
   for (const s of state.ships) {
     if (!s.dead) continue;
+    // The blow that destroys your last ship: it hangs on in slow motion first (see finalBlow).
+    const fb = state.finalBlow;
+    if (fb?.ship === s && !fb.ready) continue;
+    if (!fb && CONFIG.death.slowmoTime > 0 && s.fleet === state.playerFleet && s.fleet.leader === s && s.fleet.members.every((m) => m.dead)) {
+      state.finalBlow = { ship: s, ready: false };
+      continue;
+    }
+    if (fb?.ship === s) state.finalBlow = null;
     // The ship you fly gets a bigger, unique explosion with flying debris.
     if (s.fleet === state.playerFleet && s.fleet.leader === s) flagshipExplosion(state, s);
     else {
@@ -1469,7 +1484,7 @@ function removeDeadShips(state: GameState) {
       if (fleet === state.playerFleet && fleet.leader) addSound(state, 'sfx.command', s, 1, 1, true);
     }
   }
-  state.ships = state.ships.filter((s) => !s.dead);
+  state.ships = state.ships.filter((s) => !s.dead || s === state.finalBlow?.ship);
   state.enemyFleets = state.enemyFleets.filter((f) => f.members.length > 0);
 }
 

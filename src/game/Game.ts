@@ -209,6 +209,8 @@ export class Game {
   /** On-screen controls (touch screens; see TouchControls.tsx), and the direction the ship last aimed with the stick. */
   readonly touch = newTouchState();
   private touchAim = -Math.PI / 2;
+  /** Real seconds left of the slow-motion moment when your last ship is hit (CONFIG.death), or 0. */
+  private slowmo = 0;
   /** The run log, filled in when a run ends (null until then). */
   private runs: RunRecord[] | null = null;
   /** An interrupted run found when the game opened: the game waits until you resume it or start anew. */
@@ -325,6 +327,7 @@ export class Game {
 
   restart() {
     this.particles.clear();
+    this.slowmo = 0;
     this.runs = null;
     this.state = this.newState();
     this.paused = false;
@@ -571,7 +574,14 @@ export class Game {
     if (TEST_KEYS_ENABLED) this.handleTestKeys();
     this.rememberPositions();
     // Spawn enemies a bit outside the visible area.
-    updateGame(this.state, this.readControls(), dt, this.spawnDistance());
+    // The blow that destroys your last ship: time slows right down for a moment, then it explodes.
+    const fb = this.state.finalBlow;
+    if (fb && !fb.ready) {
+      if (this.slowmo <= 0) this.slowmo = CONFIG.death.slowmoTime;
+      this.slowmo -= dt;
+      if (this.slowmo <= 0) fb.ready = true;
+    }
+    updateGame(this.state, this.readControls(), dt * this.timeScale, this.spawnDistance());
     this.playQueuedSounds();
     this.saveIfChanged();
     this.tickRunSave(dt);
@@ -673,6 +683,12 @@ export class Game {
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
+  /** How fast game time runs (slow motion while your last ship's final blow lands). */
+  private get timeScale() {
+    const fb = this.state.finalBlow;
+    return fb && !fb.ready ? CONFIG.death.slowmoScale : 1;
+  }
+
   /** The run is over and its end-of-run screen is showing (CONFIG.death.screenDelay after the end). */
   private get endShown() {
     const s = this.state;
@@ -761,7 +777,9 @@ export class Game {
         r.camX += (ship.x - r.camX) * k;
         r.camY += (ship.y - r.camY) * k;
       }
-      r.setZoom(this.state.zoom);
+      // Slow motion: zoom in a little on the doomed ship (back out as it explodes).
+      const slow = this.timeScale < 1;
+      r.setZoom(this.state.zoom * (slow ? CONFIG.death.slowmoZoom : 1), false, slow);
       if (!frozen || this.needsDraw) {
         // Screen shake (the flagship's explosion): the view jumps around a little, fading out.
         const sh = this.state.shake;
@@ -771,7 +789,7 @@ export class Game {
         r.camX += sx;
         r.camY += sy;
         r.begin(frozen ? 0 : frameDt);
-        if (!frozen) this.updateParticles(frameDt);
+        if (!frozen) this.updateParticles(frameDt * this.timeScale);
         renderGame(this.state, r, this.assets, { layouts: this.layouts, particles: this.particles });
         // While the cursor is locked the real one is hidden: draw the game's own.
         if (this.input.locked) {

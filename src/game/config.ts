@@ -906,21 +906,27 @@ export const CONFIG = {
   death: {
     /** Seconds the world keeps going after your last ship is destroyed, before the end-of-run screen. */
     screenDelay: 1,
+    /** The blow that destroys your last ship: time slows to this speed (0.08 = 8%) for a moment before it explodes. */
+    slowmoScale: 0.08,
+    /** How long that moment lasts, in real seconds (0 = no slow-motion). */
+    slowmoTime: 0.8,
+    /** Meanwhile the camera zooms in on it this much (1.4 = 40% closer), then back out as it explodes. */
+    slowmoZoom: 1.4,
     /** Debris pieces from a tier-1 ship, and how many more per tier up. */
     debrisCount: 10,
     debrisPerTier: 4,
     /** Speed each piece flies out from the middle, in pixels per second (random between these, × the ship's size). */
-    debrisBurstMin: 40,
-    debrisBurstMax: 200,
+    debrisBurstMin: 15,
+    debrisBurstMax: 70,
     /** Share of the ship's own movement each piece keeps (1 = all of it). */
     debrisMomentum: 1,
     /** Fastest spin of a piece (radians per second, either way). */
-    debrisSpin: 9,
+    debrisSpin: 3,
     /** Seconds a piece lasts (random between these); it fades out over the last 40%. */
-    debrisLifeMin: 1.5,
-    debrisLifeMax: 2.8,
-    /** How quickly pieces slow down (0 = never). */
-    debrisDrag: 0.5,
+    debrisLifeMin: 3,
+    debrisLifeMax: 5,
+    /** How quickly pieces slow down (0 = never, like in space). */
+    debrisDrag: 0.08,
     /** Screen shake: strongest offset in screen pixels, and how long it lasts (seconds). */
     shake: 6,
     shakeTime: 0.6,
