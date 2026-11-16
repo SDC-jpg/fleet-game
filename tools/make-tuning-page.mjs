@@ -168,6 +168,14 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
     totals[level] = total;
     total += curves.xpToNextLevel(level);
   }
+  // Average play time until a wave starts, as h:mm:ss or m:ss.
+  const clock = (sec) => {
+    const s = Math.round(sec);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = String(s % 60).padStart(2, '0');
+    return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+  };
   sections.push({
     title: 'Progression preview',
     where: 'src/game/curves.ts',
@@ -176,10 +184,13 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
       '(fleet waves only; see enemyFleetsFromWave and enemyFleetEveryNthWave), including the late-wave growth ' +
       '(lateWavesFrom, lateFleetGrowth; elites follow it too). "Lone ×" multiplies lone enemies (lateWaveGrowth). ' +
       '"Enemy health ×" multiplies the health of enemies arriving that wave (enemyHealthPerWave). ' +
+      '"Play time" is the average time from the start of a run until that wave starts (pauses not counted; ' +
+      'waves come on a clock, see waveInterval, waveIntervalShrink, waveIntervalRandom and waveIntervalMin). ' +
       'XP columns are for reaching that level.',
-    columns: ['wave / level', 'enemy fleet value', 'late fleet ×', 'lone ×', 'enemy health ×', 'XP for next level', 'total XP to reach it'],
+    columns: ['wave / level', 'play time to reach wave', 'enemy fleet value', 'late fleet ×', 'lone ×', 'enemy health ×', 'XP for next level', 'total XP to reach it'],
     items: points.map((n) => [
       String(n),
+      clock(curves.waveStartTime(n)),
       String(curves.waveFleetValue(n)),
       curves.lateFleetMultiplier(n) < 100 ? curves.lateFleetMultiplier(n).toFixed(2) : String(Math.round(curves.lateFleetMultiplier(n))),
       curves.lateWaveMultiplier(n).toFixed(2),

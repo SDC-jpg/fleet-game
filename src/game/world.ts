@@ -4,7 +4,7 @@
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
-import { enemyHealthMultiplier, lateWaveMultiplier, waveFleetValue, xpToNextLevel } from './curves';
+import { enemyHealthMultiplier, lateWaveMultiplier, waveFleetValue, waveGapBase, xpToNextLevel } from './curves';
 import { interceptMissiles } from './newSkills';
 import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
@@ -1721,7 +1721,7 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   if (state.waveTimer > 0) return;
   state.wave++;
   // Each wave comes a little sooner than the last, with a random swing either way.
-  const base = CONFIG.waveInterval * CONFIG.waveIntervalShrink ** (state.wave - 1);
+  const base = waveGapBase(state.wave);
   const swing = randRange(1 - CONFIG.waveIntervalRandom, 1 + CONFIG.waveIntervalRandom);
   state.waveTimer = Math.max(CONFIG.waveIntervalMin, base * swing);
   state.waveLength = state.waveTimer;
