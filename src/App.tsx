@@ -12,6 +12,8 @@ import { RunLog } from './RunLog';
 import { BUILD } from './game/save';
 import { EquipmentScreen, FoundToast } from './EquipmentScreen';
 import { KillChart } from './KillChart';
+import { TouchControls } from './TouchControls';
+import { IS_TOUCH_DEVICE } from './engine/touch';
 
 /** "2026/11/13 v20": when this version was built (in the viewer's time zone) and its number. */
 const BUILD_STAMP = (() => {
@@ -53,7 +55,8 @@ export default function App() {
       {error && <div className="panel center">Couldn't start: {error}</div>}
       {!hud && !error && <div className="panel center">Loading…</div>}
 
-      {hud && (
+      {/* Keyboard help (not on touch screens, which have their own controls). */}
+      {hud && !IS_TOUCH_DEVICE && (
         <div className="top-bar">
           <div>WASD move · Shift boost · Space dash · mouse aim · click fire · Q auto-fire · right-click defend · Esc pause & equipment · Tab run log · fly into wrecks to recruit</div>
           {TEST_KEYS_ENABLED && (
@@ -98,6 +101,7 @@ export default function App() {
       )}
 
       {hud && !hud.gameOver && !hud.paused && !hud.resumeOffer && <BottomHud hud={hud} game={gameRef.current} />}
+      {IS_TOUCH_DEVICE && hud && gameRef.current && !hud.gameOver && !hud.paused && !hud.cards && !hud.resumeOffer && <TouchControls game={gameRef.current} />}
       {hud?.cards && !hud.gameOver && <CardScreen hud={hud} game={gameRef.current} />}
 
       {hud?.paused && <EquipmentScreen hud={hud} game={gameRef.current} />}

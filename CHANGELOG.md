@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- Phones and tablets get on-screen controls: a thumbstick to move and aim, Attack and Defend buttons, Dash and Boost, and a pause button.
 - New Run log tab in the pause screen, also opened with the Tab key, to look at your past runs mid-game.
 - Late waves hit harder: from wave 30, each wave brings more lone enemies and bigger enemy fleets (about twice as many by wave 55, three times by wave 80).
 - The defeat screen now shows items collected and merges, plus a "Destroyed by" chart of kills (or fleet value) per weapon and skill. The game also starts keeping lifetime statistics for a future stats screen.

@@ -2,6 +2,7 @@
 
 import { spriteDuration, type Assets } from '../engine/assets';
 import { Input } from '../engine/input';
+import { IS_TOUCH_DEVICE, newTouchState } from '../engine/touch';
 import { startLoop } from '../engine/loop';
 import { PixelRenderer, ROTATION_MODES, type RotationMode } from '../engine/renderer';
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
@@ -192,6 +193,9 @@ export class Game {
   private openLog = 0;
   /** Auto-fire (Q): fires as if left click were held. */
   private autoFire = false;
+  /** On-screen controls (touch screens; see TouchControls.tsx), and the direction the ship last aimed with the stick. */
+  readonly touch = newTouchState();
+  private touchAim = -Math.PI / 2;
   /** The run log, filled in when a run ends (null until then). */
   private runs: RunRecord[] | null = null;
   /** An interrupted run found when the game opened: the game waits until you resume it or start anew. */
@@ -445,6 +449,7 @@ export class Game {
   }
 
   private readControls(): Controls {
+    if (IS_TOUCH_DEVICE) return this.readTouchControls();
     const i = this.input;
     const aim = this.renderer.screenToWorld(i.mouseX, i.mouseY);
     return {
@@ -457,6 +462,33 @@ export class Game {
       dash: i.wasPressed('Space'),
       defend: i.wasPressed('MouseRight'),
       defendHeld: i.rightDown,
+    };
+  }
+
+  /**
+   * Touch screens: the stick moves the ship, and it faces where you push (there's
+   * no mouse to aim with; it keeps its last direction when you let go). Attack
+   * acts like holding left click, Defend like right click.
+   */
+  private readTouchControls(): Controls {
+    const t = this.touch;
+    const ship = controlledShip(this.state);
+    if (Math.hypot(t.stickX, t.stickY) > 0.25) this.touchAim = Math.atan2(t.stickY, t.stickX);
+    const reach = 300;
+    const dash = t.dashPresses > 0;
+    const defend = t.defendPresses > 0;
+    t.dashPresses = 0;
+    t.defendPresses = 0;
+    return {
+      moveX: Math.abs(t.stickX) > 0.15 ? t.stickX : 0,
+      moveY: Math.abs(t.stickY) > 0.15 ? t.stickY : 0,
+      aimX: (ship?.x ?? 0) + Math.cos(this.touchAim) * reach,
+      aimY: (ship?.y ?? 0) + Math.sin(this.touchAim) * reach,
+      fire: t.attack || this.autoFire,
+      boost: t.boost,
+      dash,
+      defend,
+      defendHeld: t.defend,
     };
   }
 
@@ -494,6 +526,10 @@ export class Game {
       // Ignore one-off presses made while the game is stopped.
       i.wasPressed('Space');
       i.wasPressed('MouseRight');
+      this.touch.dashPresses = 0;
+      this.touch.defendPresses = 0;
+      this.touch.attack = this.touch.defend = this.touch.boost = false;
+      this.touch.stickX = this.touch.stickY = 0;
       return;
     }
     if (TEST_KEYS_ENABLED) this.handleTestKeys();

@@ -1067,3 +1067,90 @@ body {
   border: 1px solid #3a2030;
   text-align: left;
 }
+
+/* ---------- Touch screens: on-screen controls (TouchControls.tsx) ---------- */
+/* Fingers only steer the game: no page scrolling or zooming. */
+.game-page {
+  touch-action: none;
+}
+.touch-controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.touch-stick,
+.touch-buttons,
+.touch-pause {
+  pointer-events: auto;
+}
+/* Thumbstick: a knob inside a ring, bottom left. */
+.touch-stick {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 2px solid rgba(159, 211, 255, 0.5);
+  background: rgba(20, 30, 60, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.touch-knob {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(159, 211, 255, 0.55);
+  border: 2px solid rgba(232, 240, 255, 0.8);
+}
+/* Buttons, bottom right: Defend and Attack (big), Dash and Boost below (small). */
+.touch-buttons {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+.touch-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.touch-button {
+  border-radius: 50%;
+  border: 2px solid rgba(232, 240, 255, 0.7);
+  background: rgba(44, 90, 158, 0.55);
+  color: #ffffff;
+  font: 12px ui-monospace, Consolas, monospace;
+  padding: 0;
+}
+.touch-button.big {
+  width: 84px;
+  height: 84px;
+  font-size: 14px;
+}
+.touch-button.small {
+  width: 56px;
+  height: 56px;
+}
+.touch-button.attack {
+  background: rgba(158, 60, 44, 0.6);
+}
+.touch-button.down {
+  filter: brightness(1.6);
+}
+.touch-pause {
+  position: absolute;
+  top: 56px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid #2c5a9e;
+  background: rgba(8, 10, 22, 0.8);
+  color: #dfe8ff;
+}
