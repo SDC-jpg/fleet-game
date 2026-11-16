@@ -194,7 +194,7 @@ Icons `ui.skill.<name>`: `pdc`, `cannibalize`, `time-dilation`, `force-dash`, `c
 | `projectile.pdc` | Its tiny shot (2×2) |
 | `vfx.time-dilation` | Time Dilation ring of clock ticks, plays once (the blue edge tint while it lasts is drawn by the page, `.time-dilation-tint`) |
 | `vfx.cannibalize` | Where a ship is taken apart, and on the repaired flagship (**uses the recruit art for now**: point it at your own file) |
-| `vfx.warp` | Crisis Jump, where the fleet leaves and arrives (**uses the recruit art for now**) |
+| `vfx.warp-out`, `vfx.warp-in` (+ `.t2`–`.t4`) | Crisis Jump: where each ship leaves (a ring collapsing, streaks stretching forward) and arrives (streaks rushing in, a flash, a ring bursting out). Drawn facing the jump direction (right = forward), play once |
 
 The Long-Range Radar minimap is drawn by the game (1 px frame, coloured dots; colours in `CONFIG.radar.colors`).
 

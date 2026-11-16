@@ -247,17 +247,19 @@ export function updateCrisisJump(state: GameState) {
   }
   const dx = best.x - ship.x;
   const dy = best.y - ship.y;
-  addEffect(state, 'vfx.warp', ship.x, ship.y, 0, ship.tier);
+  const dir = Math.atan2(dy, dx);
   // The whole fleet jumps together, keeping its formation (and the leader's path, which followers use).
+  // Each ship warps out where it was and in where it lands, streaks pointing the way it jumped.
   for (const s of state.playerFleet.members) {
+    addEffect(state, 'vfx.warp-out', s.x, s.y, dir, s.tier);
     s.x += dx;
     s.y += dy;
+    addEffect(state, 'vfx.warp-in', s.x, s.y, dir, s.tier);
   }
   for (const p of state.playerFleet.trail) {
     p.x += dx;
     p.y += dy;
   }
-  addEffect(state, 'vfx.warp', ship.x, ship.y, 0, ship.tier);
   addSound(state, 'sfx.warp', ship, ship.tier, 1, true);
   sk.timer = J.cooldown / mods.rate;
   state.stats.skillUses.crisisJump = (state.stats.skillUses.crisisJump ?? 0) + 1;

@@ -537,6 +537,64 @@ function lootDotHolo() {
   return sheet;
 }
 
+// Crisis Jump warp-out (at the spot a ship leaves): a violet ring collapses into the ship while white streaks
+// stretch forward (to the right = the jump direction), ending in a thin flash. 8 frames, plays once.
+function warpOutSheet(S = 64) {
+  const F = 8, c = S / 2, k = S / 64;
+  const sheet = new Img(S * F, S);
+  const ring = hex('#c890ff'), white = hex('#f4f0ff'), pale = hex('#9f7ad9');
+  for (let f = 0; f < F; f++) {
+    const t = f / (F - 1);
+    const frame = new Img(S, S);
+    const rr = (26 * (1 - t) + 1) * k;
+    if (f < 6)
+      for (let y = 0; y < S; y++)
+        for (let x = 0; x < S; x++) if (Math.abs(Math.hypot(x + 0.5 - c, y + 0.5 - c) - rr) < 0.9 * k) frame.set(x, y, ring);
+    // Streaks shooting forward, longer each frame.
+    const r = rng(70 + f);
+    for (let i = 0; i < 7; i++) {
+      const y = Math.round(c + (i - 3) * 3 * k * (1 - t * 0.7));
+      const len = Math.round((4 + t * 26) * k * (0.6 + r() * 0.6));
+      const x0 = Math.round(c - 4 * k + t * 6 * k);
+      for (let x = x0; x < Math.min(S, x0 + len); x++) frame.set(x, y, x - x0 < len * 0.5 ? white : pale);
+    }
+    // A thin flash line at the end.
+    if (f >= 5) rect(frame, c - 10 * k, c - 0.5, (20 + (f - 5) * 8) * k, Math.max(1, k), white);
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
+// Crisis Jump warp-in (where a ship arrives): streaks rush in from behind (the left) into a white flash,
+// and a violet ring bursts outward. 8 frames, plays once.
+function warpInSheet(S = 64) {
+  const F = 8, c = S / 2, k = S / 64;
+  const sheet = new Img(S * F, S);
+  const ring = hex('#c890ff'), white = hex('#f4f0ff'), pale = hex('#9f7ad9');
+  for (let f = 0; f < F; f++) {
+    const t = f / (F - 1);
+    const frame = new Img(S, S);
+    // Streaks arriving from behind, shrinking into the middle.
+    if (f < 4) {
+      const r = rng(90 + f);
+      for (let i = 0; i < 7; i++) {
+        const y = Math.round(c + (i - 3) * 3 * k * (1 - t));
+        const len = Math.round((28 - f * 7) * k * (0.6 + r() * 0.6));
+        for (let x = Math.max(0, c - len); x <= c; x++) frame.set(x, y, c - x < len * 0.4 ? white : pale);
+      }
+    }
+    // The flash, then the ring bursting out.
+    if (f >= 2 && f <= 4) disc(frame, c, c, (6 - Math.abs(f - 3) * 2) * k, white);
+    if (f >= 3) {
+      const rr = (4 + (f - 3) * 6) * k;
+      for (let y = 0; y < S; y++)
+        for (let x = 0; x < S; x++) if (Math.abs(Math.hypot(x + 0.5 - c, y + 0.5 - c) - rr) < 0.9 * k && noise(x, y, f) > (f - 3) / 6) frame.set(x, y, ring);
+    }
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 // Point Defense Cannon: a small grey turret with a thin barrel, facing right (sky blue base = team colour). 8×6.
 function pdcCannon() {
   const img = new Img(8, 6);
@@ -1555,6 +1613,8 @@ const FILES = {
   'ships/pdc-cannon.png': pdcCannon,
   'projectiles/pdc-shot.png': pdcShot,
   'vfx/time-dilation.png': () => timeDilationSheet(96),
+  'vfx/warp-out.png': () => warpOutSheet(64),
+  'vfx/warp-in.png': () => warpInSheet(64),
   'ui/dot-loot-common.png': () => lootDot('#e8ecf4'),
   'ui/dot-loot-uncommon.png': () => lootDot('#6fe07a'),
   'ui/dot-loot-superior.png': () => lootDot('#4aa8ff'),
@@ -1611,6 +1671,8 @@ for (const tier of [2, 3, 4]) {
   FILES[`projectiles/bullet-t${tier}.png`] = () => bullet(tier);
   FILES[`vfx/explosion-t${tier}.png`] = () => explosionSheet(even(32 * k));
   FILES[`vfx/flagship-explosion-t${tier}.png`] = () => flagshipExplosionSheet(even(96 * k));
+  FILES[`vfx/warp-out-t${tier}.png`] = () => warpOutSheet(even(64 * k));
+  FILES[`vfx/warp-in-t${tier}.png`] = () => warpInSheet(even(64 * k));
   FILES[`vfx/hit-t${tier}.png`] = () => hitSheet(even(16 * k));
   FILES[`vfx/recruit-t${tier}.png`] = () => recruitSheet(even(48 * k));
   // The merge flash is sized for the ship it creates.
