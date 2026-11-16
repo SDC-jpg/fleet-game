@@ -30,7 +30,8 @@ type View = 'mine' | 'all';
 /** The chosen view, remembered while the page is open. */
 const remembered: { view: View } = { view: 'mine' };
 
-export function RunLog({ runs }: { runs: RunRecord[] }) {
+/** `embedded`: inside the pause screen's Run log tab, instead of flush right on the game-over screen. */
+export function RunLog({ runs, embedded = false }: { runs: RunRecord[]; embedded?: boolean }) {
   const [view, setView] = useState(remembered.view);
   remembered.view = view;
   const me = playerId();
@@ -41,7 +42,7 @@ export function RunLog({ runs }: { runs: RunRecord[] }) {
   const max = Object.fromEntries(COLUMNS.map((c) => [c.key, Math.max(1, ...shown.map((r) => Number(r[c.key]) || 0))]));
   const choose = (v: View) => () => setView(v);
   return (
-    <div className="run-log">
+    <div className={'run-log' + (embedded ? ' embedded' : '')}>
       <div className="run-log-head">
         <h2>Run log</h2>
         <div className="chips">

@@ -1057,3 +1057,13 @@ body {
   margin: 6px 0;
   font-size: 13px;
 }
+
+/* The run log inside the pause screen's Run log tab (Tab key). */
+.run-log.embedded {
+  position: static;
+  width: auto;
+  max-height: min(560px, calc(100vh - 160px));
+  margin-top: 10px;
+  border: 1px solid #3a2030;
+  text-align: left;
+}

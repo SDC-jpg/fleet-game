@@ -55,7 +55,7 @@ export default function App() {
 
       {hud && (
         <div className="top-bar">
-          <div>WASD move · Shift boost · Space dash · mouse aim · click fire · Q auto-fire · right-click defend · Esc pause & equipment · fly into wrecks to recruit</div>
+          <div>WASD move · Shift boost · Space dash · mouse aim · click fire · Q auto-fire · right-click defend · Esc pause & equipment · Tab run log · fly into wrecks to recruit</div>
           {TEST_KEYS_ENABLED && (
             <div>
               Test keys: = / - add/remove ship · ] add 16 ships · T add a next-tier ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on

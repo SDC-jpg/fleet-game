@@ -33,7 +33,8 @@ export class Input {
       this.keys.add(ev.code);
       // Count presses so fast repeats aren't lost (capped so unused keys can't pile up).
       this.presses.set(ev.code, Math.min((this.presses.get(ev.code) ?? 0) + 1, 20));
-      if (ev.code === 'Space' || ev.code.startsWith('Arrow')) ev.preventDefault();
+      // Tab opens the run log, so it mustn't move the browser's focus.
+      if (ev.code === 'Space' || ev.code === 'Tab' || ev.code.startsWith('Arrow')) ev.preventDefault();
     });
     this.listen(window, 'keyup', (e) => this.keys.delete((e as KeyboardEvent).code));
     this.listen(window, 'blur', () => {

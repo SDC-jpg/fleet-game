@@ -162,6 +162,8 @@ export interface EquipmentInfo {
   autoMade: ItemInfo | null;
   /** Goes up when the merge drawer should open by itself (just after picking up the Merge Module). */
   openMerge: number;
+  /** Goes up when the Run log tab should open (Tab key). */
+  openLog: number;
 }
 
 /** "Monitor 1920×1080 · scaling 125% · 3 px per art pixel". */
@@ -186,6 +188,8 @@ export class Game {
   private paused = false;
   /** Bumped to make the equipment screen open its merge drawer (after picking up the Merge Module). */
   private openMerge = 0;
+  /** Counts Tab presses that open the run log (the pause screen switches to its tab). */
+  private openLog = 0;
   /** Auto-fire (Q): fires as if left click were held. */
   private autoFire = false;
   /** The run log, filled in when a run ends (null until then). */
@@ -472,6 +476,12 @@ export class Game {
     if (i.wasPressed('KeyQ')) this.autoFire = !this.autoFire;
     // (Not the Esc that just ended a cursor lock: that one already paused.)
     if (i.wasPressed('Escape') && performance.now() - i.lockLostAt > 300) this.setPaused(!this.paused);
+    // Tab: open the pause screen on the Run log tab, or close it again.
+    if (i.wasPressed('Tab') && !this.state.gameOver) {
+      if (!this.paused) this.openLog++;
+      this.setPaused(!this.paused);
+      this.sendHud();
+    }
     // Level-up cards: pick with 1, 2 or 3 (or a click).
     const cards = this.state.cards;
     if (cards && !this.paused) {
@@ -727,7 +737,7 @@ export class Game {
         total: cooldownOf(st, sk),
       })),
       cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
-      equipment: this.paused ? equipmentInfo(st, this.openMerge, this.autoMergeState) : null,
+      equipment: this.paused ? equipmentInfo(st, this.openMerge, this.openLog, this.autoMergeState) : null,
       found: st.found && st.time - st.found.time < 3 ? itemInfo(st, st.found.item) : null,
       eliteAlert: st.time - st.eliteAlertTime < 3,
       swarmAlert: st.time - st.swarmAlertTime < CONFIG.swarm.alertSeconds,
@@ -777,7 +787,7 @@ function itemInfo(state: GameState, it: Item): ItemInfo {
 }
 
 /** Everything the equipment screen needs. */
-function equipmentInfo(state: GameState, openMerge: number, auto: { time: number; made: Item | null }): EquipmentInfo {
+function equipmentInfo(state: GameState, openMerge: number, openLog: number, auto: { time: number; made: Item | null }): EquipmentInfo {
   const byId = new Map(state.items.map((it) => [it.id, it]));
   const slots = state.slots.map((id, i) => {
     const it = id === null ? undefined : byId.get(id);
@@ -801,5 +811,6 @@ function equipmentInfo(state: GameState, openMerge: number, auto: { time: number
     autoProgress: auto.time / CONFIG.items.autoMergeEvery,
     autoMade: auto.made ? itemInfo(state, auto.made) : null,
     openMerge,
+    openLog,
   };
 }

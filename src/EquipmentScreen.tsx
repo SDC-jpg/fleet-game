@@ -1,6 +1,6 @@
 // The pause screen (Esc). Equipment tab: your equipment slots in a ring (3 per
 // tier, up to tier 10) around your fleet's total bonuses, and your inventory
-// below. Settings tab: see SettingsScreen.
+// below. Settings tab: see SettingsScreen. Run log tab (also the Tab key): past runs (RunLog).
 //
 // Drag an item (hold left click) into a slot to equip, move or swap it; drag
 // an equipped item onto the inventory to take it off. Right-click equips an
@@ -26,6 +26,8 @@ import { MergeToggle } from './merge/MergeToggle';
 import { CircuitLines, type Box } from './merge/CircuitLines';
 import { useMergeSlots } from './merge/useMergeSlots';
 import { MERGE_COUNT, pickMergeSet } from './game/equipment';
+import { RunLog } from './RunLog';
+import { loadRuns } from './game/runLog';
 
 /** Size of the ring area, and of the oval the slot groups sit on (pixels). */
 const RING_W = 640;
@@ -36,7 +38,7 @@ const RING_RY = 150;
 const MERGE_BUTTON_TIER = 6;
 
 type Sort = 'rarest-first' | 'rarest-last' | 'type';
-type Tab = 'equipment' | 'settings';
+type Tab = 'equipment' | 'settings' | 'log';
 /** Inventory filter, sort and open tab, remembered while the page is open. */
 const view: { rarity: Rarity | 'all'; sort: Sort; tab: Tab } = { rarity: 'all', sort: 'rarest-first', tab: 'equipment' };
 
@@ -86,6 +88,14 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
     setTab('equipment');
     setMergeOpen(true);
   }, [openMerge]);
+
+  // Tab opens this screen on the Run log tab.
+  const openLog = eq?.openLog ?? 0;
+  useEffect(() => {
+    if (openLog <= openedFor.log) return;
+    openedFor.log = openLog;
+    setTab('log');
+  }, [openLog]);
 
   // AutoMerge (Mk. IV) works on its own: hand-placed items leave the slots while it's on.
   const autoOn = !!eq?.autoMerge;
@@ -219,6 +229,9 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
           <button className={tab === 'settings' ? 'on' : ''} onClick={() => setTab('settings')}>
             Settings
           </button>
+          <button className={tab === 'log' ? 'on' : ''} onClick={() => setTab('log')} title="Your past runs (Tab)">
+            Run log
+          </button>
         </div>
         <span className="spacer" />
         <button
@@ -233,6 +246,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
 
       {tab === 'equipment' && <div className="note equipment-hint">Drag into slots · right-click to equip or take off · bonuses apply to your whole fleet</div>}
       {tab === 'settings' && <SettingsScreen hud={hud} game={game} />}
+      {tab === 'log' && <RunLog runs={loadRuns()} embedded />}
 
       {tab === 'equipment' && (
         <>
@@ -430,7 +444,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
 }
 
 /** The last "open the drawer" number handled (survives the screen closing and opening again). */
-const openedFor = { n: 0 };
+const openedFor = { n: 0, log: 0 };
 
 /** "Found: Rare Autoloader (+14% fire rate)", shown briefly at the top of the screen. */
 export function FoundToast({ hud }: { hud: HudInfo }) {
