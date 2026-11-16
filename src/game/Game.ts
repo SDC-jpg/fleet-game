@@ -24,6 +24,7 @@ import { Particles } from './particles';
 import type { ArtLayoutsFile } from './artLayout';
 import {
   controlledShip,
+  eliteAlertTime,
   createGame,
   fleetValue,
   testAddNextTier,
@@ -915,7 +916,7 @@ export class Game {
       cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
       equipment: this.paused ? equipmentInfo(st, this.openMerge, this.openLog, this.autoMergeState) : null,
       found: st.found && st.time - st.found.time < 3 ? itemInfo(st, st.found.item) : null,
-      eliteAlert: st.time - st.eliteAlertTime < CONFIG.elite.alertTime,
+      eliteAlert: st.time - st.eliteAlertTime < eliteAlertTime(st),
       eliteSkills: ownedSkill(st, 'techScanner') ? st.eliteAlertSkills.map((list) => list.map((id) => SKILLS[id].name)) : [],
       timeDilation: st.timeDilation > 0,
       radar: !!ownedSkill(st, 'radar'),

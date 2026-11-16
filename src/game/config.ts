@@ -1320,6 +1320,8 @@ export const CONFIG = {
     enabled: true,
     /** Seconds the "Elite incoming!" warning stays on screen. */
     alertTime: 3,
+    /** Seconds it stays with Tech Scanner (it also lists the elites' skills, which takes longer to read). */
+    alertTimeScanner: 7,
     /** An elite comes every this-many waves (5 = waves 10, 15, 20... from firstWave). If that wave brings an enemy fleet, the elite waits one wave. */
     everyNthWave: 5,
     /** No elite before this wave (10 = the wave-5 one is skipped). */

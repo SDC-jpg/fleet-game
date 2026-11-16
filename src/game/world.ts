@@ -1427,6 +1427,10 @@ function bounceOffShips(state: GameState, b: Bullet) {
   }
 }
 
+/** Seconds the "Elite incoming!" warning stays up: longer with Tech Scanner, so its skill list can be read. */
+export const eliteAlertTime = (state: GameState) =>
+  state.skills.some((sk) => sk.id === 'techScanner') ? CONFIG.elite.alertTimeScanner : CONFIG.elite.alertTime;
+
 /** An enemy's class, for the kill stats: "elite", "swarm", "fleet" or "lone". New kinds of enemies go here. */
 function enemyClass(s: Ship) {
   if (s.elite) return 'elite';
@@ -1790,7 +1794,7 @@ function spawnElite(state: GameState, near: Ship, distance: number) {
   state.enemyFleets.push(fleet);
   state.elitesSpawned++;
   // A new warning lists this elite's skills; elites arriving during the same warning are added to it.
-  const showing = state.time - state.eliteAlertTime < CONFIG.elite.alertTime;
+  const showing = state.time - state.eliteAlertTime < eliteAlertTime(state);
   state.eliteAlertSkills = [...(showing ? state.eliteAlertSkills : []), ship.elite.skills.map((sk) => sk.id)];
   state.eliteAlertTime = state.time;
   addSound(state, 'sfx.alert', near, 1, 1, true);
