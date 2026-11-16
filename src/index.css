@@ -432,12 +432,18 @@ body {
 .equipment.dragging .tile.empty {
   border-color: #9fd3ff;
 }
-.drag-ghost {
+/* The dragged item, following the mouse. ".tile" in the selector so it beats ".tile { position: relative }". */
+.tile.drag-ghost {
   position: fixed;
   z-index: 20;
   pointer-events: none;
   cursor: grabbing;
   opacity: 0.9;
+}
+/* While an item is dragged, a faded copy stays in the slot it came from. */
+.tile.drag-origin {
+  opacity: 0.35;
+  border-style: dashed;
 }
 .item-tip {
   position: fixed;

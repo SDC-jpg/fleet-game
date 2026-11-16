@@ -145,8 +145,14 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
       else if (el?.closest('.inventory') && drag.from !== 'inventory') game?.unequipItem(drag.item.id);
       setDrag(null);
     };
+    // The dragged item follows the mouse anywhere on the page, not only over the panel.
+    const onMove = (e: MouseEvent) => setMouse({ x: e.clientX, y: e.clientY });
     window.addEventListener('mouseup', onUp);
-    return () => window.removeEventListener('mouseup', onUp);
+    window.addEventListener('mousemove', onMove);
+    return () => {
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('mousemove', onMove);
+    };
   }, [drag, game, mergeOpen, merge, autoOn]);
 
   // Measure where the button, inventory and drawer are, for the circuit lines and the button's place.
@@ -275,7 +281,11 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
                         slot={merging ? undefined : slot}
                         item={s.item}
                         game={game}
-                        className={(s.locked ? 'locked' : s.item ? 'filled' : 'empty') + (merging ? ' merge-locked' : '')}
+                        className={
+                          (s.locked ? 'locked' : s.item ? 'filled' : 'empty') +
+                          (merging ? ' merge-locked' : '') +
+                          (s.item && drag?.item.id === s.item.id ? ' drag-origin' : '')
+                        }
                         onDown={usable && s.item ? () => setDrag({ item: s.item!, from: slot }) : undefined}
                         onRight={usable && s.item ? () => game?.unequipItem(s.item!.id) : undefined}
                         onTip={setTip}
@@ -401,7 +411,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
                     key={it.id}
                     item={it}
                     game={game}
-                    className={'filled' + (locked ? ' dim' : '')}
+                    className={'filled' + (locked ? ' dim' : '') + (drag?.item.id === it.id ? ' drag-origin' : '')}
                     onDown={locked ? undefined : () => setDrag({ item: it, from: 'inventory' })}
                     onRight={locked ? undefined : merging ? () => !autoOn && merge.place(it) : () => game?.equipItem(it.id)}
                     onTip={setTip}
