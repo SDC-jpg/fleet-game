@@ -1251,7 +1251,7 @@ export const CONFIG = {
   /** Last wave that gets earlyWaveExtraEnemies. */
   earlyWavesUntil: 10,
   /** Most enemies alive at once. */
-  maxEnemies: 120,
+  maxEnemies: 500,
   /** How far outside the visible area enemies appear. */
   spawnMargin: 150,
   /** First wave that brings an enemy fleet. */

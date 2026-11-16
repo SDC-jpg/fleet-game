@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-16
+- Up to 500 enemies can now be on the field at once (was 120), so big late waves are no longer cut short.
 - Enemies get tougher every wave: each new wave's enemies have 5% more health than the last (about 2.5× by wave 20, 11× by wave 50). Your ships are not affected.
 - Repulse no longer damages enemies: it only pushes them away and wipes out their shots and missiles.
 - Force Walls block enemy missiles again.
