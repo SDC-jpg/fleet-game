@@ -9,9 +9,19 @@ export function enemyFleetValue(wave: number) {
   return Math.max(1, Math.round(c.enemyFleetValueStart + c.enemyFleetValuePerWave * wave ** c.enemyFleetValueCurve));
 }
 
-/** Late waves bring more enemies: lone enemies (and their cap) and enemy fleets are this many times bigger. */
+/** Late waves bring more lone enemies (and allow more): this many times as many. */
 export function lateWaveMultiplier(wave: number) {
   return 1 + CONFIG.lateWaveGrowth * Math.max(0, wave - CONFIG.lateWavesFrom);
+}
+
+/** Late waves: enemy fleets are this many times stronger, growing by lateFleetGrowth per wave (compounding). */
+export function lateFleetMultiplier(wave: number) {
+  return (1 + CONFIG.lateFleetGrowth) ** Math.max(0, wave - CONFIG.lateWavesFrom);
+}
+
+/** The enemy fleet value a wave actually brings (with the late-wave growth). Elites follow it too. */
+export function waveFleetValue(wave: number) {
+  return Math.max(1, Math.round(enemyFleetValue(wave) * lateFleetMultiplier(wave)));
 }
 
 /** XP needed to go from `level` to the next one. */

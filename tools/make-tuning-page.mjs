@@ -161,10 +161,10 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
     logLevel: 'silent',
   }).outputFiles[0].text;
   const curves = await import(`data:text/javascript;base64,${Buffer.from(bundle).toString('base64')}`);
-  const points = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50];
+  const points = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150, 200];
   let total = 0;
   const totals = {};
-  for (let level = 1; level <= 50; level++) {
+  for (let level = 1; level <= 200; level++) {
     totals[level] = total;
     total += curves.xpToNextLevel(level);
   }
@@ -173,12 +173,14 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
     where: 'src/game/curves.ts',
     intro:
       'Worked out from the settings above. Enemy fleet value is the fleet that comes in that wave ' +
-      '(fleet waves only; see enemyFleetsFromWave and enemyFleetEveryNthWave), including the late-wave multiplier ' +
-      '(lateWavesFrom, lateWaveGrowth), which also multiplies lone enemies. XP columns are for reaching that level.',
-    columns: ['wave / level', 'enemy fleet value', 'late-wave ×', 'XP for next level', 'total XP to reach it'],
+      '(fleet waves only; see enemyFleetsFromWave and enemyFleetEveryNthWave), including the late-wave growth ' +
+      '(lateWavesFrom, lateFleetGrowth; elites follow it too). "Lone ×" multiplies lone enemies (lateWaveGrowth). ' +
+      'XP columns are for reaching that level.',
+    columns: ['wave / level', 'enemy fleet value', 'late fleet ×', 'lone ×', 'XP for next level', 'total XP to reach it'],
     items: points.map((n) => [
       String(n),
-      String(Math.round(curves.enemyFleetValue(n) * curves.lateWaveMultiplier(n))),
+      String(curves.waveFleetValue(n)),
+      curves.lateFleetMultiplier(n) < 100 ? curves.lateFleetMultiplier(n).toFixed(2) : String(Math.round(curves.lateFleetMultiplier(n))),
       curves.lateWaveMultiplier(n).toFixed(2),
       String(curves.xpToNextLevel(n)),
       String(totals[n]),

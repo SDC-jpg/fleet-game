@@ -4,7 +4,7 @@
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
-import { enemyFleetValue, lateWaveMultiplier, xpToNextLevel } from './curves';
+import { lateWaveMultiplier, waveFleetValue, xpToNextLevel } from './curves';
 import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
@@ -1626,7 +1626,7 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
 
   if (fleetWave) {
     // One enemy fleet in formation. It grows with the wave number (see curves.ts), not with your fleet.
-    spawnEnemyFleet(state, center, spawnDistance, Math.round(enemyFleetValue(state.wave) * lateWaveMultiplier(state.wave)), room);
+    spawnEnemyFleet(state, center, spawnDistance, waveFleetValue(state.wave), room);
     addSound(state, 'sfx.alert', center, 1, 1, true);
   } else {
     // A handful of lone fighters from random directions (a few more in the first waves).
@@ -1680,7 +1680,7 @@ function spawnEnemyFleet(state: GameState, near: Ship, distance: number, value: 
  */
 function spawnElite(state: GameState, near: Ship, distance: number) {
   const E = CONFIG.elite;
-  const counts = tierCounts(enemyFleetValue(state.wave));
+  const counts = tierCounts(waveFleetValue(state.wave));
   let top = 1;
   counts.forEach((n, i) => {
     if (n > 0) top = i + 1;
@@ -1692,7 +1692,7 @@ function spawnElite(state: GameState, near: Ship, distance: number) {
   const normal = ship.stats.maxHp;
   const tier1 = statsFor('fighter', 'enemy', 1).maxHp;
   const random = randRange(1 - E.healthRandom, 1 + E.healthRandom);
-  ship.stats.maxHp = Math.max(1, Math.round(tier1 * E.healthPerFleetValue * enemyFleetValue(state.wave) * random));
+  ship.stats.maxHp = Math.max(1, Math.round(tier1 * E.healthPerFleetValue * waveFleetValue(state.wave) * random));
   ship.hp = ship.stats.maxHp;
   ship.elite = { skills: makeEliteSkills(state.elitesSpawned), laserCharge: 0, healthScale: ship.stats.maxHp / normal };
   ship.x = near.x + Math.cos(a) * (distance + ship.stats.radius);
