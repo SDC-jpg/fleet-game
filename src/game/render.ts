@@ -40,8 +40,9 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     // Blink when about to disappear.
     const blinking = w.life < CONFIG.wreckBlinkTime && Math.floor(w.life * 6) % 2 === 0;
     const alpha = blinking ? 0.35 : 1;
-    // A marker ring under the wreck, kept full size when zoomed out so wrecks stay easy to spot.
-    r.drawSprite(assets.get(tierSprite(assets, 'ui.wreck-marker', w.tier)), w.x, w.y, 0, state.time, alpha, true);
+    // A marker under the wreck, kept full size when zoomed out so wrecks stay easy to spot (early waves only).
+    if (state.wave < CONFIG.wreckMarkerUntilWave)
+      r.drawSprite(assets.get(tierSprite(assets, 'ui.wreck-marker', w.tier)), w.x, w.y, 0, state.time, alpha, true);
     // Drawn from its layout (art.json), in its own colours (wrecks aren't team-coloured).
     const name = tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
     drawLayoutArt(r, assets, extras.layouts.objects[name], name, w.x, w.y, w.angle, 'drifting', 'player', state.time, alpha);

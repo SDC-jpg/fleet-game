@@ -1224,6 +1224,8 @@ export const CONFIG = {
   wreckChance: 0.75,
   /** Seconds before a wreck disappears. */
   wreckLifetime: 40,
+  /** The yellow marker brackets around wrecks show only before this wave (later, you know what wrecks are). 0 = never shown. */
+  wreckMarkerUntilWave: 10,
   /** Wrecks blink during their last this-many seconds. */
   wreckBlinkTime: 5,
   /** Wrecks drift toward your ships when one is this close. */
