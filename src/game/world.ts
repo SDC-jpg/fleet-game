@@ -1174,8 +1174,23 @@ function fire(state: GameState, ship: Ship, cooldown: number, spread: number) {
 }
 
 /** One shot from `ship` (with its tier's damage, speed and range), starting at (x, y). */
+/**
+ * Extra speed a shot fired at `angle` gets from its ship's movement (CONFIG.shotInherit): the part of the
+ * ship's velocity along the shot (never negative), capped at the ship's normal top speed so boost and
+ * dash add nothing extra.
+ */
+export function inheritedSpeed(state: GameState, ship: Ship, angle: number) {
+  const I = CONFIG.shotInherit;
+  const along = ship.vx * Math.cos(angle) + ship.vy * Math.sin(angle);
+  if (along <= 0 || I.share <= 0) return 0;
+  const top = typeOf(ship).maxSpeed * (ship.team === 'player' ? state.bonus.speed : 1) * CONFIG.directionalSpeed.forward;
+  return (I.capAtTopSpeed ? Math.min(along, top) : along) * I.share;
+}
+
 function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: number, source: DamageSource = 'gun') {
   const st = ship.stats;
+  // Faster when the ship flies the same way; it lasts a little less, so its reach stays the same.
+  const speed = st.bulletSpeed + inheritedSpeed(state, ship, angle);
   state.bullets.push({
     // A ship you took over (Hijack) fighting for you counts as Hijack's work.
     source: ship.hijackedFrom === 'enemy' && ship.team === 'player' ? 'hijack' : source,
@@ -1184,9 +1199,9 @@ function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: nu
     tier: ship.tier,
     x,
     y,
-    vx: Math.cos(angle) * st.bulletSpeed,
-    vy: Math.sin(angle) * st.bulletSpeed,
-    life: st.bulletLife,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    life: (st.bulletLife * st.bulletSpeed) / speed,
     damage: st.bulletDamage * (ship.team === 'player' ? state.bonus.damage : 1),
     radius: st.bulletRadius,
     homing: 0,

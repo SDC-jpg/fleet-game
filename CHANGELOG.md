@@ -5,6 +5,9 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- Shots now get a push from your ship when you fly the way you fire (not from boost or dash), so you can no longer catch up with your own shots.
+- Splitting Beam is back, and its beam also gets that push.
+- New merge rules: 12 ships merge into the next tier (from fleet value 24), each tier is 8× stronger (was 12×), big ships turn even more slowly, and a merge fires a ring of 32 shots.
 - Late waves now get much harder: from wave 30, enemy fleets (and elites) grow stronger every wave, doubling about every 14 waves.
 - Only one weapon skill fires at a time now: pick it with 1, 2, 3 or the mouse wheel (tap it on touch screens). The selected one is highlighted in the skill bar. Defence skills still all go off together with right click.
 - Phones and tablets get on-screen controls: a thumbstick to move and aim, Attack and Defend buttons, Dash and Boost, and a pause button.

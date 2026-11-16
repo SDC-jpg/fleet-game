@@ -161,7 +161,7 @@ export const SKILLS = {
   },
   splitBeam: {
     name: 'Splitting Beam',
-    enabled: false,
+    enabled: true,
     side: 'left',
     icon: 'ui.skill.split-beam',
     text: 'A fast beam that splits in two each time it hits.',
@@ -320,15 +320,15 @@ export const CONFIG = {
 
   /**
    * shipsPerMerge ships of one tier merge into 1 ship of the next tier up. Fleet value
-   * counts what every ship is worth in tier-1 ships (T2 = 16, T3 = 256...).
+   * counts what every ship is worth in tier-1 ships (T2 = shipsPerMerge, T3 = shipsPerMerge², ...).
    */
   tiers: {
     /** Ships of one tier that merge into one ship of the next tier. */
-    shipsPerMerge: 16,
+    shipsPerMerge: 12,
     /** Merging only starts once your fleet value reaches this. */
-    mergeStartsAt: 32,
+    mergeStartsAt: 24,
     /** Each tier up multiplies health and damage per second by this. */
-    powerPerTier: 12,
+    powerPerTier: 8,
     /** Shots per volley for tier 2 and up (tier 1 fires 1). Damage is split between them. */
     shotsPerVolley: 2,
     /** Each tier up multiplies hit size, gun position and shot size by this. */
@@ -339,20 +339,31 @@ export const CONFIG = {
     rangePerTier: 1.5,
     /** Each tier up fires this many times slower, with harder shots so damage per second is unchanged. */
     fireIntervalPerTier: 1.25,
-    /** Each tier up multiplies turn speed by this (0.75 = 25% slower), so big ships feel heavy. */
-    turnRatePerTier: 0.75,
+    /** Each tier up multiplies turn speed by this (0.5 = half as fast), so big ships feel heavy. */
+    turnRatePerTier: 0.5,
     /** Each tier up multiplies an enemy's chance of leaving a wreck by this. */
     wreckChancePerTier: 0.4,
     /** Longest time (seconds) the merging ships take to fly together. */
     mergeDuration: 1,
     /** Shots fired in a ring when a merge finishes, each as strong as the new ship's normal shot (0 = off). */
-    mergeBurstShots: 16,
+    mergeBurstShots: 32,
   },
 
   /**
    * The ship you fly is faster moving toward where it faces (the mouse) and
    * slower backing away. Sideways is normal speed, with a smooth blend between.
    */
+  /**
+   * Shots get a push from the moving ship that fires them: the part of its movement that points the same
+   * way as the shot (flying sideways or backing away adds nothing). Their reach stays the same.
+   */
+  shotInherit: {
+    /** Share of that movement added to the shot (1 = all of it, 0 = none). */
+    share: 1,
+    /** The added speed never goes past the ship's normal top speed (with its speed bonus), so boost and dash add nothing extra. */
+    capAtTopSpeed: true,
+  },
+
   directionalSpeed: {
     /** Speed multiplier when moving straight toward the cursor. */
     forward: 1.2,
@@ -1081,7 +1092,7 @@ export const CONFIG = {
     firstWave: 10,
     /** Elite tier = biggest tier in an enemy fleet of that wave, plus this. */
     extraTiers: 1,
-    /** Elite health = this × that wave's enemy fleet value × a tier-1 enemy's health, so it grows smoothly with the waves (not in 12× jumps with its tier). */
+    /** Elite health = this × that wave's enemy fleet value × a tier-1 enemy's health, so it grows smoothly with the waves (not in big jumps with its tier). */
     healthPerFleetValue: 8,
     /** Random change to each elite's health, either way (0.2 = up to 20% weaker or tougher). */
     healthRandom: 0.2,

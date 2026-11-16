@@ -15,6 +15,7 @@ import {
   damageShip,
   fleetValue,
   hijackShip,
+  inheritedSpeed,
   statsFor,
   tierValue,
   type Controls,
@@ -290,6 +291,8 @@ export function fireSplitBeam(state: GameState, ship: Ship, c: Controls, sk: Own
     splits: clamp(B.splits + Math.round(mods.count), 0, most),
     scale: ship.stats.size,
     hit: new Set(),
+    // Faster when the ship flies the same way (same reach). Beams that split off later don't get it.
+    extraSpeed: inheritedSpeed(state, ship, a),
   });
   addSound(state, 'sfx.split-beam', ship, ship.tier);
 }
@@ -301,9 +304,9 @@ function addSplitBeam(
   x: number,
   y: number,
   angle: number,
-  b: { damage: number; range: number; splits: number; scale: number; hit: Set<Ship> },
+  b: { damage: number; range: number; splits: number; scale: number; hit: Set<Ship>; extraSpeed?: number },
 ) {
-  const speed = CONFIG.splitBeam.speed;
+  const speed = CONFIG.splitBeam.speed + (b.extraSpeed ?? 0);
   state.skillObjs.push({
     kind: 'splitBeam',
     team,
@@ -656,7 +659,9 @@ function updateGatling(state: GameState, o: SkillObj, dt: number) {
     o.left--;
     // Each bolt goes where the ship faces as it fires, so turning sweeps the volley.
     const a = ship.angle + (randRange(-G.spread, G.spread) * Math.PI) / 180;
-    const speed = G.speed * CONFIG.tiers.shotSpeedPerTier ** (ship.tier - 1);
+    const base = G.speed * CONFIG.tiers.shotSpeedPerTier ** (ship.tier - 1);
+    // Faster when the ship flies the same way (same reach).
+    const speed = base + inheritedSpeed(state, ship, a);
     state.bullets.push({
       team: ship.team,
       sprite: 'projectile.gatling',
