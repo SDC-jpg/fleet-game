@@ -116,7 +116,7 @@ export function describeCard(card: Card, state: GameState): CardInfo {
   const C = CONFIG.cards;
   if (card.kind === 'skill') {
     const s = SKILLS[card.skill];
-    const label = s.side === 'left' ? 'New weapon · left click' : 'New defence · right click';
+    const label = s.side === 'left' ? 'New weapon · left click' : s.side === 'right' ? 'New defence · right click' : 'Passive skill · always on';
     return { title: s.name, text: s.text, icon: s.icon, label, rarity: null };
   }
   if (card.kind === 'rank') {

@@ -249,15 +249,7 @@ export const SKILLS = {
     text: "A pulse turns nearby enemies (up to a total fleet value) against their allies for a while.",
     stats: { power: "fleet value", rate: "recharge" },
   },
-  pdc: {
-    name: "Point Defense Cannons",
-    enabled: true,
-    side: "right",
-    icon: "ui.skill.pdc",
-    text: "Two rapid-fire cannons on your flagship shoot down incoming missiles by themselves, while they have ammo.",
-    stats: { size: "lock range", power: "ammo", rate: "reload speed" },
-    elites: false,
-  },
+
   cannibalize: {
     name: "Cannibalize",
     enabled: true,
@@ -277,6 +269,15 @@ export const SKILLS = {
     elites: false,
   },
   // Passive (always on, no button):
+  pdc: {
+    name: "Point Defense Cannons",
+    enabled: true,
+    side: "passive",
+    icon: "ui.skill.pdc",
+    text: "Two rapid-fire cannons on your flagship shoot down incoming missiles by themselves, while they have ammo.",
+    stats: { size: "lock range", power: "ammo", rate: "reload speed" },
+    elites: false,
+  },
   forceDash: {
     name: "Force Dash",
     enabled: true,
@@ -292,7 +293,7 @@ export const SKILLS = {
     side: "passive",
     icon: "ui.skill.crisis-jump",
     text: "When your flagship drops below 1/5 health, your fleet warps ahead to a safer spot.",
-    stats: { rate: "recharge", reach: "jump distance" },
+    stats: {},
     elites: false,
   },
   techScanner: {
@@ -1008,7 +1009,7 @@ export const CONFIG = {
     /** Seconds hijacked ships fight on your side. */
     duration: 5,
   },
-  /** Point Defense Cannons (right-click skill slot, fires by itself): shoot down incoming missiles. */
+  /** Point Defense Cannons (passive skill, fires by itself): shoot down incoming missiles. */
   pdc: {
     /** How far from your flagship the cannons lock onto missiles and fire (lock range cards add more). */
     range: 300,
@@ -1070,9 +1071,9 @@ export const CONFIG = {
   crisisJump: {
     /** Health share of the flagship that sets it off (0.2 = 1/5). */
     healthBelow: 0.2,
-    /** Seconds before it can happen again (recharge cards make it shorter). */
+    /** Seconds before it can happen again. */
     cooldown: 30,
-    /** How far it jumps (tier 1, × the flagship's size; jump distance cards add more). */
+    /** How far it jumps (tier 1, × the flagship's size). */
     distance: 450,
     /** Spots tried, spread this many degrees either side of straight ahead; the one with the fewest enemies nearby wins. */
     spreadDegrees: 60,
