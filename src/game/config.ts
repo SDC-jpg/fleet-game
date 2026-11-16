@@ -899,6 +899,33 @@ export const CONFIG = {
     duration: 5,
   },
 
+  /**
+   * The ship you fly being destroyed: its own big explosion (vfx.flagship-explosion, sfx.flagship-explosion),
+   * a screen shake, and spinning hull debris (vfx.debris) that carries on with the ship's movement.
+   */
+  death: {
+    /** Seconds the world keeps going after your last ship is destroyed, before the end-of-run screen. */
+    screenDelay: 1,
+    /** Debris pieces from a tier-1 ship, and how many more per tier up. */
+    debrisCount: 10,
+    debrisPerTier: 4,
+    /** Speed each piece flies out from the middle, in pixels per second (random between these, × the ship's size). */
+    debrisBurstMin: 40,
+    debrisBurstMax: 200,
+    /** Share of the ship's own movement each piece keeps (1 = all of it). */
+    debrisMomentum: 1,
+    /** Fastest spin of a piece (radians per second, either way). */
+    debrisSpin: 9,
+    /** Seconds a piece lasts (random between these); it fades out over the last 40%. */
+    debrisLifeMin: 1.5,
+    debrisLifeMax: 2.8,
+    /** How quickly pieces slow down (0 = never). */
+    debrisDrag: 0.5,
+    /** Screen shake: strongest offset in screen pixels, and how long it lasts (seconds). */
+    shake: 6,
+    shakeTime: 0.6,
+  },
+
   /** Resuming an interrupted run (browser crash, closed tab): its progress is saved while you play. */
   runSave: {
     /** Seconds between saves (also saved at each new wave and when the page is hidden or closed). */

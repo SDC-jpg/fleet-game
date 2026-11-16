@@ -534,7 +534,7 @@ export class Game {
     }
     // The run is over: free the mouse for the end-of-run screen.
     if (this.state.gameOver) i.unlock();
-    if (this.state.gameOver && i.isDown('KeyR')) this.restart();
+    if (this.endShown && i.isDown('KeyR')) this.restart();
     if (i.wasPressed('KeyM')) this.toggleSound();
     if (i.wasPressed('KeyQ')) this.autoFire = !this.autoFire;
     // (Not the Esc that just ended a cursor lock: that one already paused.)
@@ -673,6 +673,12 @@ export class Game {
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
   }
 
+  /** The run is over and its end-of-run screen is showing (CONFIG.death.screenDelay after the end). */
+  private get endShown() {
+    const s = this.state;
+    return s.gameOver && s.time - s.gameOverAt >= CONFIG.death.screenDelay;
+  }
+
   /** True while the game is stopped: paused (equipment screen) or showing level-up cards. */
   private isFrozen() {
     return this.paused || this.state.cards !== null || this.resumeOffer !== null;
@@ -757,6 +763,13 @@ export class Game {
       }
       r.setZoom(this.state.zoom);
       if (!frozen || this.needsDraw) {
+        // Screen shake (the flagship's explosion): the view jumps around a little, fading out.
+        const sh = this.state.shake;
+        const amp = sh.time > 0 && !frozen ? (sh.strength * (sh.time / CONFIG.death.shakeTime)) / r.worldScale : 0;
+        const sx = amp * (Math.random() * 2 - 1);
+        const sy = amp * (Math.random() * 2 - 1);
+        r.camX += sx;
+        r.camY += sy;
         r.begin(frozen ? 0 : frameDt);
         if (!frozen) this.updateParticles(frameDt);
         renderGame(this.state, r, this.assets, { layouts: this.layouts, particles: this.particles });
@@ -766,6 +779,8 @@ export class Game {
           r.drawSprite(this.assets.get('ui.cursor'), p.x, p.y, 0, 0, 1, true);
         }
         r.end();
+        r.camX -= sx;
+        r.camY -= sy;
         this.needsDraw = false;
       }
     });
@@ -794,7 +809,8 @@ export class Game {
       maxFleetSize: st.maxFleetSize,
       wave: st.wave,
       time: st.survived,
-      gameOver: st.gameOver,
+      // The end-of-run screen waits a moment, so you see your flagship go up.
+      gameOver: this.endShown,
       paused: this.paused,
       dashCooldown: st.dashCooldown,
       level: st.level,

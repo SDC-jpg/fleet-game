@@ -132,6 +132,15 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     } else drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, Math.atan2(b.vy, b.vx), 'flying', b.team, state.time);
   }
 
+  // Flagship debris: each piece is one frame of vfx.debris, spinning, fading out at the end.
+  const debris = state.debris.length ? teamSprite(assets, 'vfx.debris', 'player') : null;
+  for (const d of state.debris) {
+    const sprite = d.team === 'player' ? debris! : teamSprite(assets, 'vfx.debris', d.team);
+    const frame = d.piece % sprite.frames.length;
+    const fade = clamp((d.life - d.age) / (d.life * 0.4), 0, 1);
+    r.drawSprite(sprite, d.x, d.y, d.angle, sprite.fps > 0 ? (frame + 0.5) / sprite.fps : 0, fade, false, d.scale);
+  }
+
   for (const e of state.effects) {
     let { x, y } = e;
     // An effect tied to a point on an object (e.g. a missile's impact point) appears there.

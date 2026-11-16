@@ -278,6 +278,77 @@ function explosionSheet(S = 32) {
   return sheet;
 }
 
+// Flagship explosion: bigger and longer than a ship's. A white-hot core that swells into fire and smoke,
+// with a pale blue shockwave ring racing out and sparks thrown off. 12 frames, plays once.
+function flagshipExplosionSheet(S = 96) {
+  const F = 12, c = S / 2, k = S / 96;
+  const sheet = new Img(S * F, S);
+  const ring = hex('#cfe9ff'), ringDim = hex('#7fb4e0');
+  for (let f = 0; f < F; f++) {
+    const t = f / (F - 1);
+    const frame = new Img(S, S);
+    // Fireball: grows fast, then breaks up into smoke.
+    const radius = (6 + 24 * Math.sqrt(t)) * k;
+    for (let y = 0; y < S; y++)
+      for (let x = 0; x < S; x++) {
+        const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+        const n = noise(Math.floor(x / Math.max(1, k * 2)), Math.floor(y / Math.max(1, k * 2)), 5);
+        if (d > radius * (0.7 + 0.4 * n)) continue;
+        if (noise(Math.floor(x / Math.max(1, k * 2)), Math.floor(y / Math.max(1, k * 2)), f + 30) < t ** 1.4 * 0.95) continue;
+        const heat = d / radius + t * 0.9;
+        const col = heat < 0.35 ? '#ffffff' : heat < 0.6 ? '#fff2a8' : heat < 0.9 ? '#ffc04d' : heat < 1.2 ? '#f0602f' : heat < 1.5 ? '#8a2c22' : '#3a3438';
+        frame.set(x, y, hex(col));
+      }
+    // Shockwave ring: thin, racing out to the edge and fading.
+    if (f >= 1 && f <= 8) {
+      const rr = (8 + (S / 2 - 10 * k) * ((f - 1) / 7)) ;
+      const w = Math.max(1, 2 * k * (1 - (f - 1) / 9));
+      for (let y = 0; y < S; y++)
+        for (let x = 0; x < S; x++) {
+          const d = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+          if (Math.abs(d - rr) < w && noise(x, y, f + 60) > (f - 1) / 10) frame.set(x, y, f < 5 ? ring : ringDim);
+        }
+    }
+    // Sparks: short streaks flying outward in the first frames.
+    if (f <= 6) {
+      const r = rng(900 + f);
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2 + r() * 0.3;
+        const dist = (10 + f * 6 + r() * 6) * k;
+        for (let j = 0; j < Math.max(2, 3 * k); j++) {
+          const px = Math.round(c + Math.cos(a) * (dist + j)), py = Math.round(c + Math.sin(a) * (dist + j));
+          if (px >= 0 && py >= 0 && px < S && py < S) frame.set(px, py, hex(j === 0 ? '#fff2a8' : '#ffb347'));
+        }
+      }
+    }
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
+// Debris: 6 jagged hull pieces (grey plates, some with a sky blue team-colour stripe), 12×12 each.
+// Each frame is a different piece, not an animation; the game picks one per piece and spins it.
+function debrisSheet() {
+  const S = 12, F = 6;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    const r = rng(500 + f);
+    const n = 5 + Math.floor(r() * 3);
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + r() * 0.5;
+      const d = 2.5 + r() * 3.2;
+      pts.push([6 + Math.cos(a) * d, 6 + Math.sin(a) * d]);
+    }
+    const stripe = f % 2 === 0;
+    fillPolygon(frame, pts, (x, y) => (stripe && Math.abs(y - 6 - (x - 6) * 0.4) < 1.2 ? TIER_BLUES.hull : (x + y) % 5 === 0 ? TIER_GREYS.dark : TIER_GREYS.light));
+    outline(frame, TIER_GREYS.line);
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 function hitSheet(S = 16) {
   const F = 4, k = S / 16, c = S / 2;
   const sheet = new Img(S * F, S);
@@ -1369,6 +1440,8 @@ const FILES = {
   'ships/fighter-wreck.png': wreckFighter,
   'projectiles/bullet.png': () => bullet(1),
   'vfx/explosion.png': () => explosionSheet(32),
+  'vfx/flagship-explosion.png': () => flagshipExplosionSheet(96),
+  'vfx/debris.png': debrisSheet,
   'vfx/hit.png': () => hitSheet(16),
   'vfx/recruit.png': () => recruitSheet(48),
   'ui/command-ring.png': () => commandRing(44),
@@ -1452,6 +1525,7 @@ for (const tier of [2, 3, 4]) {
   FILES[`ships/fighter-t${tier}-wreck.png`] = () => tierWreck(tier);
   FILES[`projectiles/bullet-t${tier}.png`] = () => bullet(tier);
   FILES[`vfx/explosion-t${tier}.png`] = () => explosionSheet(even(32 * k));
+  FILES[`vfx/flagship-explosion-t${tier}.png`] = () => flagshipExplosionSheet(even(96 * k));
   FILES[`vfx/hit-t${tier}.png`] = () => hitSheet(even(16 * k));
   FILES[`vfx/recruit-t${tier}.png`] = () => recruitSheet(even(48 * k));
   // The merge flash is sized for the ship it creates.

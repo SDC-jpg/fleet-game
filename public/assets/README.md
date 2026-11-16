@@ -222,6 +222,8 @@ own art, named by adding `.t2`, `.t3`, `.t4` to the tier-1 name:
 | Ship (+ `.move`, `.boost`, `.wreck`) | `ship.fighter` | `ship.fighter.t2` | `ship.fighter.t3` | `ship.fighter.t4` |
 | Shot | `projectile` | `projectile.t2` | `projectile.t3` | `projectile.t4` |
 | Explosion, hit spark, recruit ring | `vfx.explosion` etc. | `vfx.explosion.t2` etc. | … | … |
+| Flagship explosion (the ship you fly is destroyed: bigger, longer, with a shockwave ring) | `vfx.flagship-explosion` | `vfx.flagship-explosion.t2` etc. | … | … |
+| Flagship debris: each frame is a **different piece** (not an animation); the game picks one per piece, spins it and fades it out. Sky blue = team colour | `vfx.debris` | (scaled with the ship) | … | … |
 | Merge flash (sized for the new ship) | — | `vfx.merge` | `vfx.merge.t3` | `vfx.merge.t4` |
 | Command ring | `ui.command-ring` | `ui.command-ring.t2` | … | … |
 | Wreck marker | `ui.wreck-marker` | `ui.wreck-marker.t2` | … | … |
@@ -249,6 +251,7 @@ file name in the manifest).
 | `sfx.shoot.enemy` | `shoot-enemy.wav` | enemies fire |
 | `sfx.hit` | `hit.wav` | a shot hits a ship |
 | `sfx.explosion` (+ `.t2`–`.t4`) | `explosion.wav`, `explosion-t2.wav`… | a ship is destroyed |
+| `sfx.flagship-explosion` (+ `.t2`–`.t4`) | `flagship-explosion.wav`, `flagship-explosion-t2.wav`… | the ship you fly is destroyed |
 | `sfx.recruit` | `recruit.wav` | you pick up a wreck |
 | `sfx.merge` | `merge.wav` | 16 ships start merging (charge-up, then flash ~0.5 s in) |
 | `sfx.boost` | `boost.wav` | you start boosting |

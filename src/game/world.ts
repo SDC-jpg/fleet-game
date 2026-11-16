@@ -219,6 +219,22 @@ export interface SoundEvent {
 }
 
 /** A visual effect that plays once (explosion, hit spark...). */
+/** A spinning piece of a destroyed flagship (drawing only; see CONFIG.death). */
+export interface Debris {
+  team: Team;
+  /** Which piece of the vfx.debris sheet (each frame is a different piece). */
+  piece: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  angle: number;
+  spin: number;
+  age: number;
+  life: number;
+  scale: number;
+}
+
 export interface Effect {
   sprite: string;
   /** Picks a bigger version of the effect for bigger ships, if the art exists. */
@@ -339,6 +355,12 @@ export interface GameState {
   bullets: Bullet[];
   wrecks: Wreck[];
   effects: Effect[];
+  /** Spinning pieces of a destroyed flagship. */
+  debris: Debris[];
+  /** Screen shake: seconds left, and how strong it started (screen pixels). */
+  shake: { time: number; strength: number };
+  /** Game time when the run ended (the end-of-run screen waits CONFIG.death.screenDelay after it). */
+  gameOverAt: number;
   merges: Merge[];
   /** Sounds announced this step. Game.ts plays and clears them. */
   sounds: SoundEvent[];
@@ -508,6 +530,9 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     bullets: [],
     wrecks: [],
     effects: [],
+    debris: [],
+    shake: { time: 0, strength: 0 },
+    gameOverAt: 0,
     merges: [],
     sounds: [],
     playerFleet: newFleet('player'),
@@ -589,6 +614,7 @@ export function rebuildPlayerFleet(state: GameState, value: number) {
   state.mines = [];
   state.skillObjs = [];
   state.loot = [];
+  state.debris = [];
   state.enemyFleets = [];
   state.playerFleet = newFleet('player');
   const counts = tierCounts(Math.max(1, Math.round(value)));
@@ -730,8 +756,10 @@ function trailAt(fleet: Fleet, delay: number, dt: number): LeaderSample {
 export function updateGame(state: GameState, controls: Controls, dt: number, spawnDistance: number) {
   state.time += dt;
   updateEffects(state, dt);
-  if (state.gameOver) return;
-  state.survived += dt;
+  updateDebris(state, dt);
+  // After the end, the world keeps going for a moment so you see your flagship go up; then it stops.
+  if (state.gameOver && state.time - state.gameOverAt >= CONFIG.death.screenDelay) return;
+  if (!state.gameOver) state.survived += dt;
   state.dashCooldown = Math.max(0, state.dashCooldown - dt);
   for (const f of [state.playerFleet, ...state.enemyFleets]) f.dashTime = Math.max(0, f.dashTime - dt);
 
@@ -764,6 +792,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   updateLoot(state, dt);
   startMerges(state);
   promoteFlagship(state);
+  if (state.gameOver) return;
   updateWaves(state, dt, spawnDistance);
   // A level-up shows its cards after a short delay, so the kill that caused it can play out first.
   if (!state.cards && state.pendingLevels > 0) {
@@ -781,6 +810,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   state.zoom = zoomFor(state);
   if (fleet.members.length === 0) {
     state.gameOver = true;
+    state.gameOverAt = state.time;
     state.history.push({ time: state.survived, wave: state.wave, value: 0 });
     addSound(state, 'sfx.gameover', { x: 0, y: 0 }, 1, 1, true);
   }
@@ -1375,8 +1405,12 @@ function enemyClass(s: Ship) {
 function removeDeadShips(state: GameState) {
   for (const s of state.ships) {
     if (!s.dead) continue;
-    addEffect(state, 'vfx.explosion', s.x, s.y, Math.random() * Math.PI * 2, s.tier);
-    addSound(state, 'sfx.explosion', s, s.tier);
+    // The ship you fly gets a bigger, unique explosion with flying debris.
+    if (s.fleet === state.playerFleet && s.fleet.leader === s) flagshipExplosion(state, s);
+    else {
+      addEffect(state, 'vfx.explosion', s.x, s.y, Math.random() * Math.PI * 2, s.tier);
+      addSound(state, 'sfx.explosion', s, s.tier);
+    }
     // A hijacked ship still counts for the side it came from (yours: a loss; an enemy: XP and drops).
     const wasEnemy = (s.hijackedFrom ?? s.team) === 'enemy';
     if (wasEnemy) {
@@ -1855,6 +1889,52 @@ export function addEffect(state: GameState, sprite: string, x: number, y: number
   const e: Effect = { sprite, tier, x, y, angle, age: 0, scale };
   state.effects.push(e);
   return e;
+}
+
+/**
+ * The ship you fly is destroyed: a big explosion, a screen shake, and spinning hull
+ * debris thrown out from it that carries on with the ship's own movement (CONFIG.death).
+ */
+function flagshipExplosion(state: GameState, s: Ship) {
+  const D = CONFIG.death;
+  addEffect(state, 'vfx.flagship-explosion', s.x, s.y, Math.random() * Math.PI * 2, s.tier);
+  addSound(state, 'sfx.flagship-explosion', s, s.tier, 1, true);
+  state.shake = { time: D.shakeTime, strength: D.shake };
+  const size = s.stats.size;
+  const count = D.debrisCount + D.debrisPerTier * (s.tier - 1);
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const burst = randRange(D.debrisBurstMin, D.debrisBurstMax) * size;
+    const r = Math.random() * s.stats.radius * 0.6;
+    state.debris.push({
+      team: s.team,
+      piece: i,
+      x: s.x + Math.cos(a) * r,
+      y: s.y + Math.sin(a) * r,
+      vx: s.vx * D.debrisMomentum + Math.cos(a) * burst,
+      vy: s.vy * D.debrisMomentum + Math.sin(a) * burst,
+      angle: Math.random() * Math.PI * 2,
+      spin: randRange(-D.debrisSpin, D.debrisSpin),
+      age: 0,
+      life: randRange(D.debrisLifeMin, D.debrisLifeMax),
+      scale: size * randRange(0.7, 1.1),
+    });
+  }
+}
+
+/** Debris drifts, spins and slows down; the screen shake fades. */
+function updateDebris(state: GameState, dt: number) {
+  const k = Math.exp(-CONFIG.death.debrisDrag * dt);
+  for (const d of state.debris) {
+    d.age += dt;
+    d.vx *= k;
+    d.vy *= k;
+    d.x += d.vx * dt;
+    d.y += d.vy * dt;
+    d.angle += d.spin * dt;
+  }
+  state.debris = state.debris.filter((d) => d.age < d.life);
+  state.shake.time = Math.max(0, state.shake.time - dt);
 }
 
 function updateEffects(state: GameState, dt: number) {

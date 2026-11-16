@@ -132,6 +132,28 @@ function explosion(tier = 1) {
   });
 }
 
+/** The ship you fly blowing up: a sharp crack, a long deep boom, and crackling debris fading out. Deeper for bigger tiers. */
+function flagshipExplosion(tier = 1) {
+  const r = rng(300 + tier);
+  const lp = lowpass();
+  const lp2 = lowpass();
+  const thump = oscillator('sine');
+  const sub = oscillator('sine');
+  const length = 2.2 + 0.3 * (tier - 1);
+  const low = 0.85 ** (tier - 1);
+  let held = 0;
+  return render(length, (t, k) => {
+    if (Math.floor(t * RATE) % 4 === 0) held = r() * 2 - 1;
+    const crack = (r() * 2 - 1) * Math.exp(-t * 30) * 0.9;
+    const roar = lp(held, sweep(4000 * low, 120 * low, Math.min(1, k * 1.5))) * Math.exp(-t * 1.6);
+    const boom = thump(sweep(90 * low, 25 * low, Math.min(1, k * 2))) * Math.exp(-t * 2.2) * 1.2;
+    const rumble = sub(32 * low) * Math.exp(-t * 1.2) * 0.5;
+    // Crackles: random pops while the debris flies.
+    const crackle = t > 0.3 && r() < 0.004 ? (r() * 2 - 1) * 2 * Math.exp(-(t - 0.3) * 1.5) : 0;
+    return (crack + roar * 1.1 + boom + rumble + lp2(crackle, 3000)) * decay(t, 0.8 / length, 0.001);
+  });
+}
+
 function recruit() {
   const osc = oscillator('square');
   const notes = [660, 880, 1320];
@@ -463,6 +485,10 @@ const FILES = {
   'explosion-t2.wav': () => explosion(2),
   'explosion-t3.wav': () => explosion(3),
   'explosion-t4.wav': () => explosion(4),
+  'flagship-explosion.wav': () => flagshipExplosion(1),
+  'flagship-explosion-t2.wav': () => flagshipExplosion(2),
+  'flagship-explosion-t3.wav': () => flagshipExplosion(3),
+  'flagship-explosion-t4.wav': () => flagshipExplosion(4),
   'recruit.wav': recruit,
   'merge.wav': merge,
   'boost.wav': boost,
