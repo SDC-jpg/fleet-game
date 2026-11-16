@@ -247,6 +247,8 @@ export class Game {
     if (rotation && ROTATION_MODES.includes(rotation)) this.renderer.rotation = rotation;
     this.input = new Input(canvas);
     this.input.cursorLock = loadSetting(CURSOR_LOCK_SETTING) === 'on';
+    // The mouse is only kept in the game while you're playing: not on menus, cards or the end-of-run screen.
+    this.input.canLock = () => !this.isFrozen() && !this.state.gameOver;
     // Esc (or switching windows) ended the cursor lock: pause, like Esc normally does.
     // But not just after resuming: that's the browser dropping a lock it had only just given back.
     this.input.onLockLost = () => {
@@ -530,6 +532,8 @@ export class Game {
       i.wasPressed('Escape');
       return;
     }
+    // The run is over: free the mouse for the end-of-run screen.
+    if (this.state.gameOver) i.unlock();
     if (this.state.gameOver && i.isDown('KeyR')) this.restart();
     if (i.wasPressed('KeyM')) this.toggleSound();
     if (i.wasPressed('KeyQ')) this.autoFire = !this.autoFire;

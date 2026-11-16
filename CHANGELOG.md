@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-15
+- With cursor lock on, the mouse is now freed when a run ends, so you can click the end-of-run screen.
 - Dragging equipment now shows the item under your mouse, with a faded copy left in the slot it came from.
 - Shots now get a push from your ship when you fly the way you fire (not from boost or dash), so you can no longer catch up with your own shots.
 - Splitting Beam is back, and its beam also gets that push.

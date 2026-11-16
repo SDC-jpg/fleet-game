@@ -18,6 +18,8 @@ export class Input {
   rightDown = false;
   /** Cursor lock is switched on (the lock itself starts with a click on the game). */
   cursorLock = false;
+  /** Whether the game may lock the mouse now (not on menus or the end-of-run screen). The game sets this. */
+  canLock: () => boolean = () => true;
   /** Called when the lock ends by itself (Esc, or switching windows), not when released with `unlock`. */
   onLockLost: (() => void) | null = null;
   /** When the lock was last lost (performance.now()), so the Esc that ended it isn't also read as a key press. */
@@ -95,7 +97,7 @@ export class Input {
 
   /** Lock the mouse inside the game (only works during a click or key press). */
   lock() {
-    if (!this.cursorLock || this.locked) return;
+    if (!this.cursorLock || this.locked || !this.canLock()) return;
     try {
       const p = this.target.requestPointerLock() as unknown as Promise<void> | undefined;
       // Newer browsers return a promise that fails if locking isn't allowed right now.
