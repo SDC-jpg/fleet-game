@@ -36,10 +36,20 @@ function tierSpriteScaled(assets: Assets, base: string, tier: number) {
   return { sprite: assets.get(a.name), scale: a.scale };
 }
 
-/** A sprite with its team-colour parts recoloured for `team`. */
-function teamSprite(assets: Assets, name: string, team: Team) {
+/** A sprite with its team-colour parts recoloured for `team` (null = in its own colours). */
+function teamSprite(assets: Assets, name: string, team: Team | null) {
+  if (!team) return assets.get(name);
   const tc = CONFIG.teamColors;
   return assets.getRecolored(name, tc[team], tc);
+}
+
+/**
+ * A ship's art name (before its tier): enemy ships have their own art. A hijacked
+ * ship keeps the art of the side it came from (with a heart marker, see drawShip).
+ */
+export function shipArtBase(s: Ship) {
+  const sprites = typeOf(s).sprites;
+  return (s.hijackedFrom ?? s.team) === 'enemy' ? sprites.enemyShip : sprites.ship;
 }
 
 /** Art layouts (art.json) and particles, set up by Game.ts. */
@@ -64,7 +74,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     }
     // Drawn from its layout (art.json), in its own colours (wrecks aren't team-coloured).
     const { name, scale } = tierArt(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
-    drawLayoutArt(r, assets, extras.layouts.objects[name], name, w.x, w.y, w.angle, 'drifting', 'player', state.time, alpha, true, scale);
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, w.x, w.y, w.angle, 'drifting', null, state.time, alpha, true, scale);
   }
 
   // Loot: a crate glowing in its rarity's colour (blinks before it disappears),
@@ -272,7 +282,7 @@ function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets, ex
         const w = o.wreck;
         if (w) {
           const { name, scale } = tierArt(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
-          drawLayoutArt(r, assets, extras.layouts.objects[name], name, o.x, o.y, w.angle, 'drifting', 'player', state.time, 1, true, scale);
+          drawLayoutArt(r, assets, extras.layouts.objects[name], name, o.x, o.y, w.angle, 'drifting', null, state.time, 1, true, scale);
         }
         break;
       }
@@ -322,7 +332,7 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
     const trail = teamSprite(assets, d.name, s.team);
     r.drawSprite(trail, s.x, s.y, Math.atan2(s.vy, s.vx), CONFIG.dash.duration - s.fleet.dashTime, 1, false, d.scale);
   }
-  const { name: base, scale } = tierArt(assets, typeOf(s).sprites.ship, s.tier);
+  const { name: base, scale } = tierArt(assets, shipArtBase(s), s.tier);
   // Ships flying into a merge fade out as they reach the core.
   let alpha = 1;
   if (s.merge && isMergePart(s)) {
@@ -339,7 +349,13 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
   }
   // A hijacked ship flickers in its last second before it switches back.
   if (s.hijacked > 0 && s.hijacked < 1 && Math.floor(s.hijacked * 10) % 2) alpha *= 0.4;
-  drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, s.team, time, alpha, true, scale);
+  drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, null, time, alpha, true, scale);
+  // A hijacked ship keeps its old side's art, so a heart above it shows who it fights for
+  // (in that side's colour; kept the same size on screen at any zoom).
+  if (s.hijackedFrom) {
+    const heart = teamSprite(assets, 'ui.hijack-heart', s.team);
+    r.drawSprite(heart, s.x, s.y - s.stats.radius - CONFIG.hijack.heartGap / r.worldScale, 0, time, alpha, true);
+  }
   const maxHp = s.stats.maxHp;
   if (s.hp < maxHp) {
     const w = Math.round(16 * s.stats.size);
@@ -364,7 +380,8 @@ export function drawLayoutArt(
   y: number,
   angle: number,
   state: string,
-  team: Team,
+  /** Recolour its team-colour parts for this team; null = its own colours (ships). */
+  team: Team | null,
   time: number,
   alpha = 1,
   /** false = only the mounts (e.g. a laser, whose beam is drawn separately). */

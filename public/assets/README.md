@@ -98,21 +98,34 @@ http://localhost:5173/shipart.html. The published copy
   used by the game, but they're still in `ships/` and can be picked as a
   base image in ShipArt.
 
-## Team colours (one image set for both sides)
+## Enemy ships and team colours
 
-You paint each ship **once**. Your ships and enemy ships use the same images.
-The game recolours the "team colour" parts for each side when it starts.
+**Ships are not recoloured.** Your ships (`ship.fighter`, `.t2`…) and enemy ships
+(`ship.enemy`, `.t2`…, files `ships/enemy*.png`) each have their own images, drawn
+exactly as painted. Repaint the enemy ones however you like (any colours).
 
-- Paint team-colour parts (stripes, accents, lights) in a **strong sky
-  blue**: hues from 180° to 230° on the colour wheel, at least 40% saturation.
-  Faintly blue-tinted greys (like a cool metal hull) are left alone.
-- Keep every other colour **outside** that range: grey hull, orange flames,
-  purple boost glow and so on. Those stay exactly as painted on both sides.
+- The first enemy images were made from your ships with their sky-blue parts
+  turned red (`node tools/make-enemy-ships.mjs`; it never overwrites existing
+  files unless run with `--force`).
+- Enemy ships have their own layouts in ShipArt (Ships → Enemy), so their
+  thrusters can sit somewhere else than on your ships.
+- Wrecks stay one grey image for both sides.
+- A **hijacked** ship keeps its old side's art and gets a small heart above it
+  (`ui.hijack-heart`) in the colour of the side it now fights for.
+
+**Shots, lasers, shields and other effects are still shared** by both sides and
+recoloured when the game starts:
+
+- Paint their team-colour parts in a **strong sky blue**: hues from 180° to
+  230° on the colour wheel, at least 40% saturation. Faintly blue-tinted greys
+  are left alone.
+- Keep every other colour **outside** that range. Those stay exactly as painted
+  on both sides.
 - Shading works. Only the hue turns, so light and dark blues become light
   and dark reds.
 - The hue range and how far each team turns it are in `teamColors` in
   `src/game/config.ts`. For example, `enemy: 170` turns sky blue (200°) into
-  red (10°), and `enemy: 100` would turn it into purple-pink.
+  red (10°).
 
 ## Dash trail, wreck marker and stamina ring
 
@@ -250,8 +263,9 @@ own art, named by adding `.t2`, `.t3`, `.t4` to the tier-1 name:
   216 px. The game doesn't care about the exact size: hit sizes are in
   `src/game/config.ts`.
 - Any tier can be missing: the game uses the closest smaller tier's art, drawn 1.5× bigger per missing tier so it still fits the ship (art with no tier versions at all keeps its size). Tiers 5–8 have generated placeholders; very large sheets (Repulse, Freeze, big explosions...) were left out on purpose and use this scaling instead.
-- Ships and shots are recoloured per team like tier 1, so paint team-colour
-  parts in strong sky blue.
+- Enemy ships have their own tier versions (`ship.enemy.t2`…). Shots and
+  effects are recoloured per team like tier 1, so paint their team-colour parts
+  in strong sky blue.
 - Tier 3 and up are seen zoomed out below 1×, where the art is shrunk and
   looks a little softer.
 

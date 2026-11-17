@@ -1,7 +1,7 @@
 # Plan: separate enemy ships, gun mounts and weapon variants (not built yet)
 
-Status: **agreed in principle 2026-11-16, under discussion.** The user wants to
-discuss it more before anything is built. Related: [DETAIL-STEPS.md](DETAIL-STEPS.md)
+Status: **agreed 2026-11-16, being built stage by stage** (the user: "go forward with
+phase 1 and if there are no issues continue on with the phases"). Stage 1 done. Related: [DETAIL-STEPS.md](DETAIL-STEPS.md)
 (to be built after this one).
 
 ## Goals
@@ -20,6 +20,14 @@ discuss it more before anything is built. Related: [DETAIL-STEPS.md](DETAIL-STEP
 3. Your own ships **can have weapon types too**, but everything stays **ballistic for now**.
 4. Shots, lasers, shields and other effects **keep their team recolouring** for now (they
    may later be coloured by weapon type instead). Only ships stop being recoloured.
+5. The hijack marker is a **blue heart** (`ui.hijack-heart`, in the colour of the side
+   the ship fights for).
+6. **Variant mix:** each wave has a 30% chance that a third of its ships are of one
+   variant, explosive or energy (a toss-up). Those ships come clustered together, so
+   they feel like a squadron of that type. Explosive enemies can appear from wave 7,
+   energy enemies from wave 12.
+7. Turret arcs and turn speeds: **defaults per gun size** for now.
+8. Starting efficiency numbers: Claude's guess, tuned later by playing.
 
 ## Stages (each one playable before the next)
 
@@ -87,7 +95,4 @@ discuss it more before anything is built. Related: [DETAIL-STEPS.md](DETAIL-STEP
 
 ## Open questions
 
-- The marker for hijacked ships: outline, small icon, or something else.
-- Variant mix per wave, and when energy and explosive enemies first appear.
-- Turret arcs and turn speeds as defaults per gun size, or set per mount.
-- Starting efficiency numbers for energy and explosive.
+None left for now; numbers get tuned by playing.

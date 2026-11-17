@@ -196,7 +196,8 @@ export class Preview {
 
     const state = this.mountState();
     const tier = tierOf(st.subject);
-    const team = st.kind.teamColored === false ? 'player' : st.team;
+    // Ships and wrecks are drawn in their own colours; other objects in the chosen team's.
+    const team = st.kind.teamColored === false ? null : st.team;
     const hidden = sequence && this.stateTime >= SEQ.impact;
     // A state that shows a point's effect (Impact, Blast, Hit): the object faint, no particles.
     const pointId = st.kind.states.find((s) => s.id === st.state)?.point ?? (hidden ? 'impact' : undefined);
@@ -220,7 +221,7 @@ export class Preview {
       const age = hidden ? this.stateTime - SEQ.impact : this.time % (length + 0.4);
       if (age < length) r.drawSprite(sprite, w.x, w.y, 0, age);
     }
-    if (st.kind.id === 'laser') this.drawLaser(state, tier, team);
+    if (st.kind.id === 'laser') this.drawLaser(state, tier, st.team);
     else if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, this.time, pointId ? 0.35 : 1);
     r.end();
     this.drawGuides();

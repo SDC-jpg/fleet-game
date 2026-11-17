@@ -72,6 +72,8 @@ const effectBaseOf = (name: string) => name.replace(/\.t\d+$/, '');
 const baseName = (file: string) => file.replace(/\/$/, '').replace(/^.*\//, '').replace(/\.png$/i, '');
 /** "parts/thruster-boost-1.png" → "thruster". */
 const categoryOf = (file: string) => baseName(file).split('-')[0];
+/** Enemy ships have their own art: "ship.enemy", "ship.enemy.t2"... */
+const isEnemyShip = (sprite: string) => /^ship\.enemy(\.t\d+)?$/.test(sprite);
 const label = (s: string) => s[0].toUpperCase() + s.slice(1);
 /**
  * How a sprite is listed: ships by name ("fighter.t2"); objects, which sit
@@ -531,7 +533,7 @@ export function ShipArt() {
           <button className={spin ? 'on' : ''} onClick={() => setSpin(!spin)} title="Turn slowly, to check every angle">
             Spin
           </button>
-          <button onClick={() => setTeam(team === 'player' ? 'enemy' : 'player')} title="Team colours">
+          <button onClick={() => setTeam(team === 'player' ? 'enemy' : 'player')} title="Team colours of shots and effects (ships have their own art)">
             {team === 'player' ? 'Player' : 'Enemy'}
           </button>
           <button
@@ -584,7 +586,15 @@ export function ShipArt() {
         <button className="sa-rollout" onClick={() => setOpen({ ...open, ships: !open.ships })}>
           {open.ships ? '▾' : '▸'} Ships
         </button>
-        {open.ships && <div className="sa-rollout-body">{subjectList(spritesOf(SHIP_KIND))}</div>}
+        {open.ships && (
+          <div className="sa-rollout-body">
+            {/* Player and enemy ships have separate art (enemies aren't recoloured). */}
+            <div className="sa-rollout-group">Player</div>
+            {subjectList(spritesOf(SHIP_KIND).filter((s) => !isEnemyShip(s)))}
+            <div className="sa-rollout-group">Enemy</div>
+            {subjectList(spritesOf(SHIP_KIND).filter(isEnemyShip))}
+          </div>
+        )}
         <button className="sa-rollout" onClick={() => setOpen({ ...open, objects: !open.objects })}>
           {open.objects ? '▾' : '▸'} Objects
         </button>

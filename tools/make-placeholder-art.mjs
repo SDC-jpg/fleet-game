@@ -530,6 +530,16 @@ function lootDot(fill) {
   return img;
 }
 
+// Hijack marker: a small heart over a hijacked ship, painted in team sky blue so the game
+// recolours it for the side the ship now fights for (blue = yours, red = the enemy's).
+function hijackHeart() {
+  const rows = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
+  const img = new Img(9, 8);
+  rows.forEach((row, y) => [...row].forEach((c, x) => c === '#' && img.set(x + 1, y + 1, hex(x < 3 && y < 2 ? '#9fdcff' : '#3fb6ff'))));
+  outline(img, hex('#14171f'));
+  return img;
+}
+
 // Mythic loot edge dot: the same dot cycling through pastels (8 looping frames).
 function lootDotHolo() {
   const F = 8;
@@ -1609,6 +1619,7 @@ const FILES = {
   'ui/loot-merge-module-4.png': () => mergeModuleLoot('#c890ff'),
   'vfx/shimmer.png': shimmerSheet,
   'ui/cursor.png': cursorCross,
+  'ui/hijack-heart.png': hijackHeart,
   ...Object.fromEntries(Object.entries(ITEM_ICONS).map(([name, draw]) => [`ui/item-${name}.png`, () => icon16(draw)])),
   'vfx/laser.png': () => laserSegment(1),
   'vfx/particle-move.png': () => particleDot('#ff9a3a'),

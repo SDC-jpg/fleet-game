@@ -35,13 +35,14 @@ export interface ShipType {
   /** Where shots appear, measured forward from the ship's centre. */
   gunOffset: number;
   /**
-   * Art names from public/assets/manifest.json, used by both teams and
-   * recoloured per team (see CONFIG.teamColors).
+   * Art names from public/assets/manifest.json.
+   * - ship: your ships; enemyShip: enemy ships. Ships are drawn in their own
+   *   colours (not recoloured per team). Shots are recoloured (CONFIG.teamColors).
    * - Bigger tiers add ".t2", ".t3"... (e.g. "ship.fighter.t2"). A missing
-   *   tier uses the closest smaller tier's art.
-   * - Engine states add ".move" or ".boost"; wrecks add ".wreck".
+   *   tier uses the closest smaller tier's art (scaled up).
+   * - Wrecks add ".wreck" to the ship name (one grey wreck for both sides).
    */
-  sprites: { ship: string; bullet: string };
+  sprites: { ship: string; enemyShip: string; bullet: string };
 }
 
 /** Ship stats at tier 1. Bigger tiers are worked out from these with CONFIG.tiers. */
@@ -59,7 +60,7 @@ export const SHIP_TYPES = {
     bulletLife: 2.0,
     bulletDamage: 1,
     gunOffset: 14,
-    sprites: { ship: "ship.fighter", bullet: "projectile" },
+    sprites: { ship: "ship.fighter", enemyShip: "ship.enemy", bullet: "projectile" },
   },
 } satisfies Record<string, ShipType>;
 
@@ -413,9 +414,10 @@ export type ItemStat = keyof typeof ITEM_STATS;
 
 export const CONFIG = {
   /**
-   * Both teams use the same ship images. Team-colour parts are painted in a hue
-   * inside hueMin–hueMax, and each team turns those pixels by its own number of
-   * degrees (0 red, 120 green, 200 sky blue, 240 blue, 300 magenta).
+   * Shots, lasers and other effects are shared by both teams. Team-colour parts are
+   * painted in a hue inside hueMin–hueMax, and each team turns those pixels by its own
+   * number of degrees (0 red, 120 green, 200 sky blue, 240 blue, 300 magenta).
+   * Ships aren't recoloured: enemies have their own art (SHIP_TYPES sprites.enemyShip).
    */
   teamColors: {
     /** Lowest hue (degrees) counted as team colour. */
@@ -1001,6 +1003,8 @@ export const CONFIG = {
 
   /** Hijack skill (right click): a pulse turns nearby enemies against their allies for a while. */
   hijack: {
+    /** Screen pixels between a hijacked ship's top edge and its heart marker (ui.hijack-heart). */
+    heartGap: 8,
     /** Seconds between pulses. */
     cooldown: 8,
     /** Fleet value it can take over, as a share of your own fleet's value (1/12 = a twelfth; fleet value cards raise it). Always at least one tier-1 ship's worth. */

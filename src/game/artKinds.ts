@@ -46,6 +46,8 @@ export const SHIP_KIND: ArtKind = {
   mountStates: ['idle', 'move', 'boost'],
   points: [],
   baseFolder: 'ships/',
+  // Player and enemy ships each have their own art ("ship.enemy..."), not recoloured.
+  teamColored: false,
 };
 
 /** Missiles: drift out of the ship unlit (Inert), fire up and fly (Fired up), then burst (Impact). */
