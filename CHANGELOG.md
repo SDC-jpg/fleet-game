@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-16
+- Merge drawer: the buttons now sit at the bottom, under the "Made:" report, which lists each bonus on its own line like the item tooltips. Opening the merge settings turns the gear into a "Save Settings" button (save to get back to merging), and AutoMerge waits while the settings are open.
 - New Lifetime tab in the pause menu: all your finished runs added up (runs, time played, ships destroyed and lost, fleet value, items collected and merged, kills per weapon and skill).
 - Touch screens: a much bigger thumbstick, placed further in from the corner, and a "Left-handed controls" setting that swaps the sides of the on-screen controls.
 - Huge fleets fit on screen: once your biggest ship passes tier 6, everything is drawn a size smaller (still sharp pixel art) and the view widens, and the smallest ships turn into little diamonds (blue for yours, red, purple or orange for enemies).

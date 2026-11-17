@@ -11,10 +11,16 @@
 // - Mk. III: "QuickMerge" loads and merges in one click. A gear left of it
 //   slides the drawer over to its settings: which rarities it may use, listed
 //   in the order they're used (▲▼ flips least rare first / rarest first).
+//   Meanwhile the gear widens to "Save Settings" (the main button slides out to
+//   the right): saving is the way back to merging.
 // - Mk. IV: "AutoMerge" switches merging by itself on and off (every
-//   CONFIG.items.autoMergeEvery seconds; the button fills up meanwhile).
+//   CONFIG.items.autoMergeEvery seconds; the button fills up meanwhile). It
+//   waits while the settings are open.
+//
+// Layout, top to bottom: slots (or settings), the "Made:" report (fixed height,
+// so the drawer doesn't change size), then the buttons.
 
-import { forwardRef, useState } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import { CONFIG, RARITIES, RARITY_ORDER, type Rarity } from '../game/config';
 import type { Game, ItemInfo } from '../game/Game';
 import { MERGE_COUNT, pickMergeSet, type MergeOrder } from '../game/equipment';
@@ -100,6 +106,11 @@ export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function
     }
     setSettings(!settings);
   };
+  // AutoMerge waits while the settings are open (and goes on if the drawer closes meanwhile).
+  useEffect(() => {
+    game?.setMergeSettingsOpen(settings);
+    return () => game?.setMergeSettingsOpen(false);
+  }, [game, settings]);
 
   // The main button: Merge when the slots are full (and nothing's loading), otherwise what this level adds.
   let button: { label: string; enabled: boolean; onClick: () => void; tip?: string; className?: string };
@@ -199,15 +210,30 @@ export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function
           </div>
         </div>
       </div>
-      <div className="merge-buttons">
+      {/* The last merge's item, like its tooltip: name, then each bonus on its own line. Always there, so the drawer keeps its size. */}
+      <div className="merge-made">
+        {p.made && (
+          <>
+            <div>
+              Made: <span className={textLook(p.made).className} style={textLook(p.made).style}>{p.made.name}</span>
+            </div>
+            {[p.made.bonus, ...p.made.extra].map((l, i) => (
+              <div key={i}>{l}</div>
+            ))}
+          </>
+        )}
+      </div>
+      {/* With the settings open the gear widens to "Save Settings" and the main button slides out to the right. */}
+      <div className={'merge-buttons' + (settings ? ' slid' : '')}>
         {level >= 3 && (
           <button
             className={'merge-gear' + (settings ? ' on' : '')}
             onClick={toggleSettings}
-            onMouseEnter={() => onTip({ title: settings ? 'Save settings' : 'Settings', color: '#9aa3bd', lines: [settings ? 'Save and go back.' : `Choose which rarities ${user} may use, and in which order.`] })}
+            onMouseEnter={() => onTip({ title: settings ? 'Save settings' : 'Settings', color: '#9aa3bd', lines: [settings ? 'Save and go back to merging.' : `Choose which rarities ${user} may use, and in which order.`] })}
             onMouseLeave={() => onTip(null)}
           >
-            ⚙
+            <span className="gear-label">Save Settings</span>
+            <span className="gear-icon">⚙</span>
           </button>
         )}
         {/* Wrapped so its tooltip still shows while it's greyed out. */}
@@ -226,12 +252,6 @@ export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function
           </button>
         </span>
       </div>
-      {p.made && (
-        <div className="merge-made">
-          Made: <span className={textLook(p.made).className} style={textLook(p.made).style}>{p.made.name}</span>
-          <div className="note">{[p.made.bonus, ...p.made.extra].join(' · ')}</div>
-        </div>
-      )}
     </div>
   );
 });

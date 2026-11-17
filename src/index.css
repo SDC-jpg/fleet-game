@@ -827,20 +827,61 @@ body {
 .merge-go .label {
   position: relative;
 }
-/* The button row: the settings gear (Mk. III and up), then the main button. */
+/* The button row, at the bottom: the settings gear (Mk. III and up), then the main button.
+   Settings open (.slid): the gear widens to the full row ("Save Settings" left of the icon,
+   which stays flush right) and the main button slides out to the right. */
 .merge-buttons {
   display: flex;
-  gap: 6px;
   margin-top: 6px;
+  overflow: hidden;
 }
 .merge-go-wrap {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
+  overflow: hidden;
+  transition: flex-grow 0.25s ease, margin 0.25s ease;
+}
+.merge-gear + .merge-go-wrap {
+  margin-left: 6px;
+}
+/* The main button keeps its width while its space shrinks, so it slides away instead of squashing. */
+.merge-gear + .merge-go-wrap .merge-go {
+  flex: none;
+  width: 146px;
+}
+.merge-buttons.slid .merge-go-wrap {
+  flex-grow: 0;
+  margin-left: 0;
 }
 .panel .merge-drawer button.merge-gear {
   margin: 0;
   padding: 0 8px;
   font-size: 14px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  transition: flex-grow 0.25s ease;
+}
+.panel .merge-drawer .merge-buttons.slid button.merge-gear {
+  flex-grow: 1;
+}
+.gear-label {
+  flex: 1;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease, max-width 0.25s ease;
+}
+.merge-buttons.slid .gear-label {
+  max-width: 140px;
+  margin-right: 6px;
+  opacity: 1;
 }
 .panel .merge-drawer button.merge-gear.on {
   background: #2c5a9e;
@@ -893,9 +934,14 @@ body {
 .merge-allow input {
   margin: 0;
 }
+/* The last merge's item: name, then each bonus on its own line (like the item tooltip).
+   Tall enough for a Mythic item's lines, so the drawer never changes height. */
 .merge-made {
-  margin-top: 10px;
+  margin-top: 8px;
+  text-align: left;
+  min-height: calc(12px * 1.4 * 6);
   font-size: 12px;
+  line-height: 1.4;
 }
 /* Locked while merging: equipped slots darken; items that can't join are dimmed. */
 .tile.merge-locked {

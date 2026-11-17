@@ -217,6 +217,8 @@ export class Game {
   private hudTimer = 0;
   /** AutoMerge: seconds into the current countdown, and the item the last one made. */
   private autoMergeState: { time: number; made: Item | null } = { time: 0, made: null };
+  /** The merge drawer's settings are open: AutoMerge waits (its progress is kept). */
+  private mergeSettingsOpen = false;
   private fps = 0;
   private fpsFrames = 0;
   private fpsStart = performance.now();
@@ -508,6 +510,11 @@ export class Game {
   }
 
   /** Merge Mk. IV: switch AutoMerge on or off (it starts a fresh countdown). */
+  /** Merge drawer: its settings opened or closed (AutoMerge pauses while they're open). */
+  setMergeSettingsOpen(open: boolean) {
+    this.mergeSettingsOpen = open;
+  }
+
   setAutoMerge(on: boolean) {
     this.state.autoMerge = on;
     this.autoMergeState.time = 0;
@@ -527,6 +534,7 @@ export class Game {
       a.time = 0;
       return;
     }
+    if (this.mergeSettingsOpen) return;
     a.time += dt;
     if (a.time < CONFIG.items.autoMergeEvery) return;
     a.time = 0;
