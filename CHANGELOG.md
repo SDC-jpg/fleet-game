@@ -4,6 +4,9 @@ Player-facing changes, newest first. When a new version goes live, the lines
 added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
+## 2026-11-17
+- Ships bigger than tier 4 no longer turn slower than a tier-4 ship.
+
 ## 2026-11-16
 - Commander view: once you fly a tier-4 ship, only your top three ship sizes are drawn as ships; smaller ships on both sides become glowing tactical symbols (dot, square, diamond...), with faint targeting lines and small HUD shots, and the starfield dims to a deep blue. Both extras can be switched off in Settings.
 - Time Dilation now turns the background red and smears the stars like a long exposure, instead of the blue glow at the screen's edges.

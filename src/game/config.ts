@@ -463,6 +463,8 @@ export const CONFIG = {
     fireIntervalPerTier: 1.25,
     /** Each tier up multiplies turn speed by this (0.5 = half as fast), so big ships feel heavy. */
     turnRatePerTier: 0.5,
+    /** Turning stops getting slower past this tier: bigger ships turn as fast as this tier (the slowest any ship gets). */
+    slowestTurnTier: 4,
     /** Each tier up multiplies an enemy's chance of leaving a wreck by this. */
     wreckChancePerTier: 0.4,
     /** Longest time (seconds) the merging ships take to fly together. */

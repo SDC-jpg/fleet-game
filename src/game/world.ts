@@ -554,7 +554,8 @@ export function statsFor(type: ShipTypeId, team: Team, tier: number): ShipStats 
     range: t.range * T.rangePerTier ** k,
     gunOffset: t.gunOffset * size,
     fireCooldown: t.fireCooldown * slower,
-    turnRate: t.turnRate * T.turnRatePerTier ** k,
+    // Slower per tier, but never slower than a ship of slowestTurnTier.
+    turnRate: t.turnRate * T.turnRatePerTier ** Math.min(k, T.slowestTurnTier - 1),
     size,
   };
 }
