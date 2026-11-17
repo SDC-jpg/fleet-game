@@ -103,7 +103,17 @@ export function GunsPanel({
           </label>
           <label className="sa-row">
             <span>Type</span>
-            <select value={gun.type} onChange={(e) => edit((g) => (g.type = e.target.value as Gun['type']))}>
+            <select
+              value={gun.type}
+              onChange={(e) =>
+                edit((g) => {
+                  g.type = e.target.value as Gun['type'];
+                  // Explosive guns get the default number of missiles per shot, filled in.
+                  if (g.type === 'explosive') g.missiles ??= CONFIG.guns.types.explosive.missiles;
+                  else delete g.missiles;
+                })
+              }
+            >
               {WEAPON_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {label(t)}
@@ -111,6 +121,16 @@ export function GunsPanel({
               ))}
             </select>
           </label>
+          {gun.type === 'explosive' && (
+            <div className="sa-row">
+              <NumberField
+                label="Missiles per shot"
+                value={gun.missiles ?? CONFIG.guns.types.explosive.missiles}
+                min={1}
+                onChange={(v) => edit((g) => (g.missiles = Math.max(1, Math.round(v))))}
+              />
+            </div>
+          )}
           <label className="sa-row">
             <input type="checkbox" checked={gun.turret} onChange={(e) => edit((g) => (g.turret = e.target.checked))} /> Turret
             <span className="sa-note">
@@ -132,6 +152,7 @@ export function GunsPanel({
           </label>
           <div className="sa-note">
             {fmt(spec.damage)} damage per shot, every {spec.interval.toFixed(2)} s
+            {spec.type === 'explosive' && spec.missiles > 1 && ` (${spec.missiles} missiles of ${fmt(spec.damage / spec.missiles)})`}
           </div>
           <div className="sa-row sa-actions">
             <button

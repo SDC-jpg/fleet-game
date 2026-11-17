@@ -552,9 +552,10 @@ export const CONFIG = {
       energy: { rate: 2.5, efficiency: 0.6, length: 260, width: 4 },
       /**
        * Small homing missiles (they fly like the Missiles skill's, CONFIG.missiles): `missiles` per
-       * shot sharing its damage, fanned out up to `spread` degrees either side of where the gun points.
+       * shot by default (each gun can set its own in ShipArt), sharing the shot's damage, fanned out
+       * up to `spread` degrees either side of where the gun points.
        */
-      explosive: { rate: 3, efficiency: 0.75, missiles: 2, spread: 20 },
+      explosive: { rate: 3, efficiency: 0.75, missiles: 1, spread: 20 },
     },
   },
 

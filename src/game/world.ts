@@ -1465,7 +1465,8 @@ function fireEnergyGun(state: GameState, ship: Ship, g: GunSpec, x0: number, y0:
 function fireExplosiveGun(state: GameState, ship: Ship, g: GunSpec, x0: number, y0: number, a: number, aimX: number, aimY: number) {
   const X = CONFIG.guns.types.explosive;
   const M = CONFIG.missiles;
-  const n = Math.max(1, Math.round(X.missiles));
+  // This gun's own number of missiles per shot (ShipArt); they share the shot's damage.
+  const n = g.missiles;
   const spread = (X.spread * Math.PI) / 180;
   const half = (M.lockArc * Math.PI) / 360;
   let target: Ship | null = null;

@@ -135,7 +135,8 @@ http://localhost:5173/shipart.html. The published copy
   by size, so four small turrets fire smaller, quicker shots than two big cannons.
   The panel shows the numbers. Weapon types: **ballistic** (normal shots),
   **energy** (a short beam drawn with the laser art, `vfx.laser`, of the gun's
-  size) and **explosive** (small missiles drawn with `projectile.missile`).
+  size) and **explosive** (small missiles drawn with `projectile.missile`; set
+  "Missiles per shot" per gun, default 1, and they share the shot's damage).
   A ship with no guns placed uses the standard ones
   (1 at tier 1, 2 side by side above); "Use standard guns" goes back to them.
 - The old `fighter-*-move.png` and `fighter-*-boost.png` images are no longer

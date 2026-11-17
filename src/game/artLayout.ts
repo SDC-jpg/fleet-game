@@ -92,6 +92,11 @@ export interface Gun {
   turret: boolean;
   /** Optional image drawn at the gun, turned with it (parts/gun-….png). */
   image?: string;
+  /**
+   * Explosive guns: missiles per shot (missing = CONFIG.guns.types.explosive.missiles). They share
+   * the shot's damage, so the ship's damage budget stays the same.
+   */
+  missiles?: number;
 }
 
 export interface ArtLayout {

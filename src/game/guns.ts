@@ -18,6 +18,8 @@ export interface GunSpec {
   type: WeaponType;
   turret: boolean;
   image?: string;
+  /** Explosive guns: missiles per shot (they share its damage). */
+  missiles: number;
   /** Turrets: how far they turn either side of `angle`, and how fast (radians, per second). */
   arc: number;
   turnRate: number;
@@ -52,10 +54,12 @@ export function defaultGuns(type: ShipTypeId, tier: number, weapon: WeaponType =
   const t = SHIP_TYPES[type];
   const size = CONFIG.tiers.sizePerTier ** (tier - 1);
   const x = Math.round(t.gunOffset * size);
-  if (tier === 1) return [{ x, y: 0, angle: 0, size: 1, type: weapon, turret: false }];
+  // Explosive guns say how many missiles they fire per shot (the default number).
+  const extra = weapon === 'explosive' ? { missiles: CONFIG.guns.types.explosive.missiles } : {};
+  if (tier === 1) return [{ x, y: 0, angle: 0, size: 1, type: weapon, turret: false, ...extra }];
   // Spread across 80% of the ship's width, like the guns before they could be placed.
   const side = Math.round(t.radius * size * 0.4);
-  return [-side, side].map((y) => ({ x, y, angle: 0, size: tier, type: weapon, turret: false }));
+  return [-side, side].map((y) => ({ x, y, angle: 0, size: tier, type: weapon, turret: false, ...extra }));
 }
 
 /** A tier's damage per second (before bonuses): a tier-1 ship's, × powerPerTier per tier. */
@@ -88,6 +92,7 @@ export function balanceGuns(type: ShipTypeId, tier: number, guns: Gun[]): GunSpe
       type: g.type,
       turret: g.turret,
       image: g.image,
+      missiles: Math.max(1, Math.round(g.missiles ?? G.types.explosive.missiles)),
       arc: (G.turretArc * Math.PI) / 180,
       turnRate: G.turretTurnRate * G.turretTurnRatePerSize ** (size - 1),
       interval,
