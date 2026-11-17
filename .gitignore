@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 screenshots
+
+# Art sheets (tools/art-sheet.mjs): working files for painting placeholders
+art-sheet

@@ -4,6 +4,33 @@ All game art lives in this folder. `manifest.json` lists each sprite by name
 (like `vfx.explosion`) and says which file to use. The game code only uses the
 names, never the file paths, so you can swap art without touching code.
 
+## Art sheets: painting many placeholders at once
+
+Every placeholder that isn't one of your ships goes on a few big PNG pages you can paint
+over in Photoshop; Claude then puts what you changed back into the game. Each round, the
+pages only show what's still a placeholder.
+
+1. Ask Claude for an art sheet (or run `npm run art-sheet`). The pages appear in the
+   `art-sheet` folder of the project:
+   - `ui.png`, `projectiles.png`, `backgrounds.png`, `effects.png` (+ `-2`, `-3`...: VFX,
+     thrusters and flames). Tier 1–4 versions only for now (`--all-tiers` adds 5–8 later).
+   - `ships-t1.png` … `ships-t8.png`: that tier's enemy ships (standard, energy, explosive),
+     wreck and turret. Your own player ships aren't on them.
+2. Each image sits in its own box at its exact size, with its name above it and a thin
+   magenta outline just outside it. Flipbooks show every frame in a grid. Names in light
+   blue with "(team)" contain team colour (keep those parts in strong sky blue).
+3. Paint **inside the boxes** only. Don't resize the canvas or move anything; the size of
+   each box is the size of the image in the game. The names, outlines and gaps are ignored,
+   so stray strokes there don't matter.
+4. Save over the same PNG (File → Export → Export As → PNG, transparency on, "Convert to
+   sRGB" on, size 100%). You can edit just one page.
+5. Tell Claude to apply the art sheet (`npm run art-sheet:apply` lists the changes;
+   `-- --write` writes them). Only images you changed are replaced, and a "New art: …" line
+   goes into CHANGELOG.md. An image swapped by hand in the meantime is left alone.
+
+Which files are still placeholders is kept in `tools/placeholders.json` (the placeholder
+tools add their files to it; `node tools/art-sheet.mjs scan` rebuilds it).
+
 ## Swapping in your own art
 
 > **Edit art here, in `public/assets/`, never in `dist/`.** `dist/` is a

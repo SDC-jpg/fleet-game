@@ -9,14 +9,20 @@
 //   node tools/make-enemy-ships.mjs          -> only creates missing files
 //   node tools/make-enemy-ships.mjs --force  -> overwrites them (careful: replaces edited enemy art!)
 //   node tools/make-enemy-ships.mjs --check <files...> -> just counts team-blue pixels in those files
+//   --out <folder>  -> writes the copies there instead (used by the art sheet's scan)
+//
+// Files written to public/assets are recorded as placeholders in tools/placeholders.json.
 //
 // Uses the container's Chromium (like screenshot.mjs) to read and write PNGs.
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { recordPlaceholder } from './placeholders.mjs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 
 const SHIPS = fileURLToPath(new URL('../public/assets/ships/', import.meta.url));
+const OUT_ARG = process.argv.indexOf('--out');
+const OUT = OUT_ARG >= 0 ? process.argv[OUT_ARG + 1].replace(/\/?$/, '/') : SHIPS;
 const FORCE = process.argv.includes('--force');
 const checkAt = process.argv.indexOf('--check');
 // Same numbers as CONFIG.teamColors in src/game/config.ts.
@@ -25,7 +31,7 @@ const RULE = { hueMin: 180, hueMax: 230, minSaturation: 0.4 };
 const COPIES = { enemy: 170, 'enemy-energy': 90, 'enemy-explosive': 195 };
 const TIERS = [1, 2, 3, 4, 5, 6, 7, 8];
 const src = (t) => `${SHIPS}fighter${t === 1 ? '' : `-t${t}`}.png`;
-const dst = (name, t) => `${SHIPS}${name}${t === 1 ? '' : `-t${t}`}.png`;
+const dst = (name, t) => `${OUT}${name}${t === 1 ? '' : `-t${t}`}.png`;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH ?? '/usr/bin/chromium', args: ['--no-sandbox'] });
 try {
@@ -77,7 +83,10 @@ try {
           continue;
         }
         const [png, count] = await recolor(src(t), shift);
-        writeFileSync(out, Buffer.from(png, 'base64'));
+        const bytes = Buffer.from(png, 'base64');
+        mkdirSync(OUT, { recursive: true });
+        writeFileSync(out, bytes);
+        if (OUT === SHIPS) recordPlaceholder(out.slice(SHIPS.length - 'ships/'.length), bytes);
         console.log(`made     ${out} (${count} pixels recoloured)`);
       }
   }

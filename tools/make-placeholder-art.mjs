@@ -2,6 +2,9 @@
 //
 //   npm run make-art            -> only creates files that don't exist yet
 //   npm run make-art -- --force -> overwrites everything (careful: replaces your art!)
+//   --out <folder>              -> writes there instead of public/assets (used by the art sheet's scan)
+//
+// Every file written to public/assets is recorded in tools/placeholders.json (see placeholders.mjs).
 //
 // No libraries needed: this file includes a tiny PNG writer.
 
@@ -9,8 +12,11 @@ import { deflateSync } from 'node:zlib';
 import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { recordPlaceholder } from './placeholders.mjs';
 
-const OUT_DIR = fileURLToPath(new URL('../public/assets/', import.meta.url));
+const OUT_ARG = process.argv.indexOf('--out');
+const OUT_DIR = OUT_ARG >= 0 ? process.argv[OUT_ARG + 1] : fileURLToPath(new URL('../public/assets/', import.meta.url));
+const RECORD = OUT_ARG < 0;
 const FORCE = process.argv.includes('--force');
 
 // ---------- Tiny PNG writer ----------
@@ -1854,6 +1860,8 @@ for (const [name, draw] of Object.entries(FILES)) {
     continue;
   }
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, encodePng(img));
+  const bytes = encodePng(img);
+  writeFileSync(path, bytes);
+  if (RECORD) recordPlaceholder(name, bytes);
   console.log(`write  ${name}`);
 }

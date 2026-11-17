@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "make-art": "node tools/make-placeholder-art.mjs",
     "make-sfx": "node tools/make-placeholder-sfx.mjs",
-    "screenshot": "node tools/screenshot.mjs"
+    "screenshot": "node tools/screenshot.mjs",
+    "art-sheet": "node tools/art-sheet.mjs make",
+    "art-sheet:apply": "node tools/art-sheet.mjs apply"
   },
   "dependencies": {
     "react": "^19.1.0",
