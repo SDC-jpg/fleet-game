@@ -11,6 +11,7 @@ import { Particles } from '../game/particles';
 import { drawBeam, drawLayoutArt, tierSprite } from '../game/render';
 import { fileSprite, shipPointToWorld, worldToShipPoint, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
 import { tierOf, type ArtKind } from '../game/artKinds';
+import { layoutGunsOrDefault } from '../game/guns';
 import type { Team } from '../game/world';
 
 export interface PreviewSettings {
@@ -34,17 +35,23 @@ export interface PreviewSettings {
   /** The selected mount (index), or point (name). */
   selected: number | null;
   selectedPoint: string | null;
+  /** The selected gun (ships only). */
+  selectedGun: number | null;
   readOnly: boolean;
 }
 
 /** What the mouse is dragging. */
-type Drag = { kind: 'mount' | 'vfx' | 'point'; index: number; point?: string; grabX: number; grabY: number };
+type Drag = { kind: 'mount' | 'vfx' | 'point' | 'gun'; index: number; point?: string; grabX: number; grabY: number };
 
 export interface PreviewEvents {
   /** A mount was clicked (null = empty space). */
   select: (index: number | null) => void;
   /** A point was clicked. */
   selectPoint: (id: string) => void;
+  /** A gun was clicked. */
+  selectGun: (index: number) => void;
+  /** A gun moved to (x, y), in the ship's pixels. */
+  moveGun: (index: number, x: number, y: number) => void;
   /** A drag is starting (save an undo step). */
   dragStart: () => void;
   /** A mount moved to (x, y), its VFX point to offset (x, y), or a point to (x, y), in the subject's pixels. */
@@ -223,6 +230,10 @@ export class Preview {
     }
     if (st.kind.id === 'laser') this.drawLaser(state, tier, st.team);
     else if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, this.time, pointId ? 0.35 : 1);
+    // Gun images (turrets) on top, at rest.
+    for (const g of this.guns())
+      if (g.image && this.assets.has(fileSprite(g.image)))
+        r.drawAttached(this.assets.get(fileSprite(g.image)), this.x, this.y, this.angle, g.x, g.y, (g.angle * Math.PI) / 180, this.time);
     r.end();
     this.drawGuides();
   }
@@ -347,6 +358,41 @@ export class Preview {
       ctx.font = '10px monospace';
       ctx.fillText(def.label, s.x + 8, s.y - 6);
     }
+    // Guns: an orange ring with a line where it points; a turret also shows its arc (dashed).
+    this.guns().forEach((g, i) => {
+      const selected = st.selectedGun === i;
+      const p = this.toScreen(g);
+      const a = this.angle + (g.angle * Math.PI) / 180;
+      ctx.strokeStyle = selected ? '#ffd34a' : 'rgba(255,150,60,0.75)';
+      ctx.lineWidth = selected ? 2 : 1;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.moveTo(p.x + Math.cos(a) * 4, p.y + Math.sin(a) * 4);
+      ctx.lineTo(p.x + Math.cos(a) * 16, p.y + Math.sin(a) * 16);
+      ctx.stroke();
+      if (g.turret) {
+        const arc = (CONFIG.guns.turretArc * Math.PI) / 180;
+        ctx.setLineDash([2, 3]);
+        ctx.lineWidth = 1;
+        // A wedge from one end of its arc, round through where it points, to the other.
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.arc(p.x, p.y, 12, a - arc, a + arc);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.font = '10px monospace';
+      ctx.fillText(String(i + 1), p.x + 6, p.y + 12);
+    });
+  }
+
+  /** The shown ship's guns (the standard ones if none are placed); none for objects. */
+  private guns() {
+    const st = this.settings;
+    if (st.effect || st.kind.section !== 'ships') return [];
+    return layoutGunsOrDefault(this.layout, tierOf(st.subject));
   }
 
   /** Mouse position in the subject's pixels. */
@@ -389,6 +435,16 @@ export class Preview {
         return;
       }
     }
+    // Then guns (ships only).
+    const guns = this.guns();
+    for (let i = guns.length - 1; i >= 0; i--) {
+      const g = guns[i];
+      if (Math.hypot(p.x - g.x, p.y - g.y) <= near) {
+        this.events.selectGun(i);
+        if (!st.readOnly) this.startDrag({ kind: 'gun', index: i, grabX: p.x - g.x, grabY: p.y - g.y });
+        return;
+      }
+    }
     if (!layout) return this.events.select(null);
     // Then the selected mount's VFX point. Other mounts' points can't be grabbed,
     // so clicking a mount's middle picks the mount.
@@ -423,7 +479,8 @@ export class Preview {
     // Whole pixels only, so pixel art lines up.
     const x = Math.round(p.x - this.drag.grabX);
     const y = Math.round(p.y - this.drag.grabY);
-    if (this.drag.kind === 'mount') this.events.moveMount(this.drag.index, x, y);
+    if (this.drag.kind === 'gun') this.events.moveGun(this.drag.index, x, y);
+    else if (this.drag.kind === 'mount') this.events.moveMount(this.drag.index, x, y);
     else if (this.drag.kind === 'vfx') this.events.moveVfx(this.drag.index, x, y);
     else this.events.movePoint(this.drag.point!, x, y);
   };

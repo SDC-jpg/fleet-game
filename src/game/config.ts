@@ -468,6 +468,37 @@ export const CONFIG = {
    * slower backing away. Sideways is normal speed, with a smooth blend between.
    */
   /**
+   * Ship guns, placed per ship in ShipArt (art.json). Every ship of a tier has the same damage per
+   * second budget (a tier-1 ship's bulletDamage / fireCooldown, × powerPerTier per tier), shared
+   * between its guns by size: a gun's share is powerPerTier^(size − 1) out of the total. A gun fires
+   * at fireCooldown × fireIntervalPerTier^(size − 1) × its type's rate, with the damage that makes up
+   * its share, × its type's efficiency. Ships with no guns placed get 1 gun at tier 1, 2 side by side above.
+   */
+  guns: {
+    /** How fast a size-1 turret turns (radians per second); hulls turn at 9 at tier 1. */
+    turretTurnRate: 8,
+    /** Each gun size up multiplies turret turn speed by this. */
+    turretTurnRatePerSize: 0.7,
+    /** How far a turret can turn either side of its resting direction (degrees; 180 = all the way round). */
+    turretArc: 135,
+    /** A gun (fixed, or a turret on an AI ship) fires when its target is within this many radians of where it points. */
+    aimTolerance: 0.25,
+    /**
+     * Per weapon type: rate = how many times longer it waits between shots (stronger shots, same damage
+     * per second); efficiency = damage multiplier, because equal raw damage isn't equal danger
+     * (beams hit every ship in a line, missiles rarely miss).
+     */
+    types: {
+      /** Plain shots (today's guns). */
+      ballistic: { rate: 1, efficiency: 1 },
+      /** Short beams that hurt every ship in a line. */
+      energy: { rate: 2.5, efficiency: 0.6 },
+      /** Small homing missiles. */
+      explosive: { rate: 3, efficiency: 0.75 },
+    },
+  },
+
+  /**
    * Shots get a push from the moving ship that fires them: the part of its movement that points the same
    * way as the shot (flying sideways or backing away adds nothing). Their reach stays the same.
    */

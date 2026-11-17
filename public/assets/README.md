@@ -94,6 +94,15 @@ http://localhost:5173/shipart.html. The published copy
 - **Save** writes `art.json` in this folder; the game reads it. Draw parts
   facing **right** like the ships (a flame's nozzle end on the right).
 - Dash doesn't change thrusters; it adds the dash trail (`vfx.dash`).
+- **Guns** (ships only, the Guns section): where each gun sits (drag its orange
+  ring), which way it points, its size (the tier of shot it fires), weapon type,
+  fixed or **turret** (turns on its own, faster than the hull, within the dashed
+  arc), and an optional image from `parts/gun-<anything>.png` (drawn facing
+  right, centred on its pivot; placeholders `gun-turret-1`…`4`). Damage isn't set
+  by hand: every ship of a tier shares the same damage per second between its guns
+  by size, so four small turrets fire smaller, quicker shots than two big cannons.
+  The panel shows the numbers. A ship with no guns placed uses the standard ones
+  (1 at tier 1, 2 side by side above); "Use standard guns" goes back to them.
 - The old `fighter-*-move.png` and `fighter-*-boost.png` images are no longer
   used by the game, but they're still in `ships/` and can be picked as a
   base image in ShipArt.

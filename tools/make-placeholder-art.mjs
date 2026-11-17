@@ -620,6 +620,26 @@ function pdcCannon() {
   return img;
 }
 
+// Ship gun turret for ShipArt's Gun mounts (parts/gun-turret-N.png, N = gun size 1-4): a grey
+// round base with a barrel facing right. The image is centred on the base (the pivot), so the
+// left half is empty. Not team-coloured (ships keep their own colours).
+function gunTurret(n) {
+  const k = 1.5 ** (n - 1);
+  const r = 2.6 * k;
+  const len = Math.round(5.5 * k);
+  const w = 2 * (Math.ceil(r) + len) + 2;
+  const h = 2 * Math.ceil(r) + 3;
+  const img = new Img(w, h);
+  const cx = w / 2;
+  const cy = h / 2;
+  const bw = Math.max(1, Math.round(1.2 * k));
+  rect(img, cx, cy - bw / 2, Math.ceil(r) + len, bw, TIER_GREYS.tip);
+  disc(img, cx, cy, r, hex('#8a90a0'));
+  disc(img, cx - r * 0.25, cy - r * 0.25, r * 0.45, hex('#b8bcc6'));
+  outline(img, TIER_GREYS.line);
+  return img;
+}
+
 // PDC shot: a tiny bright dot (2×2, no outline so it stays tiny).
 function pdcShot() {
   const img = new Img(2, 2);
@@ -1628,6 +1648,7 @@ const FILES = {
   'ui/elite-marker.png': () => eliteMarker(56),
   'ui/arrow-elite.png': eliteArrow,
   'ships/pdc-cannon.png': pdcCannon,
+  ...Object.fromEntries([1, 2, 3, 4].map((n) => [`parts/gun-turret-${n}.png`, () => gunTurret(n)])),
   'projectiles/pdc-shot.png': pdcShot,
   'vfx/time-dilation.png': () => timeDilationSheet(96),
   'vfx/warp-out.png': () => warpOutSheet(64),

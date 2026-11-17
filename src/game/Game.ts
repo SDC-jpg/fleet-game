@@ -8,7 +8,8 @@ import { PixelRenderer, ROTATION_MODES, type RotationMode } from '../engine/rend
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
-import { renderGame, shipArtBase, tierArt, tierSprite } from './render';
+import { renderGame, tierArt, tierSprite } from './render';
+import { setGunLayouts, shipArtBase } from './guns';
 import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { applyCard, describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
@@ -311,6 +312,7 @@ export class Game {
   constructor(canvas: HTMLCanvasElement, assets: Assets, sounds: Sounds, layouts: ArtLayoutsFile, onHud: (hud: HudInfo) => void) {
     this.assets = assets;
     this.layouts = layouts;
+    setGunLayouts(layouts);
     this.sounds = sounds;
     this.onHud = onHud;
     this.renderer = new PixelRenderer(canvas);

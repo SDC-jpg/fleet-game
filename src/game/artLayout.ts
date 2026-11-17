@@ -70,10 +70,36 @@ export interface Point {
   y: number;
 }
 
+/** Weapon types a gun can fire (see CONFIG.guns.types). */
+export const WEAPON_TYPES = ['ballistic', 'energy', 'explosive'] as const;
+export type WeaponType = (typeof WEAPON_TYPES)[number];
+
+/**
+ * A gun on a ship (placed in ShipArt). Its damage isn't set here: every ship of
+ * a tier shares the same damage budget, split between its guns by size
+ * (see guns.ts), so more guns means smaller shots.
+ */
+export interface Gun {
+  /** Where its shots start, in the ship's pixels (like mounts). */
+  x: number;
+  y: number;
+  /** Which way it points, in degrees (0 = forward, clockwise). A turret's resting direction and the middle of its arc. */
+  angle: number;
+  /** Gun size = the tier of shot it fires (1 = a tier-1 ship's shot). */
+  size: number;
+  type: WeaponType;
+  /** true = turns on its own toward its target (turn speed and arc: CONFIG.guns, per size). */
+  turret: boolean;
+  /** Optional image drawn at the gun, turned with it (parts/gun-….png). */
+  image?: string;
+}
+
 export interface ArtLayout {
   /** Base image file for a state, instead of the normal image. Missing = the normal image. */
   base: Record<string, string>;
   mounts: Mount[];
+  /** Ships only: its guns. Missing = the standard guns for its tier (see defaultGuns in guns.ts). */
+  guns?: Gun[];
   /** Named points (objects only), e.g. "impact". */
   points?: Record<string, Point>;
 }
@@ -159,6 +185,7 @@ export function layoutFiles(data: ArtLayoutsFile): string[] {
   for (const layout of [...Object.values(data.ships), ...Object.values(data.objects)]) {
     for (const f of Object.values(layout.base)) if (f) files.add(f);
     for (const m of layout.mounts) for (const f of Object.values(m.images)) if (f) files.add(f);
+    for (const g of layout.guns ?? []) if (g.image) files.add(g.image);
   }
   return [...files];
 }

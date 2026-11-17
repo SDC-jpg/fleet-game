@@ -8,7 +8,8 @@ import { laserLength } from './skills';
 import type { Particles } from './particles';
 import { ownedSkill, pdcPositions } from './newSkills';
 import { fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile } from './artLayout';
-import { controlledShip, isMergePart, typeOf, type GameState, type Ship, type Team } from './world';
+import { gunsOf, shipArtBase } from './guns';
+import { controlledShip, isMergePart, type GameState, type Ship, type Team } from './world';
 
 /**
  * The art name for a tier: "<base>.t3<suffix>" for tier 3, falling back to
@@ -41,15 +42,6 @@ function teamSprite(assets: Assets, name: string, team: Team | null) {
   if (!team) return assets.get(name);
   const tc = CONFIG.teamColors;
   return assets.getRecolored(name, tc[team], tc);
-}
-
-/**
- * A ship's art name (before its tier): enemy ships have their own art. A hijacked
- * ship keeps the art of the side it came from (with a heart marker, see drawShip).
- */
-export function shipArtBase(s: Ship) {
-  const sprites = typeOf(s).sprites;
-  return (s.hijackedFrom ?? s.team) === 'enemy' ? sprites.enemyShip : sprites.ship;
 }
 
 /** Art layouts (art.json) and particles, set up by Game.ts. */
@@ -350,6 +342,10 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
   // A hijacked ship flickers in its last second before it switches back.
   if (s.hijacked > 0 && s.hijacked < 1 && Math.floor(s.hijacked * 10) % 2) alpha *= 0.4;
   drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, null, time, alpha, true, scale);
+  // Gun images (turrets) on top, turned to where each gun points.
+  gunsOf(s).forEach((g, i) => {
+    if (g.image) r.drawAttached(assets.get(fileSprite(g.image)), s.x, s.y, s.angle, g.x, g.y, s.gunAim[i] ?? g.angle, time, alpha);
+  });
   // A hijacked ship keeps its old side's art, so a heart above it shows who it fights for
   // (in that side's colour; kept the same size on screen at any zoom).
   if (s.hijackedFrom) {

@@ -25,6 +25,9 @@ import {
   type Mount,
 } from '../game/artLayout';
 import { OBJECT_KINDS, SHIP_KIND, kindOf, tierOf, type ArtKind } from '../game/artKinds';
+import { defaultGuns, layoutGunsOrDefault } from '../game/guns';
+import type { Gun } from '../game/artLayout';
+import { GunsPanel } from './GunsPanel';
 import { tierSprite } from '../game/render';
 import type { Team } from '../game/world';
 import { Preview } from './Preview';
@@ -123,6 +126,8 @@ export function ShipArt() {
   });
   const [selected, setSelected] = useState<number | null>(savedView.selected ?? null);
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
+  /** The selected gun (ships only). */
+  const [selectedGun, setSelectedGun] = useState<number | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [history, setHistory] = useState<Snapshot[]>([]);
   /** Manifest entries changed here (effect speed, loop...), saved to manifest.json with Save. */
@@ -217,7 +222,9 @@ export function ShipArt() {
   const mount = selected !== null ? layout.mounts[selected] : undefined;
   /** Images mounts can use (a folder of frames counts as one). */
   const parts = useMemo(() => partImages(files), [files]);
-  const categories = useMemo(() => [...new Set(parts.map(categoryOf))], [parts]);
+  // Gun images (parts/gun-….png) go on guns, not mounts.
+  const categories = useMemo(() => [...new Set(parts.map(categoryOf))].filter((c) => c !== 'gun'), [parts]);
+  const gunImages = useMemo(() => parts.filter((f) => categoryOf(f) === 'gun'), [parts]);
   const baseFiles = files.filter((f) => f.startsWith(kind.baseFolder));
   const mountState = kind.states.find((s) => s.id === state)?.uses ?? state;
 
@@ -302,7 +309,7 @@ export function ShipArt() {
   const effect = effectBase && assets ? tierSprite(assets, effectBase, effectTier) : null;
 
   const previewSettings = () =>
-    data && { data, subject, kind, state, effect, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, readOnly: READ_ONLY };
+    data && { data, subject, kind, state, effect, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, selectedGun, readOnly: READ_ONLY };
 
   // Start the preview once everything has loaded.
   useEffect(() => {
@@ -323,11 +330,24 @@ export function ShipArt() {
       select: (i) => {
         setSelected(i);
         setSelectedPoint(null);
+        setSelectedGun(null);
       },
       selectPoint: (id) => {
         setSelectedPoint(id);
         setSelected(null);
+        setSelectedGun(null);
       },
+      selectGun: (i) => {
+        setSelectedGun(i);
+        setSelected(null);
+        setSelectedPoint(null);
+      },
+      moveGun: (i, x, y) =>
+        edit((l) => {
+          // Moving a standard gun places a copy of the standard guns first.
+          l.guns = layoutGunsOrDefault(l, tierOf(previewRef.current!.settings.subject)).map((g) => ({ ...g }));
+          Object.assign(l.guns[i], { x, y });
+        }),
       dragStart: () => {
         const current = dataRef.current;
         if (current) setHistory((h) => [...h.slice(-99), { data: current, patch: patchRef.current }]);
@@ -360,7 +380,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, patch]);
+  }, [data, subject, state, effect, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, selectedGun, patch]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -371,7 +391,19 @@ export function ShipArt() {
     shownSubject.current = subject;
     setSelected(null);
     setSelectedPoint(null);
+    setSelectedGun(null);
   }, [subject]);
+
+  /** Change the shown ship's guns (placing a copy of the standard guns first if it has none). */
+  const changeGuns = useCallback(
+    (fn: (guns: Gun[]) => void) =>
+      change((d) => {
+        const l = d[section][subject];
+        l.guns = l.guns?.length ? l.guns : defaultGuns('fighter', tierOf(subject));
+        fn(l.guns);
+      }),
+    [change, section, subject],
+  );
 
   // Keyboard: arrows nudge (Shift = 5 px), Delete removes, Ctrl+Z undoes, Ctrl+S saves.
   useEffect(() => {
@@ -401,6 +433,19 @@ export function ShipArt() {
         });
         return;
       }
+      if (selectedGun !== null && section === 'ships') {
+        if (d) {
+          e.preventDefault();
+          changeGuns((guns) => {
+            guns[selectedGun].x += d[0];
+            guns[selectedGun].y += d[1];
+          });
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          changeGuns((guns) => guns.splice(selectedGun, 1));
+          setSelectedGun(null);
+        }
+        return;
+      }
       if (selected === null) return;
       if (d) {
         e.preventDefault();
@@ -421,7 +466,7 @@ export function ShipArt() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, selectedPoint, section, subject, nudge, change, undo, save]);
+  }, [selected, selectedPoint, selectedGun, section, subject, nudge, change, changeGuns, undo, save]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -675,7 +720,7 @@ export function ShipArt() {
         <div className="sa-hint">
           {effect
             ? 'Looping effects play on and on; play-once effects replay after a short pause'
-            : `${hover ? `x ${hover.x}, y ${hover.y} · ` : ''}Drag a mount, its pink VFX point, or a yellow point · Arrows nudge (Shift = 5 px) · Delete removes`}
+            : `${hover ? `x ${hover.x}, y ${hover.y} · ` : ''}Drag a mount, its pink VFX point, a yellow point or an orange gun · Arrows nudge (Shift = 5 px) · Delete removes`}
         </div>
       </main>
 
@@ -750,6 +795,23 @@ export function ShipArt() {
             </>
           )}
 
+          {section === 'ships' && (
+            <GunsPanel
+              guns={layoutGunsOrDefault(layout, tierOf(subject))}
+              placed={!!layout.guns?.length}
+              tier={tierOf(subject)}
+              images={gunImages}
+              selected={selectedGun}
+              onSelect={(i) => {
+                setSelectedGun(i);
+                setSelected(null);
+                setSelectedPoint(null);
+              }}
+              onChange={changeGuns}
+              onReset={() => change((d) => delete d[section][subject].guns)}
+            />
+          )}
+
           <h2>Mounts</h2>
           <div className="sa-mounts">
             {layout.mounts.map((m, i) => (
@@ -759,6 +821,7 @@ export function ShipArt() {
                 onClick={() => {
                   setSelected(i);
                   setSelectedPoint(null);
+                  setSelectedGun(null);
                 }}
               >
                 {label(m.category)} {i + 1}

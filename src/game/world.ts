@@ -6,6 +6,7 @@ import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type FormationMode, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyHealthMultiplier, lateWaveMultiplier, waveFleetValue, waveGapBase, xpToNextLevel } from './curves';
 import { interceptMissiles } from './newSkills';
+import { gunsOf, type GunSpec } from './guns';
 import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
@@ -49,7 +50,10 @@ export interface Ship {
   vy: number;
   angle: number;
   hp: number;
-  fireTimer: number;
+  /** Seconds until each gun (see gunsOf) can fire again. Empty until it first fires. */
+  gunTimers: number[];
+  /** Where each gun points now, from the ship's facing (radians; turrets turn, fixed guns don't). */
+  gunAim: number[];
   fleet: Fleet;
   dead: boolean;
   /** The merge this ship is part of (it can't shoot or be hit meanwhile). */
@@ -689,7 +693,8 @@ function addShip(
     vy: 0,
     angle,
     hp: stats.maxHp,
-    fireTimer: Math.random() * 0.5,
+    gunTimers: [],
+    gunAim: [],
     fleet,
     dead: false,
     merge: null,
@@ -888,7 +893,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
     }
     s.x += s.vx * dtOf(s);
     s.y += s.vy * dtOf(s);
-    s.fireTimer -= dtOf(s);
+    for (let i = 0; i < s.gunTimers.length; i++) s.gunTimers[i] -= dtOf(s);
   }
 
   updateBullets(state, dt, edt);
@@ -976,7 +981,8 @@ function updatePlayerLeader(state: GameState, c: Controls, dt: number) {
   // The fleet faces the cursor: the flagship at its own (tier) turn speed, wingmen at theirs.
   fleet.aim = Math.atan2(c.aimY - ship.y, c.aimX - ship.x);
   ship.angle = turnToward(ship.angle, fleet.aim, ship.stats.turnRate * dt);
-  if (c.fire && ship.fireTimer <= 0 && !ship.merge && ship.frozen <= 0) fire(state, ship, ship.stats.fireCooldown, 0);
+  // Turrets follow the cursor even when not firing.
+  fireGuns(state, ship, dt, c.aimX, c.aimY, 'player', c.fire && !ship.merge && ship.frozen <= 0);
 }
 
 /**
@@ -1117,6 +1123,7 @@ function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number
   const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range, arc);
   if (!target) {
     ship.angle = turnToward(ship.angle, idleAngle, ship.stats.turnRate * dt);
+    restTurrets(ship, dt);
     return;
   }
   const enemy = ship.team === 'enemy';
@@ -1132,11 +1139,10 @@ function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number
   // Aiming ahead of a moving target must not take the ship outside its arc.
   if (arc) want = arc.center + clamp(wrapAngle(want - arc.center), -arc.half, arc.half);
   ship.angle = turnToward(ship.angle, want, ship.stats.turnRate * dt);
-  if (ship.fireTimer <= 0 && Math.abs(wrapAngle(want - ship.angle)) < 0.25) {
-    const mul = enemy ? CONFIG.enemyFireCooldownMultiplier : CONFIG.allyFireCooldownMultiplier;
-    const spread = enemy ? CONFIG.enemyAimSpread : CONFIG.allyAimSpread;
-    fire(state, ship, ship.stats.fireCooldown * mul * randRange(0.85, 1.15), spread);
-  }
+  // Each gun fires when it points at the aim point (fixed guns: when the hull does; turrets turn by themselves).
+  const mul = enemy ? CONFIG.enemyFireCooldownMultiplier : CONFIG.allyFireCooldownMultiplier;
+  const spread = enemy ? CONFIG.enemyAimSpread : CONFIG.allyAimSpread;
+  fireGuns(state, ship, dt, aimX, aimY, 'ai', true, spread, mul);
 }
 
 /** A chevron spot (behind the leader) turned to where the leader is heading. */
@@ -1251,11 +1257,11 @@ function updateScrambled(state: GameState, dt: number) {
     s.angle = turnToward(s.angle, s.scrambleAngle, s.stats.turnRate * 2 * dt);
     const speed = t.maxSpeed * S.scrambledSpeed * (s.team === 'enemy' ? CONFIG.enemySpeedMultiplier : 1);
     steer(s, Math.cos(s.angle) * speed, Math.sin(s.angle) * speed, t.accel, dt);
-    if (s.fireTimer <= 0) {
-      const enemy = s.team === 'enemy';
-      const mul = enemy ? CONFIG.enemyFireCooldownMultiplier : CONFIG.allyFireCooldownMultiplier;
-      fire(state, s, s.stats.fireCooldown * mul * randRange(0.85, 1.15), enemy ? CONFIG.enemyAimSpread : CONFIG.allyAimSpread);
-    }
+    // Shoots wherever it faces.
+    const enemy = s.team === 'enemy';
+    const mul = enemy ? CONFIG.enemyFireCooldownMultiplier : CONFIG.allyFireCooldownMultiplier;
+    const ahead = s.stats.range;
+    fireGuns(state, s, dt, s.x + Math.cos(s.angle) * ahead, s.y + Math.sin(s.angle) * ahead, 'forward', true, enemy ? CONFIG.enemyAimSpread : CONFIG.allyAimSpread, mul);
   }
 }
 
@@ -1293,26 +1299,75 @@ function separateShips(state: GameState, dt: number) {
     }
 }
 
-/** Fire one volley. Bigger tiers fire several shots side by side. */
-function fire(state: GameState, ship: Ship, cooldown: number, spread: number) {
-  const st = ship.stats;
-  // Your fleet's fire-rate bonus makes the wait between volleys shorter.
-  ship.fireTimer = ship.team === 'player' ? cooldown / state.bonus.fireRate : cooldown;
-  const a = ship.angle + randRange(-spread, spread);
-  const fx = Math.cos(ship.angle);
-  const fy = Math.sin(ship.angle);
+/** A ship's guns, with its gun timers and turret angles set up the first time (all its guns start in step). */
+function shipGuns(ship: Ship) {
+  const guns = gunsOf(ship);
+  if (ship.gunTimers.length !== guns.length) {
+    const start = Math.random() * 0.5;
+    ship.gunTimers = guns.map(() => start);
+    ship.gunAim = guns.map((g) => g.angle);
+  }
+  return guns;
+}
+
+/** Turrets with nothing to aim at turn back to their resting direction. */
+function restTurrets(ship: Ship, dt: number) {
+  shipGuns(ship).forEach((g, i) => {
+    if (g.turret) ship.gunAim[i] = turnToward(ship.gunAim[i], g.angle, g.turnRate * dt);
+  });
+}
+
+/**
+ * Turn turrets toward (aimX, aimY) (within their arc) and, if `trigger`, fire every gun
+ * that's ready and pointing at it. Modes: 'player' = the ship you fly (fixed guns fire
+ * wherever they point, turrets once they point at the cursor); 'ai' = a gun fires only
+ * when it points at the aim point; 'forward' = scrambled, every gun fires wherever it points.
+ * `cooldownMul` slows AI firing (CONFIG.enemyFireCooldownMultiplier...).
+ */
+function fireGuns(
+  state: GameState,
+  ship: Ship,
+  dt: number,
+  aimX: number,
+  aimY: number,
+  mode: 'player' | 'ai' | 'forward',
+  trigger: boolean,
+  spread = 0,
+  cooldownMul = 1,
+) {
+  const guns = shipGuns(ship);
+  const cos = Math.cos(ship.angle);
+  const sin = Math.sin(ship.angle);
+  // AI ships fire a little irregularly; one random wait and aim error per volley.
+  const jitter = mode === 'player' ? 1 : randRange(0.85, 1.15);
+  const error = randRange(-spread, spread);
+  let fired = false;
+  guns.forEach((g, i) => {
+    const gx = ship.x + g.x * cos - g.y * sin;
+    const gy = ship.y + g.x * sin + g.y * cos;
+    const want = Math.atan2(aimY - gy, aimX - gx);
+    if (g.turret) {
+      const rest = ship.angle + g.angle;
+      const goal = g.angle + clamp(wrapAngle(want - rest), -g.arc, g.arc);
+      ship.gunAim[i] = turnToward(ship.gunAim[i], goal, g.turnRate * dt);
+    }
+    if (!trigger || ship.gunTimers[i] > 0) return;
+    const dir = ship.angle + (g.turret ? ship.gunAim[i] : g.angle);
+    const free = mode === 'forward' || (mode === 'player' && !g.turret);
+    if (!free && Math.abs(wrapAngle(want - dir)) >= CONFIG.guns.aimTolerance) return;
+    const wait = g.interval * cooldownMul * jitter;
+    // Your fleet's fire-rate bonus makes the wait between shots shorter.
+    ship.gunTimers[i] = ship.team === 'player' ? wait / state.bonus.fireRate : wait;
+    addBullet(state, ship, gx, gy, dir + error, 'gun', g);
+    fired = true;
+  });
+  if (!fired) return;
   // One sound per volley. Your wingmen are quieter than the ship you fly.
   const enemy = ship.team === 'enemy';
   const volume = enemy || ship === controlledShip(state) ? 1 : CONFIG.audio.allyShotVolume;
   addSound(state, enemy ? 'sfx.shoot.enemy' : 'sfx.shoot', ship, ship.tier, volume);
-  for (let i = 0; i < st.shots; i++) {
-    // Spread the guns across the ship's width.
-    const side = st.shots === 1 ? 0 : (i / (st.shots - 1) - 0.5) * st.radius * 0.8;
-    addBullet(state, ship, ship.x + fx * st.gunOffset - fy * side, ship.y + fy * st.gunOffset + fx * side, a);
-  }
 }
 
-/** One shot from `ship` (with its tier's damage, speed and range), starting at (x, y). */
 /**
  * Extra speed a shot fired at `angle` gets from its ship's movement (CONFIG.shotInherit): the part of the
  * ship's velocity along the shot (never negative), capped at the ship's normal top speed so boost and
@@ -1326,8 +1381,18 @@ export function inheritedSpeed(state: GameState, ship: Ship, angle: number) {
   return (I.capAtTopSpeed ? Math.min(along, top) : along) * I.share;
 }
 
-function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: number, source: DamageSource = 'gun') {
-  const st = ship.stats;
+/** Shot numbers (speed, reach, size) for a gun of each size, by ship type and team. */
+const gunShotStats = new Map<string, ShipStats>();
+function shotStatsFor(ship: Ship, size: number) {
+  const key = `${ship.type}|${ship.team}|${size}`;
+  let st = gunShotStats.get(key);
+  if (!st) gunShotStats.set(key, (st = statsFor(ship.type, ship.team, size)));
+  return st;
+}
+
+/** One shot from `ship`, starting at (x, y): from one of its guns (that gun's size and damage), or with the ship's own tier numbers. */
+function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: number, source: DamageSource = 'gun', gun?: GunSpec) {
+  const st = gun ? shotStatsFor(ship, gun.size) : ship.stats;
   // Faster when the ship flies the same way; it lasts a little less, so its reach stays the same.
   const speed = st.bulletSpeed + inheritedSpeed(state, ship, angle);
   state.bullets.push({
@@ -1335,13 +1400,13 @@ function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: nu
     source: ship.hijackedFrom === 'enemy' && ship.team === 'player' ? 'hijack' : source,
     team: ship.team,
     sprite: typeOf(ship).sprites.bullet,
-    tier: ship.tier,
+    tier: gun ? gun.size : ship.tier,
     x,
     y,
     vx: Math.cos(angle) * speed,
     vy: Math.sin(angle) * speed,
     life: (st.bulletLife * st.bulletSpeed) / speed,
-    damage: st.bulletDamage * (ship.team === 'player' ? state.bonus.damage : 1),
+    damage: (gun ? gun.damage : st.bulletDamage) * (ship.team === 'player' ? state.bonus.damage : 1),
     radius: st.bulletRadius,
     homing: 0,
     target: null,
