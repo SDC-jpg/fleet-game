@@ -63,7 +63,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div>
               Test keys: = / - add/remove ship · ] add 16 ships · T add a next-tier ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
-              screen · X end run · L level up · J all skills · I drop 3 matching items · Y drop the next Merge Module · E spawn elite · H spawn swarm · V variants · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · F formation ({hud.formationMode === 'fill' ? 'Fill' : 'Original'}) · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
+              screen · X end run · L level up · J all skills · I drop 3 matching items · Y drop the next Merge Module · E spawn elite · H spawn swarm · V variants · R reinforcements · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · F formation ({hud.formationMode === 'fill' ? 'Fill' : 'Original'}) · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
             </div>
           )}
         </div>
@@ -138,6 +138,7 @@ export default function App() {
       {/* Time Dilation: a cool tint at the screen's edges while the world runs slow. */}
       {hud?.timeDilation && !hud.gameOver && <div className="time-dilation-tint" />}
       {hud?.swarmAlert && !hud.gameOver && <div className="swarm-toast">Swarm incoming!</div>}
+      {hud?.reinforcementAlert && !hud.gameOver && <div className="reinforce-toast">Fleet HQ is warping in reinforcements!</div>}
 
       {hud?.resumeOffer && (
         <div className="panel center resume-offer">

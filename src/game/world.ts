@@ -77,6 +77,13 @@ export interface Ship {
   /** Enemy variant (its own art; its guns fire this weapon type), or null for a standard ship. */
   variant: EnemyVariant | null;
   /**
+   * A reinforcement on its way to your fleet (CONFIG.reinforcements): dashing in from `from` to `to`
+   * over `time` seconds, then flying to your fleet ('join'). null = an ordinary ship.
+   */
+  reinforcement: { phase: 'dash' | 'join'; fromX: number; fromY: number; toX: number; toY: number; time: number } | null;
+  /** Seconds it can't be damaged (reinforcements: Infinity on the way, a moment after joining). */
+  immune: number;
+  /**
    * While its fleet is cloaked: a still copy of it where it was last seen.
    * Enemies aim at this instead (see findNearestEnemy). null = not hidden.
    */
@@ -393,6 +400,12 @@ export interface GameState {
   waveLength: number;
   /** Whether the next elite slot brings a swarm instead (rolled one wave ahead, so the HUD can say so). */
   nextSwarm: boolean;
+  /** Reinforcements (CONFIG.reinforcements): times they came this run, when last (seconds survived), and their fleets on the way. */
+  reinforcementsUsed: number;
+  lastReinforcementAt: number;
+  reinforcementFleets: Fleet[];
+  /** When the "reinforcements" announcement started (state.time). */
+  reinforcementAlertTime: number;
   /** Test key V: the variant its last squadron was (they take turns). */
   testVariant?: EnemyVariant;
   /** Seconds until you can dash again (0 = ready). */
@@ -579,6 +592,10 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     waveTimer: CONFIG.firstWaveDelay,
     waveLength: CONFIG.firstWaveDelay,
     nextSwarm: Math.random() < CONFIG.swarm.chance,
+    reinforcementsUsed: 0,
+    lastReinforcementAt: -Infinity,
+    reinforcementFleets: [],
+    reinforcementAlertTime: -Infinity,
     dashCooldown: 0,
     level: 1,
     xp: 0,
@@ -668,6 +685,7 @@ export function rebuildPlayerFleet(state: GameState, value: number) {
   state.debris = [];
   state.finalBlow = null;
   state.enemyFleets = [];
+  state.reinforcementFleets = [];
   state.playerFleet = newFleet('player');
   const counts = tierCounts(Math.max(1, Math.round(value)));
   let leader: Ship | null = null;
@@ -718,6 +736,8 @@ function addShip(
     hijacked: 0,
     hijackedFrom: null,
     variant: null,
+    reinforcement: null,
+    immune: 0,
     ghost: null,
     shield: 0,
     shieldTime: 0,
@@ -886,6 +906,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   for (const f of [state.playerFleet, ...state.enemyFleets]) f.dashTime = Math.max(0, f.dashTime - (f.team === 'player' ? dt : edt));
 
   updatePlayerLeader(state, controls, dt);
+  updateReinforcements(state, dt);
   for (const fleet of [state.playerFleet, ...state.enemyFleets]) updateFleet(state, fleet, fleet.team === 'player' ? dt : edt);
   updateSkills(state, controls, dt);
   updateEliteSkills(state, edt);
@@ -916,6 +937,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   promoteFlagship(state);
   if (state.gameOver) return;
   updateWaves(state, dt, spawnDistance);
+  maybeSendReinforcements(state, spawnDistance);
   // A level-up shows its cards after a short delay, so the kill that caused it can play out first.
   if (!state.cards && state.pendingLevels > 0) {
     state.cardDelay += dt;
@@ -1209,7 +1231,8 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
  * the other side (it flies at and shoots its old allies), then switches back.
  */
 export function hijackShip(state: GameState, s: Ship, duration: number) {
-  if (s.hijacked > 0 || s.merge || s.dead) return;
+  // Reinforcements on their way (immune) can't be taken over.
+  if (s.hijacked > 0 || s.merge || s.dead || s.immune > 0) return;
   const from = s.team;
   leaveFleet(state, s);
   // On its own, it flies and fights like a lone enemy fighter does (updateEnemyLeader).
@@ -1505,6 +1528,8 @@ function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: nu
  */
 export function damageShip(state: GameState, s: Ship, amount: number, source: DamageSource = 'gun') {
   if (s.dead) return false;
+  // Reinforcements on their way (and just after joining) can't be hurt.
+  if (s.immune > 0) return false;
   if (s.shield > 0) {
     const absorbed = Math.min(s.shield, amount);
     s.shield -= absorbed;
@@ -1921,6 +1946,115 @@ function updateWrecks(state: GameState, dt: number) {
     }
   }
   state.wrecks = state.wrecks.filter((w) => w.life > 0);
+}
+
+// ---------- Reinforcements ----------
+
+/**
+ * Fleet HQ sends help (CONFIG.reinforcements) once you're past the wave and your fleet has
+ * fallen below the share of your best this run; no more than perRun times, with a cooldown.
+ */
+function maybeSendReinforcements(state: GameState, spawnDistance: number) {
+  const R = CONFIG.reinforcements;
+  if (state.wave <= R.afterWave || state.reinforcementsUsed >= R.perRun || state.reinforcementFleets.length) return;
+  if (state.survived - state.lastReinforcementAt < R.cooldown) return;
+  if (fleetValue(state.playerFleet) >= R.belowShare * state.maxFleetSize) return;
+  const flagship = controlledShip(state);
+  if (flagship) sendReinforcements(state, flagship, spawnDistance);
+}
+
+/**
+ * A friendly fleet worth an enemy fleet of this wave warps in just out of view behind your
+ * flagship and dashes to a point ahead of it (along its movement), in formation.
+ */
+export function sendReinforcements(state: GameState, flagship: Ship, spawnDistance: number) {
+  const R = CONFIG.reinforcements;
+  state.reinforcementsUsed++;
+  state.lastReinforcementAt = state.survived;
+  state.reinforcementAlertTime = state.time;
+  addSound(state, 'sfx.reinforcements', flagship, 1, 1, true);
+  // Which way you're going (or facing, when still).
+  const moving = Math.hypot(flagship.vx, flagship.vy) > MOVING_SPEED;
+  const dir = moving ? Math.atan2(flagship.vy, flagship.vx) : flagship.angle;
+  const dx = Math.cos(dir);
+  const dy = Math.sin(dir);
+  const toX = flagship.x + dx * R.aheadDistance;
+  const toY = flagship.y + dy * R.aheadDistance;
+  const fromX = flagship.x - dx * spawnDistance;
+  const fromY = flagship.y - dy * spawnDistance;
+  const fleet = newFleet('player');
+  const counts = tierCounts(Math.max(1, Math.round(waveFleetValue(state.wave))));
+  for (let t = counts.length; t >= 1; t--)
+    for (let i = 0; i < counts[t - 1]; i++) addShip(state, 'player', 'fighter', t, fleet, fromX, fromY, dir);
+  if (!fleet.members.length) return;
+  formationOrder(fleet.members);
+  fleet.leader = fleet.members[0];
+  // Everyone keeps its place in the formation (facing the way they dash) while dashing in.
+  const slots = formationSlots(state.formationMode, fleet.leader, fleet.members.slice(1));
+  fleet.members.forEach((s, i) => {
+    const slot = i === 0 ? { x: 0, y: 0 } : slots[i - 1];
+    const ox = slot.x * dx - slot.y * dy;
+    const oy = slot.x * dy + slot.y * dx;
+    s.x = fromX + ox;
+    s.y = fromY + oy;
+    s.reinforcement = { phase: 'dash', fromX: s.x, fromY: s.y, toX: toX + ox, toY: toY + oy, time: 0 };
+    s.immune = Infinity;
+    addEffect(state, 'vfx.warp-in', s.x, s.y, dir, s.tier);
+  });
+  fleet.dashTime = CONFIG.dash.duration;
+  state.reinforcementFleets.push(fleet);
+}
+
+/**
+ * Reinforcements on their way: dashing in (eased, with the dash trail), then flying to your
+ * fleet at joinSpeed, shooting at enemies in range. Touching any ship of your fleet joins it
+ * (like a wreck being recruited); they stay immune for shieldAfterJoin seconds after that.
+ */
+function updateReinforcements(state: GameState, dt: number) {
+  const R = CONFIG.reinforcements;
+  for (const s of state.ships) if (s.immune > 0 && !s.reinforcement) s.immune = Math.max(0, s.immune - dt);
+  for (const fleet of state.reinforcementFleets) {
+    fleet.dashTime = Math.max(0, fleet.dashTime - dt);
+    const flagship = controlledShip(state);
+    for (const s of fleet.members) {
+      const r = s.reinforcement;
+      if (!r || s.dead) continue;
+      if (r.phase === 'dash') {
+        // Ease out: fast at first, slowing into place. The velocity moves it there this step.
+        r.time = Math.min(R.dashTime, r.time + dt);
+        const k = 1 - (1 - r.time / R.dashTime) ** 3;
+        const x = r.fromX + (r.toX - r.fromX) * k;
+        const y = r.fromY + (r.toY - r.fromY) * k;
+        s.vx = (x - s.x) / dt;
+        s.vy = (y - s.y) / dt;
+        s.thrust = 'boost';
+        if (r.time >= R.dashTime) r.phase = 'join';
+        continue;
+      }
+      if (!flagship) continue;
+      // Fly to the flagship, shooting at any enemy in range on the way.
+      const t = typeOf(s);
+      const a = Math.atan2(flagship.y - s.y, flagship.x - s.x);
+      const speed = t.maxSpeed * R.joinSpeed;
+      steer(s, Math.cos(a) * speed, Math.sin(a) * speed, t.accel * R.joinSpeed, dt);
+      s.thrust = 'boost';
+      aimAndShoot(state, s, dt, a);
+      // Touching any ship of your fleet joins it.
+      for (const m of state.playerFleet.members) {
+        const reach = s.stats.radius + m.stats.radius;
+        if (m.dead || distSq(s.x, s.y, m.x, m.y) >= reach * reach) continue;
+        s.reinforcement = null;
+        s.immune = R.shieldAfterJoin;
+        s.fleet = state.playerFleet;
+        state.playerFleet.members.push(s);
+        addEffect(state, 'vfx.recruit', s.x, s.y, 0, s.tier);
+        addSound(state, 'sfx.recruit', s, s.tier);
+        break;
+      }
+    }
+    fleet.members = fleet.members.filter((s) => s.reinforcement && !s.dead);
+  }
+  state.reinforcementFleets = state.reinforcementFleets.filter((f) => f.members.length);
 }
 
 // ---------- Enemy waves ----------

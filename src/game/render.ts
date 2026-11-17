@@ -119,11 +119,11 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     drawShip(r, assets, extras.layouts, flagship, state.time);
   }
 
-  // Shield bubbles over shielded ships (fading in their last second).
+  // Shield bubbles over shielded ships (fading in their last second), and over reinforcements while they can't be hurt.
   for (const s of state.ships) {
-    if (s.shield <= 0 || s.absorbed) continue;
+    if ((s.shield <= 0 && s.immune <= 0) || s.absorbed) continue;
     const bubble = tierSpriteScaled(assets, 'vfx.shield', s.tier);
-    r.drawSprite(bubble.sprite, s.x, s.y, 0, state.time, Math.min(1, s.shieldTime), false, bubble.scale);
+    r.drawSprite(bubble.sprite, s.x, s.y, 0, state.time, Math.min(1, Math.max(s.shield > 0 ? s.shieldTime : 0, s.immune * 2)), false, bubble.scale);
   }
 
   // Frozen ships get an icy overlay.

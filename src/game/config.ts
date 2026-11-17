@@ -476,6 +476,34 @@ export const CONFIG = {
    * slower backing away. Sideways is normal speed, with a smooth blend between.
    */
   /**
+   * Reinforcements (a comeback help): after wave `afterWave`, when losses bring your fleet value
+   * below `belowShare` of your best this run, Fleet HQ warps in a friendly fleet worth what an enemy
+   * fleet of this wave would be. It dashes in to a point ahead of you, then flies to your fleet and
+   * joins it (like recruiting wrecks), shooting at enemies on the way. It can't be damaged until
+   * shortly after joining.
+   */
+  reinforcements: {
+    /** They can only come after this wave. */
+    afterWave: 30,
+    /** They come when your fleet value drops below this share of your best fleet value this run. */
+    belowShare: 0.7,
+    /** Times per run they can come. */
+    perRun: 1,
+    /** Seconds of play before they can come again (matters only if perRun is more than 1). */
+    cooldown: 300,
+    /** They dash in to this far ahead of your flagship, along the way it's moving (game pixels). */
+    aheadDistance: 300,
+    /** Seconds the dash in takes (they warp in just out of view behind you). */
+    dashTime: 0.8,
+    /** Speed while flying to join your fleet, compared to a ship's normal top speed. */
+    joinSpeed: 2.2,
+    /** Seconds they stay immune to damage after joining your fleet. */
+    shieldAfterJoin: 0.5,
+    /** Seconds the "reinforcements" announcement shows. */
+    alertSeconds: 4,
+  },
+
+  /**
    * Enemy variants: ships with their own art whose guns fire energy beams or missiles instead of
    * shots. Some waves bring a squadron of one variant: a share of the wave's ships, those spawned
    * closest together. Elites never are variants.

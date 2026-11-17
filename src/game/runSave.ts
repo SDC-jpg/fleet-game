@@ -38,6 +38,8 @@ export interface RunSnapshot {
   maxTier: number;
   elitesSpawned: number;
   skilledElites?: number;
+  /** Reinforcements already sent this run (CONFIG.reinforcements). */
+  reinforcementsUsed?: number;
   eliteDue: boolean;
 }
 
@@ -68,6 +70,7 @@ export function saveRun(state: GameState) {
     maxTier: state.maxTier,
     elitesSpawned: state.elitesSpawned,
     skilledElites: state.skilledElites,
+    reinforcementsUsed: state.reinforcementsUsed,
     eliteDue: state.eliteDue,
   };
   try {
@@ -115,6 +118,7 @@ export function restoreRun(state: GameState, snap: RunSnapshot) {
   state.maxTier = snap.maxTier;
   state.elitesSpawned = snap.elitesSpawned;
   state.skilledElites = snap.skilledElites ?? 0;
+  state.reinforcementsUsed = snap.reinforcementsUsed ?? 0;
   state.eliteDue = snap.eliteDue;
   // The saved wave comes again shortly (its start is added to the graph again then).
   state.wave = snap.wave - 1;

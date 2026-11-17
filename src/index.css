@@ -522,6 +522,21 @@ body {
   pointer-events: none;
   text-shadow: 0 1px 2px #000;
 }
+.reinforce-toast {
+  position: fixed;
+  top: 82px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  pointer-events: none;
+  text-shadow: 0 1px 2px #000;
+  color: #9ff0b0;
+  background: rgba(6, 30, 14, 0.85);
+  border: 1px solid #4fd07a;
+  white-space: nowrap;
+}
 .swarm-toast {
   color: #ffe070;
   border-color: #e0c030;

@@ -379,6 +379,18 @@ function swarm() {
   });
 }
 
+/** Reinforcements: a bright rising two-part call (the good news counterpart of the alert). */
+function reinforcements() {
+  const a = oscillator('triangle'), b = oscillator('square');
+  const notes = [392, 523, 659, 784, 659, 1047];
+  return render(1.0, (t) => {
+    const n = Math.min(notes.length - 1, Math.floor(t / 0.12));
+    const local = t - n * 0.12;
+    const fade = n === notes.length - 1 ? Math.exp(-local * 3.5) : 1;
+    return (a(notes[n]) * 0.45 + b(notes[n] / 2) * 0.15) * fade * Math.min(1, local / 0.006);
+  });
+}
+
 /** Gatling bolt: a tiny, quick zap (plays for every bolt, so it's short and quiet). */
 function gatling() {
   const a = oscillator('square');
@@ -553,6 +565,7 @@ const FILES = {
   'loot.wav': loot,
   'alert.wav': alert,
   'swarm.wav': swarm,
+  'reinforcements.wav': reinforcements,
   'gatling.wav': gatling,
   'crescent.wav': crescent,
   'arc.wav': arc,

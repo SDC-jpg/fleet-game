@@ -36,6 +36,7 @@ import {
   testSpawnElite,
   testSpawnSwarm,
   testSpawnVariants,
+  sendReinforcements,
   testRemoveShip,
   updateGame,
   detailFactor,
@@ -113,6 +114,8 @@ export interface HudInfo {
   radar: boolean;
   /** A swarm wave just arrived (shows "Swarm incoming"). */
   swarmAlert: boolean;
+  /** Fleet HQ's reinforcements are coming (CONFIG.reinforcements). */
+  reinforcementAlert: boolean;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -790,6 +793,10 @@ export class Game {
     if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
     if (i.wasPressed('KeyH')) testSpawnSwarm(s, this.spawnDistance());
     if (i.wasPressed('KeyV')) testSpawnVariants(s, this.spawnDistance());
+    if (i.wasPressed('KeyR')) {
+      const flagship = controlledShip(s);
+      if (flagship) sendReinforcements(s, flagship, this.spawnDistance());
+    }
     if (i.wasPressed('KeyO')) {
       s.elitesEnabled = !s.elitesEnabled;
       saveSetting(ELITES_SETTING, s.elitesEnabled ? 'on' : 'off');
@@ -986,6 +993,7 @@ export class Game {
       nextWave: (({ fleet, elite, swarm }) => ({ fleet, elite, swarm }))(wavePlan(st, st.wave + 1)),
       radar: !!ownedSkill(st, 'radar'),
       swarmAlert: st.time - st.swarmAlertTime < CONFIG.swarm.alertSeconds,
+      reinforcementAlert: st.time - st.reinforcementAlertTime < CONFIG.reinforcements.alertSeconds,
       stats: { ...st.stats },
       history: st.history,
       invincible: st.invincible,
