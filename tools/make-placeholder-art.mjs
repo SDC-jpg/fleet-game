@@ -169,6 +169,12 @@ function wreckFighter() {
 // strong enough (saturation >= 40%) for the game to recolour them red for enemies.
 const TIER_CANVAS = { 2: 96, 3: 144, 4: 216 };
 const TIER_HULL_SCALE = { 2: 1.8, 3: 2.75, 4: 4.1 };
+// Tiers 5-8 (ships and wrecks only): canvas and hull keep growing 1.5x per tier, so the hull
+// stays about as wide as the ship's hit circle (CONFIG radius 14 x 1.5 per tier).
+for (let t = 5; t <= 8; t++) {
+  TIER_CANVAS[t] = Math.round((64 * 1.5 ** (t - 1)) / 2) * 2;
+  TIER_HULL_SCALE[t] = 1.2 * 1.5 ** (t - 1);
+}
 const TIER_BLUES = { hull: hex('#41a6d9'), dark: hex('#28739e'), light: hex('#7ecff2'), tip: hex('#e8fbff'), line: hex('#0e1a33') };
 const TIER_GREYS = { hull: hex('#6b6f78'), dark: hex('#44474f'), light: hex('#80848d'), tip: hex('#9a9ea6'), line: hex('#16171b') };
 
@@ -1659,6 +1665,12 @@ const FILES = {
   'backgrounds/stars-far.png': starsFar,
   'backgrounds/stars-near.png': starsNear,
 };
+
+// Tiers 5-8: ship and wreck only (other art falls back to tier 4's).
+for (const tier of [5, 6, 7, 8]) {
+  FILES[`ships/fighter-t${tier}.png`] = () => tierFighter(tier);
+  FILES[`ships/fighter-t${tier}-wreck.png`] = () => tierWreck(tier);
+}
 
 // Bigger tiers: everything grows 1.5× per tier.
 for (const tier of [2, 3, 4]) {

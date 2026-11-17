@@ -113,7 +113,7 @@
   - Enemy fleets use the same tier rule. Bigger enemies leave wrecks of their tier, less often (×0.4 per tier).
   - Formation by size: biggest ships in the inner rings. Two methods (`CONFIG.formationMode`, 2026-11-16; test key `F` switches, remembered in `fleet-game.formation`; `formationSlots` in world.ts): **Original** (`originalSlots`: one tier per ring) and **Fill** (`fillSlots`, default: a ring is spaced for its biggest ship and smaller ships fill the leftover room, each tier spread evenly around it; same as Original for single-tier fleets). Used by your fleet and enemy fleets.
   - Zoom follows the highest tier: 2× at T2, 1× from T3 on (the user's choice, 2026-11-11). Tried earlier: 1× at T2 and 0.75× at T3; rejected as too zoomed out: 0.5× at T3, 0.25× at T4.
-  - Each tier has its own art (`ship.fighter.t2`...), canvases growing 1.5× per tier from the 64 px fighter.
+  - Each tier has its own art (`ship.fighter.t2`...), canvases growing 1.5× per tier from the 64 px fighter. T5–T8 (2026-11-16) have generated placeholder ships and wrecks only (hull about as wide as the hit circle; no thruster layouts yet); their other tier art (shots, explosions, rings...) still falls back to T4's, and T9+ falls back to T8's.
 
 ### Rollback to version 11 (2026-11-12)
 - Versions 12–13 explored ship classes (Lancer/Knight/Ballista modules, combos, right-click abilities, wheel switching), loot (rare modules, elites, module drops, scrap), a body shop, a bottom HUD with pixel font, class icons and a flagship marker. **The user and teammate found them not convincing** and rolled back to version 11 (`f45f444`). Don't bring those features back unless the user asks.
