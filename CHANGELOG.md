@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-17
+- New art: gun shots, the laser beam, gun turrets and the small enemy ships (all three kinds), with their guns and engines placed to match.
 - Ships bigger than tier 4 no longer turn slower than a tier-4 ship.
 
 ## 2026-11-16

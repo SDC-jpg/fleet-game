@@ -71,6 +71,24 @@
             "boost": {}
           }
         }
+      ],
+      "guns": [
+        {
+          "x": 18,
+          "y": -8,
+          "angle": 0,
+          "size": 2,
+          "type": "ballistic",
+          "turret": false
+        },
+        {
+          "x": 18,
+          "y": 8,
+          "angle": 0,
+          "size": 2,
+          "type": "ballistic",
+          "turret": false
+        }
       ]
     },
     "ship.fighter.t3": {
@@ -260,16 +278,16 @@
       ],
       "guns": [
         {
-          "x": 47,
-          "y": -19,
+          "x": 49,
+          "y": -9,
           "angle": 0,
           "size": 4,
           "type": "ballistic",
           "turret": false
         },
         {
-          "x": 47,
-          "y": 19,
+          "x": 49,
+          "y": 9,
           "angle": 0,
           "size": 4,
           "type": "ballistic",
@@ -560,6 +578,16 @@
             }
           }
         }
+      ],
+      "guns": [
+        {
+          "x": 9,
+          "y": 0,
+          "angle": 0,
+          "size": 1,
+          "type": "energy",
+          "turret": false
+        }
       ]
     },
     "ship.enemy-energy.t2": {
@@ -762,8 +790,8 @@
       "mounts": [
         {
           "category": "thruster",
-          "x": -20,
-          "y": 0,
+          "x": -18,
+          "y": -8,
           "angle": 0,
           "flipX": false,
           "flipY": false,
@@ -781,6 +809,48 @@
               "perSecond": 10
             }
           }
+        },
+        {
+          "category": "thruster",
+          "x": -17,
+          "y": 8,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {
+              "perSecond": 10
+            }
+          }
+        }
+      ],
+      "guns": [
+        {
+          "x": 9,
+          "y": -10,
+          "angle": 0,
+          "size": 1,
+          "type": "explosive",
+          "turret": false,
+          "missiles": 1
+        },
+        {
+          "x": 9,
+          "y": 10,
+          "angle": 0,
+          "size": 1,
+          "type": "explosive",
+          "turret": false,
+          "missiles": 1
         }
       ]
     },
