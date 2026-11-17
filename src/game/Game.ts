@@ -8,7 +8,7 @@ import { PixelRenderer, ROTATION_MODES, type RotationMode } from '../engine/rend
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
-import { renderGame, tierSprite } from './render';
+import { renderGame, tierArt, tierSprite } from './render';
 import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { applyCard, describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
@@ -838,16 +838,16 @@ export class Game {
     const near = (x: number, y: number) => x > v.x - margin && x < v.x + v.w + margin && y > v.y - margin && y < v.y + v.h + margin;
     for (const s of this.state.ships) {
       if (s.dead || s.absorbed || !near(s.x, s.y)) continue;
-      const base = tierSprite(this.assets, typeOf(s).sprites.ship, s.tier);
-      this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy);
+      const { name: base, scale } = tierArt(this.assets, typeOf(s).sprites.ship, s.tier);
+      this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy, scale);
     }
     // Objects with particle emitters (art.json): missiles (Inert until they fire up, then Fired),
     // gun shots, mines, wrecks, laser beams and elite laser warnings.
     const emit = (base: string, tier: number, state: string, x: number, y: number, angle: number, suffix = '', vx = 0, vy = 0) => {
       if (!near(x, y)) return;
-      const name = tierSprite(this.assets, base, tier, suffix);
+      const { name, scale } = tierArt(this.assets, base, tier, suffix);
       const layout = this.layouts.objects[name];
-      if (layout) this.particles.emitMounts(this.layouts, layout, state, x, y, angle, dt, vx, vy);
+      if (layout) this.particles.emitMounts(this.layouts, layout, state, x, y, angle, dt, vx, vy, scale);
     };
     for (const b of this.state.bullets) {
       if (b.homing > 0) emit(b.sprite, b.tier, b.lit ? 'fired' : 'inert', b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx), '', b.vx, b.vy);

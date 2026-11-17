@@ -39,6 +39,18 @@ export class PixelRenderer {
 
   /** How rotated sprites are drawn (see the top of this file). */
   rotation: RotationMode = 'grid';
+  /**
+   * In 'rotsprite' mode, art bigger than this (width × height of one frame, in art
+   * pixels) is drawn as in 'grid' instead: its 8× copy and rotated copies would take
+   * too much memory and time (about tier 6 ships and up). 324 × 324 = a tier-5 ship.
+   */
+  rotSpriteMaxArea = 324 * 324;
+
+  /** Whether this sprite is small enough for RotSprite (see rotSpriteMaxArea). */
+  rotSpriteFits(sprite: Sprite) {
+    const f = sprite.frames[0];
+    return !f || f.w * f.h <= this.rotSpriteMaxArea;
+  }
 
   /** true = fill the canvas's parent element instead of the whole window (used by the ShipArt tool). */
   private fitParent: boolean;
@@ -174,10 +186,10 @@ export class PixelRenderer {
    * already drawn behind it shows through, shifted `shift` game pixels (the
    * Cloaking skill). Draw the faint sprite itself on top for an outline.
    */
-  drawRefracted(sprite: Sprite, x: number, y: number, angle: number, time = 0, shift = 2) {
+  drawRefracted(sprite: Sprite, x: number, y: number, angle: number, time = 0, shift = 2, scale = 1) {
     const f = frameAt(sprite, time);
     const ws = this.worldScale;
-    const size = Math.ceil(Math.hypot(f.w, f.h) * ws) + 4;
+    const size = Math.ceil(Math.hypot(f.w, f.h) * ws * scale) + 4;
     const c = this.refractCanvas;
     if (c.width < size || c.height < size) {
       c.width = Math.max(c.width, size);
@@ -195,7 +207,7 @@ export class PixelRenderer {
     const d = Math.round(shift * ws);
     r.drawImage(this.buffer, sx + d, sy + Math.round(d / 2), size, size, 0, 0, size, size);
     r.globalCompositeOperation = 'destination-in';
-    r.setTransform(ws, 0, 0, ws, half, half);
+    r.setTransform(ws * scale, 0, 0, ws * scale, half, half);
     if (angle !== 0) r.rotate(angle);
     r.drawImage(f.image, f.sx, f.sy, f.w, f.h, -sprite.anchorX, -sprite.anchorY, f.w, f.h);
     r.setTransform(1, 0, 0, 1, 0, 0);
@@ -205,12 +217,14 @@ export class PixelRenderer {
 
   /**
    * Draw a ship-like sprite turned to `angle`. In 'rotsprite' mode it uses a
-   * RotSprite copy for the nearest angle step; otherwise it's drawSprite.
+   * RotSprite copy for the nearest angle step (if the art isn't too big for it); otherwise it's drawSprite.
+   * `scale` draws it bigger (e.g. a tier with no art of its own, using a smaller tier's).
    */
-  drawRotated(sprite: Sprite, x: number, y: number, angle: number, time = 0, alpha = 1) {
-    if (this.rotation !== 'rotsprite') return this.drawSprite(sprite, x, y, angle, time, alpha);
+  drawRotated(sprite: Sprite, x: number, y: number, angle: number, time = 0, alpha = 1, scale = 1) {
+    if (this.rotation !== 'rotsprite' || !this.rotSpriteFits(sprite))
+      return this.drawSprite(sprite, x, y, angle, time, alpha, false, scale);
     const r = rotatedFrame(frameAt(sprite, time), sprite.anchorX, sprite.anchorY, angleStep(angle));
-    this.drawRotatedCopy(r, x, y, alpha, 1);
+    this.drawRotatedCopy(r, x, y, alpha, scale);
   }
 
   private drawRotatedCopy(r: { canvas: HTMLCanvasElement; x: number; y: number }, x: number, y: number, alpha: number, scale: number) {

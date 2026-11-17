@@ -16,8 +16,24 @@ import { controlledShip, isMergePart, typeOf, type GameState, type Ship, type Te
  * is "ship.fighter.t2", and its wreck is "ship.fighter.t2.wreck".
  */
 export function tierSprite(assets: Assets, base: string, tier: number, suffix = '') {
-  for (let t = tier; t >= 2; t--) if (assets.has(`${base}.t${t}${suffix}`)) return `${base}.t${t}${suffix}`;
-  return base + suffix;
+  return tierArt(assets, base, tier, suffix).name;
+}
+
+/**
+ * The art to draw for this tier, and how much to enlarge it. A tier with no art of its
+ * own uses the closest smaller tier's, scaled up CONFIG.tiers.sizePerTier per missing
+ * tier so it still fits the ship's size. Art with no tier versions at all keeps its size.
+ */
+export function tierArt(assets: Assets, base: string, tier: number, suffix = '') {
+  for (let t = tier; t >= 2; t--)
+    if (assets.has(`${base}.t${t}${suffix}`)) return { name: `${base}.t${t}${suffix}`, scale: CONFIG.tiers.sizePerTier ** (tier - t) };
+  return { name: base + suffix, scale: 1 };
+}
+
+/** A tier's art as a sprite, with its scale (see tierArt). */
+function tierSpriteScaled(assets: Assets, base: string, tier: number) {
+  const a = tierArt(assets, base, tier);
+  return { sprite: assets.get(a.name), scale: a.scale };
 }
 
 /** A sprite with its team-colour parts recoloured for `team`. */
@@ -42,10 +58,13 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     const alpha = blinking ? 0.35 : 1;
     // A marker under the wreck, kept full size when zoomed out so wrecks stay easy to spot (early waves only).
     if (state.wave < CONFIG.wreckMarkerUntilWave)
-      r.drawSprite(assets.get(tierSprite(assets, 'ui.wreck-marker', w.tier)), w.x, w.y, 0, state.time, alpha, true);
+    {
+      const m = tierSpriteScaled(assets, 'ui.wreck-marker', w.tier);
+      r.drawSprite(m.sprite, w.x, w.y, 0, state.time, alpha, true, m.scale);
+    }
     // Drawn from its layout (art.json), in its own colours (wrecks aren't team-coloured).
-    const name = tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
-    drawLayoutArt(r, assets, extras.layouts.objects[name], name, w.x, w.y, w.angle, 'drifting', 'player', state.time, alpha);
+    const { name, scale } = tierArt(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, w.x, w.y, w.angle, 'drifting', 'player', state.time, alpha, true, scale);
   }
 
   // Loot: a crate glowing in its rarity's colour (blinks before it disappears),
@@ -60,12 +79,16 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
 
   // Mines (team-coloured, looping blink).
   for (const m of state.mines) {
-    const name = tierSprite(assets, 'projectile.mine', m.tier);
-    drawLayoutArt(r, assets, extras.layouts.objects[name], name, m.x, m.y, 0, 'armed', m.team, m.age);
+    const { name, scale } = tierArt(assets, 'projectile.mine', m.tier);
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, m.x, m.y, 0, 'armed', m.team, m.age, 1, true, scale);
   }
 
   // Elites get a marker ring under them.
-  for (const s of state.ships) if (s.elite) r.drawSprite(assets.get(tierSprite(assets, 'ui.elite-marker', s.tier)), s.x, s.y, 0, state.time);
+  for (const s of state.ships) {
+    if (!s.elite) continue;
+    const m = tierSpriteScaled(assets, 'ui.elite-marker', s.tier);
+    r.drawSprite(m.sprite, s.x, s.y, 0, state.time, 1, false, m.scale);
+  }
 
   // Thruster particles, under the ships.
   extras.particles.draw(r, assets);
@@ -77,22 +100,23 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   for (const s of ordered) drawShip(r, assets, extras.layouts, s, state.time);
   if (flagship) {
     // The command ring is also the boost meter: its frames go from empty (first) to full (last).
-    const ring = assets.get(tierSprite(assets, 'ui.command-ring', flagship.tier));
-    r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1);
+    const { sprite: ring, scale } = tierSpriteScaled(assets, 'ui.command-ring', flagship.tier);
+    r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1, false, scale);
     drawShip(r, assets, extras.layouts, flagship, state.time);
   }
 
   // Shield bubbles over shielded ships (fading in their last second).
   for (const s of state.ships) {
     if (s.shield <= 0 || s.absorbed) continue;
-    const bubble = assets.get(tierSprite(assets, 'vfx.shield', s.tier));
-    r.drawSprite(bubble, s.x, s.y, 0, state.time, Math.min(1, s.shieldTime));
+    const bubble = tierSpriteScaled(assets, 'vfx.shield', s.tier);
+    r.drawSprite(bubble.sprite, s.x, s.y, 0, state.time, Math.min(1, s.shieldTime), false, bubble.scale);
   }
 
   // Frozen ships get an icy overlay.
   for (const s of state.ships) {
     if (s.frozen <= 0 || s.absorbed) continue;
-    r.drawSprite(assets.get(tierSprite(assets, 'vfx.frozen', s.tier)), s.x, s.y, 0, state.time, Math.min(1, s.frozen * 2));
+    const ice = tierSpriteScaled(assets, 'vfx.frozen', s.tier);
+    r.drawSprite(ice.sprite, s.x, s.y, 0, state.time, Math.min(1, s.frozen * 2), false, ice.scale);
   }
 
   // Scrambled ships get a glitchy marker.
@@ -105,21 +129,22 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   for (const s of state.ships) {
     const laser = s.elite?.skills.find((sk) => sk.id === 'laser');
     if (!laser || !s.elite || s.elite.laserCharge <= 0) continue;
-    const warn = teamSprite(assets, tierSprite(assets, 'vfx.laser-warning', s.tier), s.team);
+    const w = tierArt(assets, 'vfx.laser-warning', s.tier);
+    const warn = teamSprite(assets, w.name, s.team);
     const x = s.x + Math.cos(s.angle) * s.stats.gunOffset;
     const y = s.y + Math.sin(s.angle) * s.stats.gunOffset;
-    drawBeam(r, warn, x, y, s.angle, laserLength(s, laser), laser.mods.size, state.time);
+    drawBeam(r, warn, x, y, s.angle, laserLength(s, laser), laser.mods.size * w.scale, state.time);
     // The laser's Warning mounts (art.json), at the muzzle.
-    const name = tierSprite(assets, 'vfx.laser', s.tier);
-    drawLayoutArt(r, assets, extras.layouts.objects[name], name, x, y, s.angle, 'warning', s.team, state.time, 1, false);
+    const { name, scale } = tierArt(assets, 'vfx.laser', s.tier);
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, x, y, s.angle, 'warning', s.team, state.time, 1, false, scale);
   }
 
   // Laser beams: one short segment image repeated along the beam's length.
   for (const b of state.beams) {
-    const name = tierSprite(assets, 'vfx.laser', b.tier);
-    drawBeam(r, teamSprite(assets, name, b.team), b.x, b.y, b.angle, b.length, b.width, b.age);
+    const { name, scale } = tierArt(assets, 'vfx.laser', b.tier);
+    drawBeam(r, teamSprite(assets, name, b.team), b.x, b.y, b.angle, b.length, b.width * scale, b.age);
     // The laser's Beam mounts (art.json), at the muzzle.
-    drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, b.angle, 'beam', b.team, b.age, 1, false);
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, b.angle, 'beam', b.team, b.age, 1, false, scale);
   }
 
   drawSkillObjects(state, r, assets, extras);
@@ -132,13 +157,13 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   }
 
   for (const b of state.bullets) {
-    const name = tierSprite(assets, b.sprite, b.tier);
+    const { name, scale } = tierArt(assets, b.sprite, b.tier);
     if (b.homing > 0) {
       // Missiles are drawn from their layout (art.json): Inert until they fire up, then Fired
       // (with their flame mount). They point where they face, which can differ from where they fly.
       const angle = b.facing ?? Math.atan2(b.vy, b.vx);
-      drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, angle, b.lit ? 'fired' : 'inert', b.team, state.time);
-    } else drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, Math.atan2(b.vy, b.vx), 'flying', b.team, state.time);
+      drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, angle, b.lit ? 'fired' : 'inert', b.team, state.time, 1, true, scale);
+    } else drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, Math.atan2(b.vy, b.vx), 'flying', b.team, state.time, 1, true, scale);
   }
 
   // Flagship debris: each piece is one frame of vfx.debris, spinning, fading out at the end.
@@ -154,10 +179,12 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     let { x, y } = e;
     // An effect tied to a point on an object (e.g. a missile's impact point) appears there.
     if (e.at) {
-      const p = extras.layouts.objects[tierSprite(assets, e.at.sprite, e.at.tier)]?.points?.[e.at.point];
-      if (p) ({ x, y } = shipPointToWorld(p.x, p.y, e.x, e.y, e.at.angle));
+      const at = tierArt(assets, e.at.sprite, e.at.tier);
+      const p = extras.layouts.objects[at.name]?.points?.[e.at.point];
+      if (p) ({ x, y } = shipPointToWorld(p.x * at.scale, p.y * at.scale, e.x, e.y, e.at.angle));
     }
-    r.drawSprite(assets.get(tierSprite(assets, e.sprite, e.tier)), x, y, e.angle, e.age, 1, false, e.scale);
+    const fx = tierSpriteScaled(assets, e.sprite, e.tier);
+    r.drawSprite(fx.sprite, x, y, e.angle, e.age, 1, false, e.scale * fx.scale);
   }
 
   // Arrows at the screen edge pointing to things you can't see.
@@ -244,8 +271,8 @@ function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets, ex
         }
         const w = o.wreck;
         if (w) {
-          const name = tierSprite(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
-          drawLayoutArt(r, assets, extras.layouts.objects[name], name, o.x, o.y, w.angle, 'drifting', 'player', state.time);
+          const { name, scale } = tierArt(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
+          drawLayoutArt(r, assets, extras.layouts.objects[name], name, o.x, o.y, w.angle, 'drifting', 'player', state.time, 1, true, scale);
         }
         break;
       }
@@ -291,10 +318,11 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
   if (s.absorbed) return; // already inside the ship it's merging into
   // Dash trail behind the ship, pointing back along its movement. Plays once per dash.
   if (s.fleet.dashTime > 0 && !isMergePart(s)) {
-    const trail = teamSprite(assets, tierSprite(assets, 'vfx.dash', s.tier), s.team);
-    r.drawSprite(trail, s.x, s.y, Math.atan2(s.vy, s.vx), CONFIG.dash.duration - s.fleet.dashTime);
+    const d = tierArt(assets, 'vfx.dash', s.tier);
+    const trail = teamSprite(assets, d.name, s.team);
+    r.drawSprite(trail, s.x, s.y, Math.atan2(s.vy, s.vx), CONFIG.dash.duration - s.fleet.dashTime, 1, false, d.scale);
   }
-  const base = tierSprite(assets, typeOf(s).sprites.ship, s.tier);
+  const { name: base, scale } = tierArt(assets, typeOf(s).sprites.ship, s.tier);
   // Ships flying into a merge fade out as they reach the core.
   let alpha = 1;
   if (s.merge && isMergePart(s)) {
@@ -306,12 +334,12 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
     // Cloaked: the stars behind show through it, slightly shifted, like glass; the ship itself is faint
     // (yours so you can still follow them, an elite's so it stays fair).
     const file = layout?.base[s.thrust] ?? layout?.base.idle;
-    r.drawRefracted(assets.get(file ? fileSprite(file) : base), s.x, s.y, s.angle, time, CONFIG.cloak.refraction);
+    r.drawRefracted(assets.get(file ? fileSprite(file) : base), s.x, s.y, s.angle, time, CONFIG.cloak.refraction, scale);
     alpha *= s.team === 'player' ? CONFIG.cloak.ownAlpha : CONFIG.elite.cloakAlpha;
   }
   // A hijacked ship flickers in its last second before it switches back.
   if (s.hijacked > 0 && s.hijacked < 1 && Math.floor(s.hijacked * 10) % 2) alpha *= 0.4;
-  drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, s.team, time, alpha);
+  drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, s.team, time, alpha, true, scale);
   const maxHp = s.stats.maxHp;
   if (s.hp < maxHp) {
     const w = Math.round(16 * s.stats.size);
@@ -341,20 +369,30 @@ export function drawLayoutArt(
   alpha = 1,
   /** false = only the mounts (e.g. a laser, whose beam is drawn separately). */
   drawBase = true,
+  /** Draw it this much bigger, mounts included (a tier using a smaller tier's art, see tierArt). */
+  scale = 1,
 ) {
   const baseFile = layout?.base[state] ?? layout?.base.idle;
   const mounts = layout?.mounts ?? [];
+  const baseSprite = teamSprite(assets, baseFile ? fileSprite(baseFile) : base, team);
+  // Art too big for RotSprite is drawn as in Grid, mounts too, so they stay put on it.
+  const mode = r.rotation;
+  if (mode === 'rotsprite' && !r.rotSpriteFits(baseSprite)) r.rotation = 'grid';
   const drawMounts = (behind: boolean) => {
     for (const m of mounts) {
       const file = m.images[state];
       if (!file || m.behind !== behind) continue;
       const sprite = teamSprite(assets, fileSprite(file), team);
-      r.drawAttached(sprite, x, y, angle, m.x, m.y, (m.angle * Math.PI) / 180, time, alpha, m.scale, m.flipX, m.flipY);
+      r.drawAttached(sprite, x, y, angle, m.x * scale, m.y * scale, (m.angle * Math.PI) / 180, time, alpha, m.scale * scale, m.flipX, m.flipY);
     }
   };
-  drawMounts(true);
-  if (drawBase) r.drawRotated(teamSprite(assets, baseFile ? fileSprite(baseFile) : base, team), x, y, angle, time, alpha);
-  drawMounts(false);
+  try {
+    drawMounts(true);
+    if (drawBase) r.drawRotated(baseSprite, x, y, angle, time, alpha, scale);
+    drawMounts(false);
+  } finally {
+    r.rotation = mode;
+  }
 }
 
 /**

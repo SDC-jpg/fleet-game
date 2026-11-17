@@ -5,7 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-16
-- Tier 5 to 8 ships and wrecks now have their own (temporary) art at the right size, instead of looking like small tier 4 ships.
+- Tier 5 to 8 ships and wrecks now have their own (temporary) art at the right size, instead of looking like small tier 4 ships. Their shots, explosions, shields and other effects now grow with them too, and even bigger ships use enlarged art.
 - Smaller ships in your fleet now turn toward your aim at their own speed instead of waiting for a big, slow-turning flagship.
 - Fleets with ships of different sizes fly in a much tighter formation: smaller ships now fill the gaps around your biggest ones instead of circling far outside.
 - Elites have no skills before wave 25, giving you time to power up first.

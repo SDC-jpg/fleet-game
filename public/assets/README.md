@@ -249,7 +249,7 @@ own art, named by adding `.t2`, `.t3`, `.t4` to the tier-1 name:
 - Suggested canvas sizes (each tier is 1.5× the last): ships 64 → 96 → 144 →
   216 px. The game doesn't care about the exact size: hit sizes are in
   `src/game/config.ts`.
-- Any tier can be missing: the game uses the closest smaller tier's art.
+- Any tier can be missing: the game uses the closest smaller tier's art, drawn 1.5× bigger per missing tier so it still fits the ship (art with no tier versions at all keeps its size). Tiers 5–8 have generated placeholders; very large sheets (Repulse, Freeze, big explosions...) were left out on purpose and use this scaling instead.
 - Ships and shots are recoloured per team like tier 1, so paint team-colour
   parts in strong sky blue.
 - Tier 3 and up are seen zoomed out below 1×, where the art is shrunk and

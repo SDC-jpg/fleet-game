@@ -1666,10 +1666,43 @@ const FILES = {
   'backgrounds/stars-near.png': starsNear,
 };
 
-// Tiers 5-8: ship and wreck only (other art falls back to tier 4's).
+// Tiers 5-8: ship, wreck and tier effects, still growing 1.5x per tier. Missiles and their
+// flames are left out: their layouts (art.json, made in ShipArt) stop at tier 4, so the game
+// draws the tier-4 missile scaled up instead, keeping its flame and trail.
+// Images bigger than MAX_TIER_PIXELS aren't made either (they'd be slow to load and take a lot
+// of memory); the game draws the biggest smaller tier's image scaled up instead.
+const MAX_TIER_PIXELS = 2048 * 2048;
+const BIG_TIER_FILES = new Set();
 for (const tier of [5, 6, 7, 8]) {
+  const k = 1.5 ** (tier - 1);
+  const even = (n) => Math.round(n / 2) * 2;
+  const add = (name, draw) => {
+    FILES[name] = draw;
+    BIG_TIER_FILES.add(name);
+  };
   FILES[`ships/fighter-t${tier}.png`] = () => tierFighter(tier);
   FILES[`ships/fighter-t${tier}-wreck.png`] = () => tierWreck(tier);
+  add(`projectiles/bullet-t${tier}.png`, () => bullet(tier));
+  add(`vfx/explosion-t${tier}.png`, () => explosionSheet(even(32 * k)));
+  add(`vfx/flagship-explosion-t${tier}.png`, () => flagshipExplosionSheet(even(96 * k)));
+  add(`vfx/warp-out-t${tier}.png`, () => warpOutSheet(even(64 * k)));
+  add(`vfx/warp-in-t${tier}.png`, () => warpInSheet(even(64 * k)));
+  add(`vfx/hit-t${tier}.png`, () => hitSheet(even(16 * k)));
+  add(`vfx/recruit-t${tier}.png`, () => recruitSheet(even(48 * k)));
+  add(`vfx/merge-t${tier}.png`, () => mergeSheet(TIER_CANVAS[tier]));
+  add(`ui/command-ring-t${tier}.png`, () => commandRing(even(44 * k)));
+  add(`ui/wreck-marker-t${tier}.png`, () => wreckMarker(even(48 * k)));
+  add(`vfx/dash-t${tier}.png`, () => dashSheet(even(56 * k), even(28 * k)));
+  add(`vfx/laser-t${tier}.png`, () => laserSegment(tier));
+  add(`vfx/laser-warning-t${tier}.png`, () => laserWarning(tier));
+  add(`ui/elite-marker-t${tier}.png`, () => eliteMarker(even(56 * k)));
+  add(`vfx/missile-hit-t${tier}.png`, () => missileHitSheet(even(20 * k)));
+  add(`projectiles/mine-t${tier}.png`, () => mine(tier));
+  add(`vfx/mine-blast-t${tier}.png`, () => mineBlast(even(112 * k)));
+  add(`vfx/shield-t${tier}.png`, () => shieldSheet(even(40 * k)));
+  add(`vfx/repulse-t${tier}.png`, () => repulseRing(even(304 * k)));
+  add(`vfx/freeze-t${tier}.png`, () => freezeCone(Math.round(220 * k)));
+  add(`vfx/frozen-t${tier}.png`, () => frozenShell(even(40 * k)));
 }
 
 // Bigger tiers: everything grows 1.5× per tier.
@@ -1712,7 +1745,12 @@ for (const [name, draw] of Object.entries(FILES)) {
     console.log(`skip   ${name} (already exists)`);
     continue;
   }
+  const img = draw();
+  if (BIG_TIER_FILES.has(name) && img.w * img.h > MAX_TIER_PIXELS) {
+    console.log(`big    ${name} (${img.w}x${img.h}, too big: the game scales a smaller tier's image instead)`);
+    continue;
+  }
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, encodePng(draw()));
+  writeFileSync(path, encodePng(img));
   console.log(`write  ${name}`);
 }

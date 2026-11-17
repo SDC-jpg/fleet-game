@@ -61,11 +61,12 @@ export class Particles {
    * particles in this state does so from its VFX point, out the back of the mount.
    * (vx, vy) is how fast the ship or object is moving (spreads the particles along its path).
    */
-  emitMounts(data: ArtLayoutsFile, layout: ArtLayout | undefined, state: string, x: number, y: number, angle: number, dt: number, vx = 0, vy = 0) {
+  /** `scale`: the art is drawn this much bigger (see tierArt), so the mounts sit further out. */
+  emitMounts(data: ArtLayoutsFile, layout: ArtLayout | undefined, state: string, x: number, y: number, angle: number, dt: number, vx = 0, vy = 0, scale = 1) {
     if (!layout) return;
     for (const m of layout.mounts) {
       if (!m.emit?.[state]) continue;
-      const p = shipPointToWorld(m.x + m.vfxX, m.y + m.vfxY, x, y, angle);
+      const p = shipPointToWorld((m.x + m.vfxX) * scale, (m.y + m.vfxY) * scale, x, y, angle);
       this.emit(particleSettings(data, m, state), p.x, p.y, mountWorldAngle(m, angle) + Math.PI, dt, vx, vy);
     }
   }
