@@ -59,6 +59,8 @@ const ELITES_SETTING = 'fleet-game.elites';
 const FORMATION_SETTING = 'fleet-game.formation';
 /** Cursor lock (Settings): keep the mouse inside the game, for several monitors. Remembered in this browser. */
 const CURSOR_LOCK_SETTING = 'fleet-game.cursor-lock';
+/** Touch screens: on-screen controls mirrored (thumbstick on the right). */
+const LEFT_HANDED_SETTING = 'fleet-game.touch-left-handed';
 
 /** Numbers shown on screen by React. */
 export interface HudInfo {
@@ -129,6 +131,8 @@ export interface HudInfo {
   autoFire: boolean;
   /** Settings: the mouse is kept inside the game. */
   cursorLock: boolean;
+  /** Settings (touch screens): controls mirrored, thumbstick on the right. */
+  leftHanded: boolean;
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
   /** An interrupted run that can be resumed (asked when the game opens), or null. */
@@ -431,6 +435,14 @@ export class Game {
     this.paused = paused;
     this.needsDraw = true;
     if (!paused && byClick) this.input.lock();
+  }
+
+  /** Settings (touch screens): mirror the on-screen controls (remembered in this browser). */
+  leftHanded = loadSetting(LEFT_HANDED_SETTING) === 'on';
+  setLeftHanded(on: boolean) {
+    this.leftHanded = on;
+    saveSetting(LEFT_HANDED_SETTING, on ? 'on' : 'off');
+    this.sendHud();
   }
 
   /** Settings: keep the mouse inside the game window (remembered in this browser). */
@@ -977,6 +989,7 @@ export class Game {
       soundOn: this.sounds.enabled,
       autoFire: this.autoFire,
       cursorLock: this.input.cursorLock,
+      leftHanded: this.leftHanded,
       fps: this.fps,
       resumeOffer: this.resumeOffer && {
         wave: this.resumeOffer.wave,

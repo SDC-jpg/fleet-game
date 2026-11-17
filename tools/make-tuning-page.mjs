@@ -231,6 +231,39 @@ try {
 }
 const built = new Date().toISOString().slice(0, 10);
 
+// ---------- Categories (collapsible groups on the page) ----------
+
+// Skill settings (CONFIG.<skill id>) go under Weapons, Defensive skills or Passive skills, by the
+// skill's `side` in SKILLS: left click = weapon, right click = defence, passive.
+const skillSide = {};
+for (const p of unwrap(findVariable('SKILLS').decl.initializer).properties) {
+  const side = unwrap(p.initializer).properties?.find((q) => nameOf(q) === 'side');
+  if (side) skillSide[nameOf(p)] = valueText(side.initializer).replace(/"/g, '');
+}
+const ART = ['teamColors', 'particles', 'audio', 'zoomSteps', 'detail', 'death', 'edgeMarkers'];
+const WEAPONS = ['guns', 'shotInherit'];
+const OTHER = ['runSave'];
+const CATEGORIES = [
+  { id: 'art', title: 'Art and audio', note: 'How things look and sound.' },
+  { id: 'weapons', title: 'Weapons', note: 'Ship guns and left-click weapon skills.' },
+  { id: 'defence', title: 'Defensive skills', note: 'Right-click skills.' },
+  { id: 'passive', title: 'Passive skills', note: 'Always-on skills.' },
+  { id: 'difficulty', title: 'Difficulty', note: 'Ships, tiers, movement, enemies, waves, elites, levels, cards and items.' },
+  { id: 'other', title: 'Other', note: 'Things that don’t change play.' },
+];
+function categoryOf(sec) {
+  const key = sec.where.startsWith('CONFIG.') ? sec.where.slice(7) : '';
+  if (ART.includes(key) || sec.where.endsWith('manifest.json')) return 'art';
+  if (WEAPONS.includes(key)) return 'weapons';
+  if (OTHER.includes(key)) return 'other';
+  const side = skillSide[key];
+  if (side === 'left') return 'weapons';
+  if (side === 'right') return 'defence';
+  if (side === 'passive') return 'passive';
+  return 'difficulty';
+}
+const groups = CATEGORIES.map((c) => ({ ...c, sections: sections.filter((s) => categoryOf(s) === c.id) })).filter((g) => g.sections.length);
+
 // ---------- Page ----------
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -280,10 +313,21 @@ h1 { font: 700 clamp(28px, 4vw, 40px)/1.1 var(--display); margin: 0; letter-spac
 .lede { color: var(--muted); max-width: 70ch; margin: 0; }
 .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .meta span, .meta a { font: 12px var(--mono); padding: 3px 8px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); text-decoration: none; }
-nav { position: sticky; top: 24px; align-self: start; display: grid; gap: 2px; }
+nav { position: sticky; top: 24px; align-self: start; display: grid; gap: 2px; max-height: calc(100vh - 48px); overflow-y: auto; }
 nav a { color: var(--muted); text-decoration: none; font-size: 13px; padding: 4px 8px; border-radius: 4px; }
 nav a:hover, nav a:focus-visible { color: var(--fg); background: var(--surface); outline: none; }
-main { display: grid; gap: 36px; min-width: 0; }
+main { display: grid; gap: 14px; min-width: 0; align-content: start; }
+details.cat { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+details.cat > summary { cursor: pointer; padding: 14px 18px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; list-style: none; }
+details.cat > summary::-webkit-details-marker { display: none; }
+details.cat > summary::before { content: "▸"; color: var(--accent); width: 1em; }
+details.cat[open] > summary::before { content: "▾"; }
+.cat-title { font: 700 22px/1.2 var(--display); }
+.cat-note { color: var(--muted); font-size: 13px; }
+.cat-body { display: grid; gap: 36px; padding: 6px 18px 22px; min-width: 0; }
+.cat-body .table { background: var(--bg); }
+.nav-group { font: 500 11px var(--body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 12px 8px 2px; }
+#toggle-all { font: 500 12px var(--body); color: var(--accent); background: var(--accent-soft); border: 0; border-radius: 4px; padding: 6px 10px; cursor: pointer; justify-self: start; }
 section { display: grid; gap: 8px; min-width: 0; }
 h2 { font: 700 20px/1.2 var(--display); margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
 h2 small { font: 400 12px var(--mono); color: var(--muted); }
@@ -312,11 +356,41 @@ td.val { max-width: 220px; }
       ${commit ? `<a href="${REPO}/commit/${commit}">version ${commit.slice(0, 7)}</a>` : ''}
     </div>
   </header>
-  <nav aria-label="Sections">${sections.map((s) => `<a href="#${slug(s.title)}">${esc(s.title)}</a>`).join('')}</nav>
+  <nav aria-label="Sections">
+    <button type="button" id="toggle-all">Open all</button>
+${groups.map((g) => `    <div class="nav-group">${esc(g.title)}</div>${g.sections.map((s) => `<a href="#${slug(s.title)}">${esc(s.title)}</a>`).join('')}`).join('\n')}
+  </nav>
   <main>
-${sections.map((s) => '    ' + sectionHtml(s)).join('\n')}
+${groups
+  .map(
+    (g) => `    <details class="cat" id="cat-${g.id}">
+      <summary><span class="cat-title">${esc(g.title)}</span><span class="cat-note">${esc(g.note)} · ${g.sections.length} section${g.sections.length > 1 ? 's' : ''}</span></summary>
+      <div class="cat-body">
+${g.sections.map((s) => '        ' + sectionHtml(s)).join('\n')}
+      </div>
+    </details>`,
+  )
+  .join('\n')}
   </main>
 </div>
+<script>
+// Following a link to a section opens its category first.
+function openFor(hash) {
+  const el = hash && document.getElementById(decodeURIComponent(hash.slice(1)));
+  const cat = el && el.closest('details');
+  if (cat) { cat.open = true; el.scrollIntoView(); }
+}
+addEventListener('hashchange', () => openFor(location.hash));
+openFor(location.hash);
+const all = document.getElementById('toggle-all');
+const cats = [...document.querySelectorAll('details.cat')];
+const sync = () => (all.textContent = cats.every((d) => d.open) ? 'Close all' : 'Open all');
+cats.forEach((d) => d.addEventListener('toggle', sync));
+all.addEventListener('click', () => {
+  const open = !cats.every((d) => d.open);
+  cats.forEach((d) => (d.open = open));
+});
+</script>
 </body>
 </html>
 `;

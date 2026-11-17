@@ -5,6 +5,8 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-16
+- New Lifetime tab in the pause menu: all your finished runs added up (runs, time played, ships destroyed and lost, fleet value, items collected and merged, kills per weapon and skill).
+- Touch screens: a much bigger thumbstick, placed further in from the corner, and a "Left-handed controls" setting that swaps the sides of the on-screen controls.
 - Huge fleets fit on screen: once your biggest ship passes tier 6, everything is drawn a size smaller (still sharp pixel art) and the view widens, and the smallest ships turn into little diamonds (blue for yours, red, purple or orange for enemies).
 - New enemy squadrons: some waves now bring a group of orange enemies that fire small homing missiles (from wave 7) or purple enemies that fire beams through every ship in a line (from wave 12). Point Defense Cannons, Force Wall and Repulse stop their missiles.
 - Enemy ships now have their own art instead of being recoloured copies of yours (they look the same for now; this makes room for different enemy designs). A ship you hijack shows a blue heart above it while it fights for you.

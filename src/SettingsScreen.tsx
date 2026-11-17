@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import { TEST_KEYS_ENABLED, type Game, type HudInfo } from './game/Game';
+import { IS_TOUCH_DEVICE } from './engine/touch';
 import { cardIndex } from './game/progress';
 import { CardView } from './CardView';
 
@@ -47,6 +48,15 @@ function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
           </span>
         </span>
       </label>
+      {IS_TOUCH_DEVICE && (
+        <label className="setting">
+          <input type="checkbox" checked={hud.leftHanded} onChange={(e) => game?.setLeftHanded(e.target.checked)} />
+          <span>
+            <b>Left-handed controls</b>
+            <span className="note">Swaps the sides of the on-screen controls: thumbstick on the right, buttons on the left.</span>
+          </span>
+        </label>
+      )}
       <div className="setting danger">
         <span>
           <b>Clear saved progress</b>

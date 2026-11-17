@@ -2,31 +2,34 @@
 // the bottom-left corner (a knob inside a ring) that moves and turns your ship,
 // and buttons in the bottom-right corner: Attack (hold, like left click) and
 // Defend (like right click), with Dash and Boost below them; plus a pause
-// button. Each finger is followed separately, so you can steer and press at
+// button. Settings → Left-handed controls mirrors the layout. Each finger is followed separately, so you can steer and press at
 // once. Drawn with CSS for now (.touch-* in index.css), so art can replace it.
 
 import { useRef, useState } from 'react';
 import type { Game } from './game/Game';
 
-/** How far the knob can move from the middle, in CSS pixels. */
-const STICK_RADIUS = 56;
+/** How far the knob can move from the middle, as a share of the ring's width (the ring's size is set in CSS). */
+const STICK_REACH = 0.375;
 
 function Stick({ game }: { game: Game }) {
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const finger = useRef<number | null>(null);
   const center = useRef({ x: 0, y: 0 });
+  /** How far the knob can move from the middle, in CSS pixels (from the ring's size when touched). */
+  const radius = useRef(1);
 
   const move = (clientX: number, clientY: number) => {
     let dx = clientX - center.current.x;
     let dy = clientY - center.current.y;
     const d = Math.hypot(dx, dy);
-    if (d > STICK_RADIUS) {
-      dx *= STICK_RADIUS / d;
-      dy *= STICK_RADIUS / d;
+    const R = radius.current;
+    if (d > R) {
+      dx *= R / d;
+      dy *= R / d;
     }
     setKnob({ x: dx, y: dy });
-    game.touch.stickX = dx / STICK_RADIUS;
-    game.touch.stickY = dy / STICK_RADIUS;
+    game.touch.stickX = dx / R;
+    game.touch.stickY = dy / R;
   };
   const release = () => {
     finger.current = null;
@@ -41,6 +44,7 @@ function Stick({ game }: { game: Game }) {
       onPointerDown={(e) => {
         const r = e.currentTarget.getBoundingClientRect();
         center.current = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        radius.current = r.width * STICK_REACH;
         finger.current = e.pointerId;
         e.currentTarget.setPointerCapture(e.pointerId);
         move(e.clientX, e.clientY);
@@ -77,10 +81,11 @@ function HoldButton({ className, label, onChange, onPress }: { className: string
   );
 }
 
-export function TouchControls({ game }: { game: Game }) {
+/** `leftHanded`: the layout mirrored (thumbstick on the right, buttons on the left; labels unchanged). */
+export function TouchControls({ game, leftHanded }: { game: Game; leftHanded: boolean }) {
   const t = game.touch;
   return (
-    <div className="touch-controls">
+    <div className={'touch-controls' + (leftHanded ? ' left-handed' : '')}>
       <Stick game={game} />
       <div className="touch-buttons">
         <div className="touch-row">

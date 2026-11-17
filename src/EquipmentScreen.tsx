@@ -1,6 +1,6 @@
 // The pause screen (Esc). Equipment tab: your equipment slots in a ring (3 per
 // tier, up to tier 10) around your fleet's total bonuses, and your inventory
-// below. Settings tab: see SettingsScreen. Run log tab (also the Tab key): past runs (RunLog).
+// below. Settings tab: see SettingsScreen. Run log tab (also the Tab key): past runs (RunLog). Lifetime tab: all runs added up (LifetimeStats).
 //
 // Drag an item (hold left click) into a slot to equip, move or swap it; drag
 // an equipped item onto the inventory to take it off. Right-click equips an
@@ -26,6 +26,7 @@ import { MergeToggle } from './merge/MergeToggle';
 import { CircuitLines, type Box } from './merge/CircuitLines';
 import { useMergeSlots } from './merge/useMergeSlots';
 import { MERGE_COUNT, pickMergeSet } from './game/equipment';
+import { LifetimeStats } from './LifetimeStats';
 import { RunLog } from './RunLog';
 import { loadRuns } from './game/runLog';
 
@@ -38,7 +39,7 @@ const RING_RY = 150;
 const MERGE_BUTTON_TIER = 6;
 
 type Sort = 'rarest-first' | 'rarest-last' | 'type';
-type Tab = 'equipment' | 'settings' | 'log';
+type Tab = 'equipment' | 'settings' | 'log' | 'lifetime';
 /** Inventory filter, sort and open tab, remembered while the page is open. */
 const view: { rarity: Rarity | 'all'; sort: Sort; tab: Tab } = { rarity: 'all', sort: 'rarest-first', tab: 'equipment' };
 
@@ -238,6 +239,9 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
           <button className={tab === 'log' ? 'on' : ''} onClick={() => setTab('log')} title="Your past runs (Tab)">
             Run log
           </button>
+          <button className={tab === 'lifetime' ? 'on' : ''} onClick={() => setTab('lifetime')} title="All your finished runs added up">
+            Lifetime
+          </button>
         </div>
         <span className="spacer" />
         <button
@@ -253,6 +257,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
       {tab === 'equipment' && <div className="note equipment-hint">Drag into slots · right-click to equip or take off · bonuses apply to your whole fleet</div>}
       {tab === 'settings' && <SettingsScreen hud={hud} game={game} />}
       {tab === 'log' && <RunLog runs={loadRuns()} embedded />}
+      {tab === 'lifetime' && <LifetimeStats />}
 
       {tab === 'equipment' && (
         <>

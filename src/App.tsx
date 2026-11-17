@@ -118,7 +118,7 @@ export default function App() {
       )}
 
       {hud && !hud.gameOver && !hud.paused && !hud.resumeOffer && <BottomHud hud={hud} game={gameRef.current} />}
-      {IS_TOUCH_DEVICE && hud && gameRef.current && !hud.gameOver && !hud.paused && !hud.cards && !hud.resumeOffer && <TouchControls game={gameRef.current} />}
+      {IS_TOUCH_DEVICE && hud && gameRef.current && !hud.gameOver && !hud.paused && !hud.cards && !hud.resumeOffer && <TouchControls game={gameRef.current} leftHanded={hud.leftHanded} />}
       {hud?.cards && !hud.gameOver && <CardScreen hud={hud} game={gameRef.current} />}
 
       {hud?.paused && <EquipmentScreen hud={hud} game={gameRef.current} />}

@@ -1090,13 +1090,15 @@ body {
 .touch-pause {
   pointer-events: auto;
 }
-/* Thumbstick: a knob inside a ring, bottom left. */
+/* Thumbstick: a knob inside a ring, bottom left (15% of the width in, 5% of the height up).
+   375 px wide, but never more than 75% of the screen's height (phones held sideways). */
 .touch-stick {
+  --stick: min(375px, 75vh);
   position: absolute;
-  left: 24px;
-  bottom: 24px;
-  width: 150px;
-  height: 150px;
+  left: 15vw;
+  bottom: 5vh;
+  width: var(--stick);
+  height: var(--stick);
   border-radius: 50%;
   border: 2px solid rgba(159, 211, 255, 0.5);
   background: rgba(20, 30, 60, 0.35);
@@ -1105,8 +1107,8 @@ body {
   justify-content: center;
 }
 .touch-knob {
-  width: 64px;
-  height: 64px;
+  width: calc(var(--stick) * 0.427);
+  height: calc(var(--stick) * 0.427);
   border-radius: 50%;
   background: rgba(159, 211, 255, 0.55);
   border: 2px solid rgba(232, 240, 255, 0.8);
@@ -1148,6 +1150,19 @@ body {
 }
 .touch-button.down {
   filter: brightness(1.6);
+}
+/* Left-handed (Settings): the same layout mirrored. */
+.left-handed .touch-stick {
+  left: auto;
+  right: 15vw;
+}
+.left-handed .touch-buttons {
+  right: auto;
+  left: 24px;
+  align-items: flex-start;
+}
+.left-handed .touch-row {
+  flex-direction: row-reverse;
 }
 .touch-pause {
   position: absolute;
@@ -1269,3 +1284,32 @@ body {
 .wave-next .f { color: #e0484a; }
 .wave-next .e { color: #ff9a3a; }
 .wave-next .s { color: #ffd34a; }
+
+/* Pause screen, Lifetime tab (LifetimeStats.tsx). */
+.lifetime {
+  max-width: 560px;
+  margin: 10px auto 0;
+  max-height: min(560px, calc(100vh - 160px));
+  overflow-y: auto;
+  text-align: left;
+}
+.lifetime .kill-chart {
+  margin-top: 16px;
+}
+.lifetime .kill-row {
+  grid-template-columns: 190px 1fr;
+}
+.lifetime-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 24px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.lifetime-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #1f2742;
+  padding: 3px 0;
+}
