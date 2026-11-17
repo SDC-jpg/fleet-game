@@ -13,7 +13,12 @@ pages only show what's still a placeholder.
 1. Ask Claude for an art sheet (or run `npm run art-sheet`). The pages appear in the
    `art-sheet` folder of the project:
    - `ui.png`, `projectiles.png`, `backgrounds.png`, `effects.png` (+ `-2`, `-3`...: VFX,
-     thrusters and flames). Tier 1–4 versions only for now (`--all-tiers` adds 5–8 later).
+     thrusters and flames). Projectiles up to tier 6, the rest up to tier 4 for now
+     (`--all-tiers` adds their tier 5–6 pages). Tier 7–8 versions of non-ship art never go on
+     a sheet: the game never shows them (past tier 6 the detail steps use the tier-6 image).
+   - Pages are laid out roughly square; flipbook frames sit in a compact grid.
+   - If the current pages have painting that wasn't applied yet, new pages aren't made
+     (so nothing is lost).
    - `ships-t1.png` … `ships-t8.png`: that tier's enemy ships (standard, energy, explosive),
      wreck and turret. Your own player ships aren't on them.
 2. Each image sits in its own box at its exact size, with its name above it and a thin

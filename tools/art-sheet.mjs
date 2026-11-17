@@ -31,6 +31,14 @@ const [cmd = 'make', ...flags] = process.argv.slice(2);
 const has = (f) => flags.includes(f);
 
 const PAGE_MAX = 4096;
+/**
+ * Highest tier of each kind of art that goes on the main pages (more with --all-tiers, up to 6:
+ * past tier 6 the detail steps draw the tier-6 image instead, so tier 7-8 art is never shown).
+ * Ship pages always have every tier.
+ */
+const MAX_TIER = { projectiles: 6 };
+const DEFAULT_MAX_TIER = 4;
+const SHOWN_UP_TO = 6;
 const PAD = 16; // around the page
 const GAP = 14; // between boxes
 const LABEL_H = 13; // name above each box
@@ -81,6 +89,16 @@ const b64 = (file) => readFileSync(ASSETS_DIR + file).toString('base64');
 // ---------- make ----------
 
 async function make() {
+  // Don't throw away painting: pages with changes must be applied first (or --force).
+  if (existsSync(MAP_FILE) && !has('--force')) {
+    const { changed } = await findChanges();
+    if (changed.length) {
+      console.log(`The current pages have ${changed.length} painted images not put into the game yet:`);
+      for (const c of changed) console.log(`  ${c.file}`);
+      console.log('Apply them first (apply --write), or make new pages anyway with --force (loses that painting).');
+      return;
+    }
+  }
   const manifest = JSON.parse(readFileSync(ASSETS_DIR + 'manifest.json', 'utf8')).sprites;
   // Frame size per file (flipbooks), from the manifest.
   const frameOf = {};
@@ -98,10 +116,12 @@ async function make() {
     if (!isPlaceholder(file, placeholders)) continue;
     const { group, tier } = placeOf(file);
     let page;
+    const maxTier = MAX_TIER[group] ?? DEFAULT_MAX_TIER;
     if (group === 'ships') page = `ships-t${tier}`;
-    else if (tier >= 5) {
+    else if (tier > SHOWN_UP_TO) continue; // never shown in the game
+    else if (tier > maxTier) {
       if (!has('--all-tiers')) continue;
-      page = `${group}-t5-t8`;
+      page = `${group}-t${maxTier + 1}-t${SHOWN_UP_TO}`;
     } else page = group;
     const { w, h } = pngSize(ASSETS_DIR + file);
     const fw = Math.min(w, frameOf[file]?.fw ?? w);
@@ -110,8 +130,9 @@ async function make() {
     const rows = Math.max(1, Math.floor(h / fh));
     const frames = [];
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) frames.push({ fx: c * fw, fy: r * fh, w: fw, h: fh });
-    // Frames in a grid inside the box, wrapping before the page edge.
-    const per = Math.max(1, Math.min(frames.length, Math.floor((PAGE_MAX - 2 * PAD + FRAME_GAP) / (fw + FRAME_GAP))));
+    // Flipbook frames in a grid inside the box, about as wide as tall (and never past the page edge).
+    const square = Math.ceil(Math.sqrt((frames.length * (fh + FRAME_GAP)) / (fw + FRAME_GAP)));
+    const per = Math.max(1, Math.min(frames.length, square, Math.floor((PAGE_MAX - 2 * PAD + FRAME_GAP) / (fw + FRAME_GAP))));
     frames.forEach((f, i) => {
       f.bx = (i % per) * (fw + FRAME_GAP);
       f.by = Math.floor(i / per) * (fh + FRAME_GAP);
@@ -131,6 +152,11 @@ async function make() {
   const groups = [...new Set(items.map((i) => i.page))].sort();
   for (const g of groups) {
     const list = items.filter((i) => i.page === g).sort((a, b) => a.file.localeCompare(b.file, 'en', { numeric: true }));
+    // A page about as wide as tall: wide enough for its widest image and the square root of its
+    // total area (a little more, as rows don't pack perfectly), at most PAGE_MAX.
+    const area = list.reduce((sum, it) => sum + (it.slotW + GAP) * (it.slotH + GAP), 0);
+    const widest = Math.max(...list.map((it) => it.slotW)) + 2 * PAD;
+    const pageW = Math.min(PAGE_MAX, Math.max(widest, Math.round(Math.sqrt(area) * 1.1)));
     let page = null;
     let x = PAD, y = PAD, shelf = 0, n = 0;
     const newPage = () => {
@@ -143,7 +169,7 @@ async function make() {
     };
     newPage();
     for (const it of list) {
-      if (x > PAD && x + it.slotW > PAGE_MAX - PAD) {
+      if (x > PAD && x + it.slotW > pageW - PAD) {
         x = PAD;
         y += shelf + GAP;
         shelf = 0;
@@ -227,10 +253,9 @@ async function drawPage({ page, items }) {
 
 // ---------- apply ----------
 
-async function apply() {
-  if (!existsSync(MAP_FILE)) throw new Error('No art-sheet/sheet.json: make the sheet first.');
+/** What was painted on the pages: changed images (with their new files) and ones changed in the game meanwhile. */
+async function findChanges() {
   const map = JSON.parse(readFileSync(MAP_FILE, 'utf8'));
-  const write = has('--write');
   const changed = [];
   const skipped = [];
   await withBrowser(async (p) => {
@@ -250,6 +275,13 @@ async function apply() {
       results.forEach((r, i) => r && changed.push({ file: items[i].file, frames: r.frames, total: items[i].frames.length, png: r.png }));
     }
   });
+  return { changed, skipped };
+}
+
+async function apply() {
+  if (!existsSync(MAP_FILE)) throw new Error('No art-sheet/sheet.json: make the sheet first.');
+  const write = has('--write');
+  const { changed, skipped } = await findChanges();
   if (skipped.length) console.log(`Not touched (changed in the game since the sheet was made): ${skipped.join(', ')}`);
   if (!changed.length) {
     console.log('No changes found on the pages.');
