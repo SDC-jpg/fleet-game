@@ -116,6 +116,8 @@ export function ShipArt() {
   const state = states[kind.id] ?? kind.states[0].id;
   const setState = (s: string) => setStates((all) => ({ ...all, [kind.id]: s }));
   const [zoom, setZoom] = useState(ZOOMS.includes(savedView.zoom ?? 0) ? savedView.zoom! : 4);
+  /** Detail steps previewed (0 = normal; not remembered). */
+  const [detail, setDetail] = useState(0);
   const [spin, setSpin] = useState(savedView.spin ?? false);
   const [fly, setFly] = useState(savedView.fly ?? true);
   const [team, setTeam] = useState<Team>(savedView.team ?? 'player');
@@ -312,7 +314,7 @@ export function ShipArt() {
   const effect = effectBase && assets ? tierSprite(assets, effectBase, effectTier) : null;
 
   const previewSettings = () =>
-    data && { data, subject, kind, state, effect, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, selectedGun, readOnly: READ_ONLY };
+    data && { data, subject, kind, state, effect, zoom, detail, spin, fly, team, guides, stars, rotation, selected, selectedPoint, selectedGun, readOnly: READ_ONLY };
 
   // Start the preview once everything has loaded.
   useEffect(() => {
@@ -383,7 +385,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, spin, fly, team, guides, stars, rotation, selected, selectedPoint, selectedGun, patch]);
+  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, rotation, selected, selectedPoint, selectedGun, patch]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -573,6 +575,22 @@ export function ShipArt() {
               {z}×
             </button>
           ))}
+        </div>
+        <div
+          className="sa-group"
+          title={
+            'Detail steps: how it looks drawn smaller for very big fleets (1 = one tier smaller...). ' +
+            'Automatic shrunk copy, or your own small version if the manifest has one: ' +
+            `"${subject}.d${detail || 1}" for ${detail || 1} step${detail > 1 ? 's' : ''} smaller.`
+          }
+        >
+          Detail
+          {[0, 1, 2, 3].map((d) => (
+            <button key={d} className={detail === d ? 'on' : ''} onClick={() => setDetail(d)}>
+              {d === 0 ? 'Full' : `−${d}`}
+            </button>
+          ))}
+          {detail > 0 && assets && <span className="sa-note">{assets.has(`${subject}.d${detail}`) ? ' hand-drawn' : ' automatic'}</span>}
         </div>
         <div className="sa-group">
           <button className={fly ? 'on' : ''} onClick={() => setFly(!fly)} title="Fly forward, so particles trail like in the game">

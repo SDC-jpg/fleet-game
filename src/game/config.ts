@@ -1505,8 +1505,8 @@ export const CONFIG = {
 
   /**
    * Camera zoom steps. Every step you've reached (biggest fleet value, or biggest
-   * tier) counts, and the most zoomed-out one wins. Below 1× the art is shrunk,
-   * so it looks a little softer.
+   * tier) counts, and the most zoomed-out one wins. Never below 1× (detail steps
+   * take over for very big ships, see `detail`).
    */
   zoomSteps: [
     { minFleet: 1, zoom: 3 },
@@ -1514,4 +1514,16 @@ export const CONFIG = {
     { minTier: 2, zoom: 2 },
     { minTier: 3, zoom: 1 },
   ] as { minFleet?: number; minTier?: number; zoom: number }[],
+
+  /**
+   * Detail steps (docs/DETAIL-STEPS.md): the camera never zooms out below 1×, so once
+   * your biggest ship this run is bigger than fullSizeUpTo, everything is drawn one tier
+   * smaller per tier beyond it, with crisp smaller art (the view widens 1.5× per step).
+   * Drawing only: hit sizes, ranges and speeds don't change. Ships that would be drawn
+   * smaller than a tier-1 ship become small icons (ui.icon.*).
+   */
+  detail: {
+    /** Biggest tier drawn at full size (each tier past it adds one detail step). */
+    fullSizeUpTo: 6,
+  },
 };

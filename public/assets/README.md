@@ -285,6 +285,22 @@ own art, named by adding `.t2`, `.t3`, `.t4` to the tier-1 name:
 - Tier 3 and up are seen zoomed out below 1×, where the art is shrunk and
   looks a little softer.
 
+## Detail steps (very big fleets) and small versions
+
+The camera never zooms out below 1×. Once your biggest ship is past tier 6, the game
+draws everything one tier smaller per tier beyond (tier 7 → one step, tier 8 → two...),
+still at 1 screen pixel per art pixel:
+
+- **Ships and wrecks** use automatic small copies of their own image (only its own
+  colours, no blur). Thin lines can vanish, so you can draw your own: add a manifest
+  sprite named `<ship>.d<steps>`, e.g. `"ship.fighter.t7.d1": { "file": "ships/fighter-t7-d1.png" }`
+  for the tier-7 ship one step smaller (drawn at tier-6 size, so about 2/3 of its
+  width). Preview it in ShipArt with **Detail −1/−2/−3**.
+- **Effects, shots, rings and markers** use the art of the tier below automatically.
+- **Icons:** ships that would be smaller than a tier-1 ship become small diamonds:
+  `ui.icon.player`, `ui.icon.enemy`, `ui.icon.enemy-energy`, `ui.icon.enemy-explosive`
+  (each in its own colours, fixed size on screen).
+
 ## Sounds
 
 Sound effects live in `sfx/` and are listed in the `"sounds"` section of

@@ -634,6 +634,12 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
   return state;
 }
 
+/** Detail steps (CONFIG.detail): one per tier your biggest ship this run is past fullSizeUpTo. */
+export const detailSteps = (state: GameState) => Math.max(0, state.maxTier - CONFIG.detail.fullSizeUpTo);
+
+/** How much smaller the world is drawn for the detail steps (1 = normal). */
+export const detailFactor = (state: GameState) => CONFIG.tiers.sizePerTier ** -detailSteps(state);
+
 /** Zoom follows the biggest fleet/tier you've had, so it doesn't jump back and forth in a fight. */
 export function zoomFor(state: GameState) {
   let zoom = Infinity;
@@ -1024,7 +1030,7 @@ function startDash(state: GameState, fleet: Fleet, leader: Ship, mx: number, my:
     my = Math.sin(leader.angle);
   }
   // Zoomed out, the screen shows more of the world, so the dash gets stronger to match.
-  const zoomScale = d.scaleWithZoom ? CONFIG.zoomSteps[0].zoom / state.zoom : 1;
+  const zoomScale = d.scaleWithZoom ? CONFIG.zoomSteps[0].zoom / (state.zoom * detailFactor(state)) : 1;
   fleet.dashPower = 1 + (d.speedMultiplier - 1) * zoomScale;
   const speed = typeOf(leader).maxSpeed * state.bonus.speed * directionFactor(leader.angle, mx, my) * fleet.dashPower;
   fleet.dashTime = d.duration;

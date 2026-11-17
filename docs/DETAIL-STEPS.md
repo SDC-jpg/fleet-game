@@ -1,9 +1,7 @@
-# Plan: detail steps for very big fleets (not built yet)
+# Detail steps for very big fleets
 
-Status: **agreed in principle 2026-11-16, on hold.** The user wants to discuss other
-changes that may affect it before anything is built. To be built after
-[SHIP-GUNS-AND-VARIANTS.md](SHIP-GUNS-AND-VARIANTS.md) (separate enemy ships, gun mounts,
-weapon variants), which changes the set of ship art this plan shrinks.
+Status: **built 2026-11-16** (after [SHIP-GUNS-AND-VARIANTS.md](SHIP-GUNS-AND-VARIANTS.md)).
+How it was built is under "As built" at the end.
 
 ## The problem
 
@@ -26,8 +24,8 @@ pixel. Nothing is blurred.
 - **Drawing only:** hit sizes, ranges, speeds and distances are unchanged. The whole
   world is drawn smaller together (like a zoom), so what you see still matches what hits.
 - **Smallest ships become icons:** a ship that would be drawn smaller than a T1 ship
-  becomes a **small blue diamond** (a square turned 45°), recoloured per team like all
-  art (blue for you, red for enemies).
+  becomes a **small diamond** (a square turned 45°): blue for you, red for enemies,
+  purple/orange for enemy variants (see "Settled while building").
 
 ## Where the smaller versions come from
 
@@ -41,17 +39,37 @@ pixel. Nothing is blurred.
 - **Mounts** (thrusters, flames) and particle emitters: positions shrink with the ship;
   their images need smaller versions too (automatic first, like ships).
 
-## Build order (when it's picked up)
+## Build order
 
 1. Ships and wrecks: the detail step, automatic smaller versions, the camera widening.
 2. Effects, shots, mounts and particles.
 3. Icons (blue diamonds) for ships below T1 size.
 4. Hand-drawn small versions: a way to add and preview them (likely in ShipArt).
 
-## Open questions (to settle before building)
+## Settled while building
 
-- How the automatic shrinking picks colours (keep only the art's own colours, like
-  RotSprite does, so it stays pixel art).
-- Naming of hand-drawn small versions in the manifest/art files.
-- Icons without team recolouring: a red version for enemies, maybe different per enemy
-  variant (see SHIP-GUNS-AND-VARIANTS.md).
+- **Automatic shrinking keeps only the art's own colours:** each pixel of the small copy
+  takes the colour covering most of its square (ties go to the darker one, so outlines
+  tend to survive); see-through only if most of it is.
+- **Hand-drawn small versions** are manifest sprites named `<ship>.d<steps>`, e.g.
+  `ship.fighter.t7.d1` = the tier-7 design one step smaller (tier-6 size). When one
+  exists the game uses it instead of the automatic copy.
+- **Icons:** one diamond per side and enemy variant (no recolouring): `ui.icon.player`
+  (blue), `ui.icon.enemy` (red), `ui.icon.enemy-energy` (purple), `ui.icon.enemy-explosive`
+  (orange). Fixed size on screen.
+
+## As built
+
+- `CONFIG.detail.fullSizeUpTo` 6; `detailSteps(state)` = biggest tier this run − 6;
+  `detailFactor` = 1.5^−steps. Game.ts gives it to the renderer (`setDetail`) and to
+  render.ts (`setDetailSteps`). The zoom itself stays at 1×.
+- The renderer draws the world `detail` times smaller inside its buffer. Art drawn at a
+  tier size step of that scale uses crisp copies (`src/engine/shrink.ts`, cached);
+  anything else (freely growing effects) is smoothed as before. Copies are only used once
+  the change has settled (smoothed during the short transition). RotSprite falls back to
+  Grid while shrunk.
+- `tierArt(..., detail = true)` picks the art of `steps` tiers lower for effects, shots,
+  markers, rings...; ships and wrecks pass `false` and use shrunk copies of their own design.
+- Ships smaller than tier 1 after the steps are drawn as icons (no thruster particles).
+- ShipArt: "Detail Full / −1 / −2 / −3" previews a ship as the game draws it, and says
+  whether it's the automatic copy or a hand-drawn one.

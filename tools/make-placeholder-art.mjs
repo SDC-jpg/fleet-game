@@ -540,6 +540,19 @@ function hijackHeart() {
   return img;
 }
 
+// Detail-step ship icon: a small diamond (a square turned 45°) for ships drawn smaller than a
+// tier-1 ship, one colour per side and enemy variant (ships aren't recoloured).
+function shipIcon(fill, light) {
+  const img = new Img(9, 9);
+  for (let y = 0; y < 9; y++)
+    for (let x = 0; x < 9; x++) {
+      const d = Math.abs(x - 4) + Math.abs(y - 4);
+      if (d <= 3) img.set(x, y, hex(d <= 1 && x <= 4 && y <= 4 ? light : fill));
+    }
+  outline(img, hex('#14171f'));
+  return img;
+}
+
 // Mythic loot edge dot: the same dot cycling through pastels (8 looping frames).
 function lootDotHolo() {
   const F = 8;
@@ -1640,6 +1653,10 @@ const FILES = {
   'vfx/shimmer.png': shimmerSheet,
   'ui/cursor.png': cursorCross,
   'ui/hijack-heart.png': hijackHeart,
+  'ui/icon-player.png': () => shipIcon('#3fb6ff', '#9fdcff'),
+  'ui/icon-enemy.png': () => shipIcon('#e0484a', '#ff9a8a'),
+  'ui/icon-enemy-energy.png': () => shipIcon('#a050f0', '#d4a8ff'),
+  'ui/icon-enemy-explosive.png': () => shipIcon('#f08a20', '#ffcc80'),
   ...Object.fromEntries(Object.entries(ITEM_ICONS).map(([name, draw]) => [`ui/item-${name}.png`, () => icon16(draw)])),
   'vfx/laser.png': () => laserSegment(1),
   'vfx/particle-move.png': () => particleDot('#ff9a3a'),

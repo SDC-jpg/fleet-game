@@ -17,18 +17,30 @@ import { controlledShip, isMergePart, type GameState, type Ship, type Team } fro
  * is "ship.fighter.t2", and its wreck is "ship.fighter.t2.wreck".
  */
 export function tierSprite(assets: Assets, base: string, tier: number, suffix = '') {
-  return tierArt(assets, base, tier, suffix).name;
+  return tierArt(assets, base, tier, suffix, false).name;
+}
+
+/** Detail steps in effect (docs/DETAIL-STEPS.md; set by Game.ts or ShipArt's preview each frame). */
+let detailSteps = 0;
+export function setDetailSteps(steps: number) {
+  detailSteps = steps;
 }
 
 /**
  * The art to draw for this tier, and how much to enlarge it. A tier with no art of its
  * own uses the closest smaller tier's, scaled up CONFIG.tiers.sizePerTier per missing
  * tier so it still fits the ship's size. Art with no tier versions at all keeps its size.
+ * `detail`: with detail steps, use the art of that many tiers lower (enlarged to the
+ * same size, so the renderer draws it at 1 pixel per art pixel, crisp). Ships and
+ * wrecks pass false: they use shrunk copies of their own design instead.
  */
-export function tierArt(assets: Assets, base: string, tier: number, suffix = '') {
-  for (let t = tier; t >= 2; t--)
-    if (assets.has(`${base}.t${t}${suffix}`)) return { name: `${base}.t${t}${suffix}`, scale: CONFIG.tiers.sizePerTier ** (tier - t) };
-  return { name: base + suffix, scale: 1 };
+export function tierArt(assets: Assets, base: string, tier: number, suffix = '', detail = true) {
+  const per = CONFIG.tiers.sizePerTier;
+  const from = detail ? Math.max(1, tier - detailSteps) : tier;
+  for (let t = from; t >= 2; t--) if (assets.has(`${base}.t${t}${suffix}`)) return { name: `${base}.t${t}${suffix}`, scale: per ** (tier - t) };
+  // Only tier-1 art left: scaled to the tier if the art has tier versions at all.
+  const tiered = tier > 1 && from < tier && assets.has(`${base}.t2${suffix}`);
+  return { name: base + suffix, scale: tiered ? per ** (tier - 1) : 1 };
 }
 
 /** A tier's art as a sprite, with its scale (see tierArt). */
@@ -65,7 +77,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
       r.drawSprite(m.sprite, w.x, w.y, 0, state.time, alpha, true, m.scale);
     }
     // Drawn from its layout (art.json), in its own colours (wrecks aren't team-coloured).
-    const { name, scale } = tierArt(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
+    const { name, scale } = tierArt(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck', false);
     drawLayoutArt(r, assets, extras.layouts.objects[name], name, w.x, w.y, w.angle, 'drifting', null, state.time, alpha, true, scale);
   }
 
@@ -273,7 +285,7 @@ function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets, ex
         }
         const w = o.wreck;
         if (w) {
-          const { name, scale } = tierArt(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck');
+          const { name, scale } = tierArt(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck', false);
           drawLayoutArt(r, assets, extras.layouts.objects[name], name, o.x, o.y, w.angle, 'drifting', null, state.time, 1, true, scale);
         }
         break;
@@ -315,6 +327,12 @@ export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, an
   for (let i = 0; i < n; i++) r.drawSprite(seg, x + dx * (i + 0.5) * w * width, y + dy * (i + 0.5) * w * width, angle, time, 1, false, width);
 }
 
+/** The icon of a ship design shown as an icon (detail steps): "ship.enemy-energy" → "ui.icon.enemy-energy", your ships → "ui.icon.player". */
+export function shipIcon(artBase: string) {
+  const name = artBase.replace(/^ship\./, '');
+  return Object.values(SHIP_TYPES).some((t) => t.sprites.ship === artBase) ? 'ui.icon.player' : `ui.icon.${name}`;
+}
+
 /** Draws one ship, plus a small health bar under it if it's damaged. */
 function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number) {
   if (s.absorbed) return; // already inside the ship it's merging into
@@ -324,7 +342,13 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
     const trail = teamSprite(assets, d.name, s.team);
     r.drawSprite(trail, s.x, s.y, Math.atan2(s.vy, s.vx), CONFIG.dash.duration - s.fleet.dashTime, 1, false, d.scale);
   }
-  const { name: base, scale } = tierArt(assets, shipArtBase(s), s.tier);
+  // Shrunk below a tier-1 ship by detail steps: a small icon instead (fixed size on screen).
+  if (s.tier - detailSteps < 1) {
+    const base = shipArtBase(s);
+    r.drawSprite(assets.get(shipIcon(base)), s.x, s.y, 0, time, 1, true);
+    return;
+  }
+  const { name: base, scale } = tierArt(assets, shipArtBase(s), s.tier, '', false);
   // Ships flying into a merge fade out as they reach the core.
   let alpha = 1;
   if (s.merge && isMergePart(s)) {
@@ -387,7 +411,15 @@ export function drawLayoutArt(
 ) {
   const baseFile = layout?.base[state] ?? layout?.base.idle;
   const mounts = layout?.mounts ?? [];
-  const baseSprite = teamSprite(assets, baseFile ? fileSprite(baseFile) : base, team);
+  let baseSprite = teamSprite(assets, baseFile ? fileSprite(baseFile) : base, team);
+  // A hand-drawn small version for the detail steps ("ship.fighter.t7.d1" = one step smaller),
+  // used instead of the automatic shrunk copy (normal image only, not a per-state one).
+  let baseScale = scale;
+  const small = `${base}.d${detailSteps}`;
+  if (detailSteps > 0 && !baseFile && assets.has(small)) {
+    baseSprite = teamSprite(assets, small, team);
+    baseScale = scale * CONFIG.tiers.sizePerTier ** detailSteps;
+  }
   // Art too big for RotSprite is drawn as in Grid, mounts too, so they stay put on it.
   const mode = r.rotation;
   if (mode === 'rotsprite' && !r.rotSpriteFits(baseSprite)) r.rotation = 'grid';
@@ -401,7 +433,7 @@ export function drawLayoutArt(
   };
   try {
     drawMounts(true);
-    if (drawBase) r.drawRotated(baseSprite, x, y, angle, time, alpha, scale);
+    if (drawBase) r.drawRotated(baseSprite, x, y, angle, time, alpha, baseScale);
     drawMounts(false);
   } finally {
     r.rotation = mode;

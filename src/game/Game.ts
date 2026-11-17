@@ -8,7 +8,7 @@ import { PixelRenderer, ROTATION_MODES, type RotationMode } from '../engine/rend
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
-import { renderGame, tierArt, tierSprite } from './render';
+import { renderGame, setDetailSteps, tierArt, tierSprite } from './render';
 import { setGunLayouts, shipArtBase } from './guns';
 import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
@@ -38,6 +38,8 @@ import {
   testSpawnVariants,
   testRemoveShip,
   updateGame,
+  detailFactor,
+  detailSteps,
   type Card,
   type Controls,
   type GameState,
@@ -338,6 +340,7 @@ export class Game {
     if (!this.resumeOffer) return;
     restoreRun(this.state, this.resumeOffer);
     this.renderer.setZoom(this.state.zoom, true);
+    this.renderer.setDetail(detailFactor(this.state), true);
     this.resumeOffer = null;
     this.runSavedWave = this.state.wave;
     this.needsDraw = true;
@@ -376,6 +379,8 @@ export class Game {
     if (formation === 'original' || formation === 'fill') state.formationMode = formation;
     loadEquipment(state);
     this.renderer.setZoom(state.zoom, true);
+    this.renderer.setDetail(detailFactor(state), true);
+    this.renderer.detailStep = CONFIG.tiers.sizePerTier;
     return state;
   }
 
@@ -841,14 +846,16 @@ export class Game {
     const near = (x: number, y: number) => x > v.x - margin && x < v.x + v.w + margin && y > v.y - margin && y < v.y + v.h + margin;
     for (const s of this.state.ships) {
       if (s.dead || s.absorbed || !near(s.x, s.y)) continue;
-      const { name: base, scale } = tierArt(this.assets, shipArtBase(s), s.tier);
+      if (s.tier - detailSteps(this.state) < 1) continue; // drawn as an icon
+      const { name: base, scale } = tierArt(this.assets, shipArtBase(s), s.tier, '', false);
       this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy, scale);
     }
     // Objects with particle emitters (art.json): missiles (Inert until they fire up, then Fired),
     // gun shots, mines, wrecks, laser beams and elite laser warnings.
     const emit = (base: string, tier: number, state: string, x: number, y: number, angle: number, suffix = '', vx = 0, vy = 0) => {
       if (!near(x, y)) return;
-      const { name, scale } = tierArt(this.assets, base, tier, suffix);
+      // Wrecks use their own (shrunk) art with detail steps, like ships; other objects the art of a smaller tier.
+      const { name, scale } = tierArt(this.assets, base, tier, suffix, suffix !== '.wreck');
       const layout = this.layouts.objects[name];
       if (layout) this.particles.emitMounts(this.layouts, layout, state, x, y, angle, dt, vx, vy, scale);
     };
@@ -878,6 +885,9 @@ export class Game {
       // Slow motion: zoom in a little on the doomed ship (back out as it explodes).
       const slow = this.timeScale < 1;
       r.setZoom(this.state.zoom * (slow ? CONFIG.death.slowmoZoom : 1), false, slow);
+      // Detail steps: the whole world drawn smaller, with crisp smaller art (docs/DETAIL-STEPS.md).
+      r.setDetail(detailFactor(this.state));
+      setDetailSteps(detailSteps(this.state));
       if (!frozen || this.needsDraw) {
         // Screen shake (the flagship's explosion): the view jumps around a little, fading out.
         const sh = this.state.shake;

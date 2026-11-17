@@ -8,7 +8,7 @@ import type { Assets } from '../engine/assets';
 import { PixelRenderer, type RotationMode } from '../engine/renderer';
 import { CONFIG, SHIP_TYPES } from '../game/config';
 import { Particles } from '../game/particles';
-import { drawBeam, drawLayoutArt, tierSprite } from '../game/render';
+import { drawBeam, drawLayoutArt, setDetailSteps, tierSprite } from '../game/render';
 import { fileSprite, shipPointToWorld, worldToShipPoint, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
 import { tierOf, type ArtKind } from '../game/artKinds';
 import { layoutGunsOrDefault } from '../game/guns';
@@ -24,6 +24,8 @@ export interface PreviewSettings {
   /** An effect sprite to show on its own (Effects section), instead of the subject. */
   effect: string | null;
   zoom: number;
+  /** Detail steps to preview (0 = normal): drawn as the game does with that many (docs/DETAIL-STEPS.md). */
+  detail: number;
   spin: boolean;
   fly: boolean;
   team: Team;
@@ -186,6 +188,10 @@ export class Preview {
     r.camX = this.x;
     r.camY = this.y;
     r.setZoom(st.zoom, true);
+    // Detail steps: the subject drawn smaller with crisp smaller art, exactly as in the game.
+    r.detailStep = CONFIG.tiers.sizePerTier;
+    r.setDetail(CONFIG.tiers.sizePerTier ** -st.detail, true);
+    setDetailSteps(st.detail);
     r.rotation = st.rotation;
     r.begin(dt);
     // The screen behind is black, so leaving the stars out gives a plain black background.

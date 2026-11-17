@@ -7,6 +7,12 @@
 // Zoomed out below 1×, the buffer is screen-sized instead and the art is
 // shrunk smoothly into it (a little softer, but nothing flickers).
 //
+// Detail steps (docs/DETAIL-STEPS.md): `detail` below 1 draws the whole world
+// smaller inside the buffer (like zooming out, but the zoom itself stays a whole
+// number). Art drawn at a tier size step (1.5×, 1.5²×... of the detail factor) uses
+// shrunk copies that keep only the art's own colours (shrink.ts), drawn 1 buffer
+// pixel per copy pixel, so it stays crisp pixel art.
+//
 // Rotated pixel art can look crunchy ("laddering"), so there are three ways
 // to rotate (`rotation`), to compare:
 //   'grid'      rotate on the game-pixel grid (the original way)
@@ -14,8 +20,9 @@
 //   'rotsprite' ships and their parts use RotSprite copies (see rotsprite.ts),
 //               snapped to 128 angle steps, staying on the pixel grid
 
-import { frameAt, type Sprite } from './assets';
+import { frameAt, type Frame, type Sprite } from './assets';
 import { angleStep, rotatedFrame, stepAngle } from './rotsprite';
+import { shrunkFrame } from './shrink';
 
 export type RotationMode = 'grid' | 'hires' | 'rotsprite';
 export const ROTATION_MODES: RotationMode[] = ['grid', 'hires', 'rotsprite'];
@@ -30,6 +37,17 @@ export class PixelRenderer {
   /** Screen pixels per game pixel. Animates smoothly toward `targetScale`. Can be below 1. */
   scale = 4;
   private targetScale = 4;
+  /**
+   * Detail factor (1 = normal; 1/1.5 per detail step): the world is drawn this much
+   * smaller. Animates toward its target like the zoom.
+   */
+  detail = 1;
+  private targetDetail = 1;
+  /**
+   * Shrunk art sizes count as "a tier size step" (and get crisp copies) when they're this
+   * multiple of the detail factor apart: CONFIG.tiers.sizePerTier (set by the game).
+   */
+  detailStep = 1.5;
   /** Camera centre, in world coordinates. */
   camX = 0;
   camY = 0;
@@ -99,6 +117,12 @@ export class PixelRenderer {
     if (instant) this.scale = this.targetScale;
   }
 
+  /** Set the detail factor (1 = normal, 1/1.5 per detail step). The change animates. */
+  setDetail(factor: number, instant = false) {
+    this.targetDetail = factor;
+    if (instant) this.detail = factor;
+  }
+
   /** Screen pixels per buffer pixel (1 when zoomed out below 1×, or in 'hires' mode). */
   private get bufferScale() {
     return this.rotation === 'hires' ? 1 : Math.max(1, this.scale);
@@ -106,15 +130,20 @@ export class PixelRenderer {
 
   /** Buffer pixels per game pixel: 1, less than 1 when zoomed out below 1×, or the zoom in 'hires' mode. */
   get worldScale() {
-    return this.rotation === 'hires' ? this.scale : Math.min(1, this.scale);
+    return (this.rotation === 'hires' ? this.scale : Math.min(1, this.scale)) * this.detail;
+  }
+
+  /** Screen pixels per game pixel (zoom and detail factor together). */
+  private get screenScale() {
+    return this.scale * this.detail;
   }
 
   /** Visible area in game pixels. */
   get viewWidth() {
-    return this.screen.width / this.scale;
+    return this.screen.width / this.screenScale;
   }
   get viewHeight() {
-    return this.screen.height / this.scale;
+    return this.screen.height / this.screenScale;
   }
 
   /** The visible area in world coordinates (as of the last `begin`). */
@@ -128,6 +157,8 @@ export class PixelRenderer {
     // Smooth zoom transition between steps.
     const diff = this.targetScale - this.scale;
     this.scale = Math.abs(diff) < 0.01 ? this.targetScale : this.scale + diff * Math.min(1, dt * 7);
+    const dd = this.targetDetail - this.detail;
+    this.detail = Math.abs(dd) < 0.002 ? this.targetDetail : this.detail + dd * Math.min(1, dt * 7);
 
     const bw = Math.ceil(this.screen.width / this.bufferScale);
     const bh = Math.ceil(this.screen.height / this.bufferScale);
@@ -170,12 +201,50 @@ export class PixelRenderer {
     // Fixed-size sprites are never shrunk below 1×, but are enlarged like everything else in 'hires'.
     const k = (fixedSize ? Math.max(1, ws) : ws) * scale;
     ctx.globalAlpha = alpha;
-    ctx.setTransform(k, 0, 0, k, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
+    ctx.setTransform(1, 0, 0, 1, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
     if (angle !== 0) ctx.rotate(angle);
     if (flipX || flipY) ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-    ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, -sprite.anchorX, -sprite.anchorY, f.w, f.h);
+    this.blit(f, sprite.anchorX, sprite.anchorY, k);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Draw a frame (anchored at the current origin) `k` times its art size. Shrunk by a
+   * tier size step while the detail factor is settled, it uses a crisp shrunk copy
+   * (shrink.ts) instead of smoothing the art down.
+   */
+  private blit(f: Frame, anchorX: number, anchorY: number, k: number) {
+    const ctx = this.ctx;
+    const copyAt = this.crispSize(k);
+    if (copyAt) {
+      const c = shrunkFrame(f, copyAt);
+      ctx.imageSmoothingEnabled = false;
+      if (k !== copyAt) ctx.scale(k / copyAt, k / copyAt);
+      ctx.drawImage(c, -Math.round(anchorX * copyAt), -Math.round(anchorY * copyAt));
+      ctx.imageSmoothingEnabled = this.worldScale < 1;
+      return;
+    }
+    // Only art drawn smaller than its pixels is smoothed (so it doesn't flicker); full size and up stays crisp.
+    const smooth = this.worldScale < 1;
+    if (smooth && k >= 0.999) ctx.imageSmoothingEnabled = false;
+    ctx.scale(k, k);
+    ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, -anchorX, -anchorY, f.w, f.h);
+    ctx.imageSmoothingEnabled = smooth;
+  }
+
+  /**
+   * The size to make a crisp shrunk copy at, for art drawn `k` times its size, or 0 to
+   * draw it normally: only while shrunk by detail steps (settled, not mid-change) and at
+   * a tier size step from the world's scale (ships, parts, tier art; not freely growing effects).
+   */
+  private crispSize(k: number) {
+    if (this.detail >= 1 || this.detail !== this.targetDetail || k >= 0.999 || this.rotation === 'hires') return 0;
+    const ws = this.worldScale;
+    const steps = Math.log(k / ws) / Math.log(this.detailStep);
+    const j = Math.round(steps);
+    if (Math.abs(steps - j) > 0.01) return 0;
+    return ws * this.detailStep ** j;
   }
 
   /** Scratch canvas for drawRefracted. */
@@ -221,7 +290,8 @@ export class PixelRenderer {
    * `scale` draws it bigger (e.g. a tier with no art of its own, using a smaller tier's).
    */
   drawRotated(sprite: Sprite, x: number, y: number, angle: number, time = 0, alpha = 1, scale = 1) {
-    if (this.rotation !== 'rotsprite' || !this.rotSpriteFits(sprite))
+    // Shrunk by detail steps, ships are drawn as in Grid (RotSprite copies are full size).
+    if (this.rotation !== 'rotsprite' || !this.rotSpriteFits(sprite) || this.detail < 1)
       return this.drawSprite(sprite, x, y, angle, time, alpha, false, scale);
     const r = rotatedFrame(frameAt(sprite, time), sprite.anchorX, sprite.anchorY, angleStep(angle));
     this.drawRotatedCopy(r, x, y, alpha, scale);
@@ -257,7 +327,7 @@ export class PixelRenderer {
     flipY = false,
   ) {
     const f = frameAt(sprite, time);
-    if (this.rotation === 'rotsprite') {
+    if (this.rotation === 'rotsprite' && this.detail >= 1) {
       // Use the same angle step as the ship, so the part stays put on it.
       const a = stepAngle(angleStep(angle));
       const px = x + ox * Math.cos(a) - oy * Math.sin(a);
@@ -269,12 +339,12 @@ export class PixelRenderer {
     const ctx = this.ctx;
     const ws = this.worldScale;
     ctx.globalAlpha = alpha;
-    ctx.setTransform(ws, 0, 0, ws, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
+    ctx.setTransform(1, 0, 0, 1, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
     ctx.rotate(angle);
-    ctx.translate(ox, oy);
+    ctx.translate(ox * ws, oy * ws);
     if (localAngle !== 0) ctx.rotate(localAngle);
-    ctx.scale((flipX ? -1 : 1) * scale, (flipY ? -1 : 1) * scale);
-    ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, -sprite.anchorX, -sprite.anchorY, f.w, f.h);
+    if (flipX || flipY) ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+    this.blit(f, sprite.anchorX, sprite.anchorY, ws * scale);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
   }
@@ -325,20 +395,21 @@ export class PixelRenderer {
     return {
       monitor: `${Math.round(window.screen.width * dpr)}×${Math.round(window.screen.height * dpr)}`,
       scaling: Math.round(dpr * 100),
-      pixelsPerArtPixel: Math.round(this.scale * 100) / 100,
+      pixelsPerArtPixel: Math.round(this.screenScale * 100) / 100,
     };
   }
 
   /** Convert world coordinates to a position on the canvas in CSS pixels (as of the last `begin`). */
   worldToScreen(x: number, y: number) {
-    return { x: ((x - this.originX) * this.scale) / this.dpr, y: ((y - this.originY) * this.scale) / this.dpr };
+    const k = this.screenScale;
+    return { x: ((x - this.originX) * k) / this.dpr, y: ((y - this.originY) * k) / this.dpr };
   }
 
   /** Convert a mouse position (CSS pixels) to world coordinates. */
   screenToWorld(cssX: number, cssY: number) {
     return {
-      x: this.originX + (cssX * this.dpr) / this.scale,
-      y: this.originY + (cssY * this.dpr) / this.scale,
+      x: this.originX + (cssX * this.dpr) / this.screenScale,
+      y: this.originY + (cssY * this.dpr) / this.screenScale,
     };
   }
 }
