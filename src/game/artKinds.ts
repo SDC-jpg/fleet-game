@@ -130,8 +130,23 @@ export const WRECK_KIND: ArtKind = {
   teamColored: false,
 };
 
+/**
+ * HUD shot: how the shots of ships shown as symbols look in the commander view
+ * (CONFIG.commander; one image for every tier, team-coloured; Settings can hide them).
+ */
+export const HUD_SHOT_KIND: ArtKind = {
+  id: 'hud-shot',
+  label: 'HUD shot',
+  section: 'objects',
+  matches: (s) => s === 'projectile.hud',
+  states: [{ id: 'flying', label: 'Flying', uses: 'flying' }],
+  mountStates: ['flying'],
+  points: [],
+  baseFolder: 'projectiles/',
+};
+
 /** Every object kind (in the Objects section of ShipArt). */
-export const OBJECT_KINDS: ArtKind[] = [MISSILE_KIND, MINE_KIND, SHOT_KIND, LASER_KIND, WRECK_KIND];
+export const OBJECT_KINDS: ArtKind[] = [MISSILE_KIND, MINE_KIND, SHOT_KIND, HUD_SHOT_KIND, LASER_KIND, WRECK_KIND];
 
 export const ALL_KINDS: ArtKind[] = [SHIP_KIND, ...OBJECT_KINDS];
 

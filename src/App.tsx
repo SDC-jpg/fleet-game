@@ -135,8 +135,6 @@ export default function App() {
           ))}
         </div>
       )}
-      {/* Time Dilation: a cool tint at the screen's edges while the world runs slow. */}
-      {hud?.timeDilation && !hud.gameOver && <div className="time-dilation-tint" />}
       {hud?.swarmAlert && !hud.gameOver && <div className="swarm-toast">Swarm incoming!</div>}
       {hud?.reinforcementAlert && !hud.gameOver && <div className="reinforce-toast">Fleet HQ is warping in reinforcements!</div>}
 

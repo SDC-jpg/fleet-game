@@ -54,9 +54,8 @@ pixel. Nothing is blurred.
 - **Hand-drawn small versions** are manifest sprites named `<ship>.d<steps>`, e.g.
   `ship.fighter.t7.d1` = the tier-7 design one step smaller (tier-6 size). When one
   exists the game uses it instead of the automatic copy.
-- **Icons:** one diamond per side and enemy variant (no recolouring): `ui.icon.player`
-  (blue), `ui.icon.enemy` (red), `ui.icon.enemy-energy` (purple), `ui.icon.enemy-explosive`
-  (orange). Fixed size on screen.
+- **Icons:** replaced on 2026-11-16 by the commander view's tier symbols
+  (`ui.hud.<side>.t<tier>`, see COMMANDER-VIEW.md).
 
 ## As built
 

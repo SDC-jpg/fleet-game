@@ -297,9 +297,21 @@ still at 1 screen pixel per art pixel:
   for the tier-7 ship one step smaller (drawn at tier-6 size, so about 2/3 of its
   width). Preview it in ShipArt with **Detail −1/−2/−3**.
 - **Effects, shots, rings and markers** use the art of the tier below automatically.
-- **Icons:** ships that would be smaller than a tier-1 ship become small diamonds:
-  `ui.icon.player`, `ui.icon.enemy`, `ui.icon.enemy-energy`, `ui.icon.enemy-explosive`
-  (each in its own colours, fixed size on screen).
+- Ships that would be smaller than a tier-1 ship become commander-view symbols (below).
+
+## Commander view (HUD symbols)
+
+Once you fly a tier-4 ship, only your top three ship sizes are drawn as ships; smaller
+ships become symbols (docs/COMMANDER-VIEW.md). All of it is art you can replace:
+
+| Name | What it is |
+|---|---|
+| `ui.hud.<side>.t1` … `t8` | The symbol for a ship of that tier. `<side>`: `player`, `enemy`, `enemy-energy`, `enemy-explosive`. Drawn in its own colours (not recoloured), fixed size on screen, centred; paint any glow into the image. A missing tier uses the closest smaller one. Placeholders: dot, hollow square, diamond with a dot, ring, diamond with a square, triangle, double diamond, square with a diamond |
+| `ui.hud.wreck` | A wreck of a symbol tier (grey dot) |
+| `projectile.hud` | Shots and missiles of symbol ships (one image for all tiers; sky blue = team colour). It's an object in ShipArt (Objects → HUD shot), so it can have particle emitters |
+
+The targeting lines, symbol beams, star dimming and blue/red shifts are colours in
+`CONFIG.commander` and `CONFIG.timeDilation` (tuning page).
 
 ## Sounds
 

@@ -353,7 +353,7 @@ export class PixelRenderer {
    * Fill the whole view with a repeating tile. `parallax` < 1 makes it move
    * slower than the camera, so it feels far away.
    */
-  drawTiled(sprite: Sprite, parallax: number) {
+  drawTiled(sprite: Sprite, parallax: number, alpha = 1, offsetX = 0, offsetY = 0) {
     // Backgrounds are never shrunk (tiny stars would vanish); they just scroll slower.
     // In 'hires' mode they're enlarged to match the zoom, so they look the same.
     const f = sprite.frames[0];
@@ -361,12 +361,49 @@ export class PixelRenderer {
     const ts = Math.max(1, Math.round(this.worldScale));
     const tw = f.w * ts;
     const th = f.h * ts;
-    const ox = Math.round(this.originX * this.worldScale * parallax);
-    const oy = Math.round(this.originY * this.worldScale * parallax);
+    // `offset` (game pixels) shifts the tiles, e.g. for the long-exposure smear of Time Dilation.
+    const ox = Math.round((this.originX + offsetX) * this.worldScale * parallax);
+    const oy = Math.round((this.originY + offsetY) * this.worldScale * parallax);
+    ctx.globalAlpha = alpha;
     const startX = -(((ox % tw) + tw) % tw);
     const startY = -(((oy % th) + th) % th);
     for (let y = startY; y < this.buffer.height; y += th)
       for (let x = startX; x < this.buffer.width; x += tw) ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, x, y, tw, th);
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Cover everything drawn so far with a colour: 'multiply' tints it (like a colour filter),
+   * 'source-over' lays a see-through haze over it. Used for the background's colour shifts.
+   */
+  fillView(color: string, alpha: number, mode: GlobalCompositeOperation = 'source-over') {
+    if (alpha <= 0) return;
+    const ctx = this.ctx;
+    ctx.globalAlpha = alpha;
+    ctx.globalCompositeOperation = mode;
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, this.buffer.width, this.buffer.height);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  }
+
+  /** A thin line between two world points, fading from `alphaFrom` to `alphaTo` (HUD lines). `width` in screen-ish pixels. */
+  drawLine(x1: number, y1: number, x2: number, y2: number, color: string, alphaFrom = 1, alphaTo = 1, width = 1) {
+    const ctx = this.ctx;
+    const ws = this.worldScale;
+    const ax = (x1 - this.originX) * ws;
+    const ay = (y1 - this.originY) * ws;
+    const bx = (x2 - this.originX) * ws;
+    const by = (y2 - this.originY) * ws;
+    const g = ctx.createLinearGradient(ax, ay, bx, by);
+    g.addColorStop(0, withAlpha(color, alphaFrom));
+    g.addColorStop(1, withAlpha(color, alphaTo));
+    ctx.strokeStyle = g;
+    ctx.lineWidth = Math.max(1, width * Math.min(1, ws));
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
   }
 
   /** Plain rectangle in world coordinates (used for health bars). Never thinner than 1 pixel. */
@@ -412,4 +449,10 @@ export class PixelRenderer {
       y: this.originY + (cssY * this.dpr) / this.screenScale,
     };
   }
+}
+
+/** "#5fc4ff" and 0.4 → "rgba(95, 196, 255, 0.4)". */
+function withAlpha(hex: string, alpha: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${Math.max(0, Math.min(1, alpha))})`;
 }

@@ -8,7 +8,7 @@ import { PixelRenderer, ROTATION_MODES, type RotationMode } from '../engine/rend
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
-import { renderGame, setDetailSteps, tierArt, tierSprite } from './render';
+import { renderGame, setDetailSteps, tierArt, tierSprite, type ViewOptions } from './render';
 import { setGunLayouts, shipArtBase } from './guns';
 import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
@@ -41,6 +41,8 @@ import {
   updateGame,
   detailFactor,
   detailSteps,
+  drawnAsSymbol,
+  symbolTierMax,
   type Card,
   type Controls,
   type GameState,
@@ -62,6 +64,14 @@ const FORMATION_SETTING = 'fleet-game.formation';
 const CURSOR_LOCK_SETTING = 'fleet-game.cursor-lock';
 /** Touch screens: on-screen controls mirrored (thumbstick on the right). */
 const LEFT_HANDED_SETTING = 'fleet-game.touch-left-handed';
+/** A remembered on/off setting, or `fallback` if it was never set. */
+const loadToggle = (key: string, fallback: boolean) => {
+  const v = loadSetting(key);
+  return v === 'on' ? true : v === 'off' ? false : fallback;
+};
+/** Commander view: symbol ships' targeting lines, and their shots, drawn or not. */
+const COMMANDER_LINES_SETTING = 'fleet-game.commander-lines';
+const COMMANDER_SHOTS_SETTING = 'fleet-game.commander-shots';
 
 /** Numbers shown on screen by React. */
 export interface HudInfo {
@@ -136,6 +146,9 @@ export interface HudInfo {
   cursorLock: boolean;
   /** Settings (touch screens): controls mirrored, thumbstick on the right. */
   leftHanded: boolean;
+  /** Settings: commander view targeting lines / symbol ships' shots drawn. */
+  commanderLines: boolean;
+  commanderShots: boolean;
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
   /** An interrupted run that can be resumed (asked when the game opens), or null. */
@@ -865,15 +878,52 @@ export class Game {
     }
   }
 
+  /** Commander view settings (Settings → General; remembered in this browser). */
+  commanderLines = loadToggle(COMMANDER_LINES_SETTING, CONFIG.commander.targetLines);
+  commanderShots = loadToggle(COMMANDER_SHOTS_SETTING, CONFIG.commander.drawShots);
+  setCommanderLines(on: boolean) {
+    this.commanderLines = on;
+    saveSetting(COMMANDER_LINES_SETTING, on ? 'on' : 'off');
+    this.sendHud();
+  }
+  setCommanderShots(on: boolean) {
+    this.commanderShots = on;
+    saveSetting(COMMANDER_SHOTS_SETTING, on ? 'on' : 'off');
+    this.sendHud();
+  }
+
+  /** Background shifts, fading in and out: blue while the commander view is on, red during Time Dilation. */
+  private shift = { blue: 0, red: 0 };
+  private viewOptions(dt: number): ViewOptions {
+    const st = this.state;
+    const step = dt / Math.max(0.01, CONFIG.commander.fadeTime);
+    const toward = (v: number, goal: number, k: number) => (v < goal ? Math.min(goal, v + k) : Math.max(goal, v - k));
+    this.shift.blue = toward(this.shift.blue, symbolTierMax(st) > 0 ? 1 : 0, step);
+    // Time Dilation's red comes and goes 4× faster, so it's felt at once.
+    this.shift.red = toward(this.shift.red, st.timeDilation > 0 ? 1 : 0, step * 4);
+    // The smear trails behind your movement.
+    const f = controlledShip(st);
+    const back = CONFIG.timeDilation.smearSeconds;
+    return {
+      targetLines: this.commanderLines,
+      shots: this.commanderShots,
+      blue: this.shift.blue,
+      red: this.shift.red,
+      smearX: f ? -f.vx * back : 0,
+      smearY: f ? -f.vy * back : 0,
+    };
+  }
+
   /** Move particles, and add new ones from the thrusters of ships on (or near) the screen. */
   private updateParticles(dt: number) {
     this.particles.update(dt);
     const v = this.renderer.view;
     const margin = 100;
     const near = (x: number, y: number) => x > v.x - margin && x < v.x + v.w + margin && y > v.y - margin && y < v.y + v.h + margin;
+    const symbolMax = symbolTierMax(this.state);
     for (const s of this.state.ships) {
       if (s.dead || s.absorbed || !near(s.x, s.y)) continue;
-      if (s.tier - detailSteps(this.state) < 1) continue; // drawn as an icon
+      if (drawnAsSymbol(this.state, s, symbolMax)) continue; // a HUD symbol: no thrusters
       const { name: base, scale } = tierArt(this.assets, shipArtBase(s), s.tier, '', false);
       this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy, scale);
     }
@@ -887,11 +937,17 @@ export class Game {
       if (layout) this.particles.emitMounts(this.layouts, layout, state, x, y, angle, dt, vx, vy, scale);
     };
     for (const b of this.state.bullets) {
+      // Symbol ships' shots: the HUD shot's emitters (if shots are drawn at all).
+      if (b.tier <= symbolMax) {
+        const layout = this.layouts.objects['projectile.hud'];
+        if (this.commanderShots && layout && near(b.x, b.y)) this.particles.emitMounts(this.layouts, layout, 'flying', b.x, b.y, Math.atan2(b.vy, b.vx), dt, b.vx, b.vy);
+        continue;
+      }
       if (b.homing > 0) emit(b.sprite, b.tier, b.lit ? 'fired' : 'inert', b.x, b.y, b.facing ?? Math.atan2(b.vy, b.vx), '', b.vx, b.vy);
       else emit(b.sprite, b.tier, 'flying', b.x, b.y, Math.atan2(b.vy, b.vx), '', b.vx, b.vy);
     }
     for (const m of this.state.mines) emit('projectile.mine', m.tier, 'armed', m.x, m.y, 0);
-    for (const w of this.state.wrecks) emit(SHIP_TYPES[w.type].sprites.ship, w.tier, 'drifting', w.x, w.y, w.angle, '.wreck', w.vx, w.vy);
+    for (const w of this.state.wrecks) if (w.tier > symbolMax && w.tier - detailSteps(this.state) >= 1) emit(SHIP_TYPES[w.type].sprites.ship, w.tier, 'drifting', w.x, w.y, w.angle, '.wreck', w.vx, w.vy);
     for (const b of this.state.beams) emit('vfx.laser', b.tier, 'beam', b.x, b.y, b.angle);
     for (const s of this.state.ships)
       if (s.elite && s.elite.laserCharge > 0)
@@ -925,7 +981,7 @@ export class Game {
         r.camY += sy;
         r.begin(frozen ? 0 : frameDt);
         if (!frozen) this.updateParticles(frameDt * this.timeScale);
-        renderGame(this.state, r, this.assets, { layouts: this.layouts, particles: this.particles });
+        renderGame(this.state, r, this.assets, { layouts: this.layouts, particles: this.particles, view: this.viewOptions(frozen ? 0 : frameDt) });
         // While the cursor is locked the real one is hidden: draw the game's own.
         if (this.input.locked) {
           const p = r.screenToWorld(this.input.mouseX, this.input.mouseY);
@@ -1006,6 +1062,8 @@ export class Game {
       autoFire: this.autoFire,
       cursorLock: this.input.cursorLock,
       leftHanded: this.leftHanded,
+      commanderLines: this.commanderLines,
+      commanderShots: this.commanderShots,
       fps: this.fps,
       resumeOffer: this.resumeOffer && {
         wave: this.resumeOffer.wave,

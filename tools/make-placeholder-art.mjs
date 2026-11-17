@@ -540,16 +540,67 @@ function hijackHeart() {
   return img;
 }
 
-// Detail-step ship icon: a small diamond (a square turned 45°) for ships drawn smaller than a
-// tier-1 ship, one colour per side and enemy variant (ships aren't recoloured).
-function shipIcon(fill, light) {
-  const img = new Img(9, 9);
-  for (let y = 0; y < 9; y++)
-    for (let x = 0; x < 9; x++) {
-      const d = Math.abs(x - 4) + Math.abs(y - 4);
-      if (d <= 3) img.set(x, y, hex(d <= 1 && x <= 4 && y <= 4 ? light : fill));
+// Commander view symbols (docs/COMMANDER-VIEW.md): a HUD mark per ship tier, in its side's colour,
+// with a soft glow around it. T1 dot, T2 hollow square, T3 diamond with a dot, T4 ring with a dot,
+// T5 diamond with a square, T6 triangle with a dot, T7 double diamond, T8 hollow square with a diamond.
+// Each image is 15×15, centred.
+function hudSymbol(tier, color) {
+  const S = 15, c = 7;
+  const core = new Img(S, S);
+  const on = (x, y) => core.set(x, y, hex(color));
+  const d1 = (x, y) => Math.abs(x - c) + Math.abs(y - c); // diamond distance
+  const dmax = (x, y) => Math.max(Math.abs(x - c), Math.abs(y - c)); // square distance
+  const dr = (x, y) => Math.hypot(x - c, y - c);
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const dot = dmax(x, y) <= 1 && d1(x, y) <= 1;
+      let hit = false;
+      if (tier === 1) hit = dmax(x, y) <= 1;
+      else if (tier === 2) hit = dmax(x, y) === 3;
+      else if (tier === 3) hit = d1(x, y) === 4 || dot;
+      else if (tier === 4) hit = Math.abs(dr(x, y) - 4.5) < 0.6 || dot;
+      else if (tier === 5) hit = d1(x, y) === 6 || dmax(x, y) === 2;
+      else if (tier === 6) hit = (y === c + 4 && Math.abs(x - c) <= 5) || (y <= c + 4 && y >= c - 5 && Math.abs(Math.abs(x - c) - (y - (c - 5)) / 1.8) < 0.6) || dot;
+      else if (tier === 7) hit = d1(x, y) === 6 || d1(x, y) === 3;
+      else hit = dmax(x, y) === 6 || d1(x, y) === 3;
+      if (hit) on(x, y);
     }
-  outline(img, hex('#14171f'));
+  // Glow: see-through pixels around the mark, fading with distance.
+  const img = new Img(S, S);
+  const [r, g, b] = hex(color);
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      if (core.data[(y * S + x) * 4 + 3]) {
+        img.set(x, y, [r, g, b, 255]);
+        continue;
+      }
+      let best = 9;
+      for (let yy = Math.max(0, y - 2); yy <= Math.min(S - 1, y + 2); yy++)
+        for (let xx = Math.max(0, x - 2); xx <= Math.min(S - 1, x + 2); xx++)
+          if (core.data[(yy * S + xx) * 4 + 3]) best = Math.min(best, Math.hypot(xx - x, yy - y));
+      if (best <= 2.3) img.set(x, y, [r, g, b, best <= 1.01 ? 110 : best <= 1.5 ? 70 : 32]);
+    }
+  return img;
+}
+
+// A small wreck in the commander view: a grey dot with a faint glow.
+function hudWreck() {
+  const img = new Img(7, 7);
+  for (let y = 0; y < 7; y++)
+    for (let x = 0; x < 7; x++) {
+      const d = Math.hypot(x - 3, y - 3);
+      if (d <= 1.2) img.set(x, y, [150, 156, 170, 255]);
+      else if (d <= 2.6) img.set(x, y, [150, 156, 170, d <= 2 ? 80 : 35]);
+    }
+  return img;
+}
+
+// A symbol ship's shot (commander view): a 3-pixel streak, bright head on the right, team sky blue.
+function hudShot() {
+  const img = new Img(3, 1);
+  img.set(0, 0, [63, 182, 255, 110]);
+  img.set(1, 0, hex('#3fb6ff'));
+  img.set(2, 0, hex('#bfe8ff'));
   return img;
 }
 
@@ -1653,10 +1704,13 @@ const FILES = {
   'vfx/shimmer.png': shimmerSheet,
   'ui/cursor.png': cursorCross,
   'ui/hijack-heart.png': hijackHeart,
-  'ui/icon-player.png': () => shipIcon('#3fb6ff', '#9fdcff'),
-  'ui/icon-enemy.png': () => shipIcon('#e0484a', '#ff9a8a'),
-  'ui/icon-enemy-energy.png': () => shipIcon('#a050f0', '#d4a8ff'),
-  'ui/icon-enemy-explosive.png': () => shipIcon('#f08a20', '#ffcc80'),
+  ...Object.fromEntries(
+    Object.entries({ player: '#5fc4ff', enemy: '#ff6a4a', 'enemy-energy': '#b878ff', 'enemy-explosive': '#ffae3a' }).flatMap(([side, color]) =>
+      [1, 2, 3, 4, 5, 6, 7, 8].map((t) => [`ui/hud-${side}-t${t}.png`, () => hudSymbol(t, color)]),
+    ),
+  ),
+  'ui/hud-wreck.png': hudWreck,
+  'projectiles/hud-shot.png': hudShot,
   ...Object.fromEntries(Object.entries(ITEM_ICONS).map(([name, draw]) => [`ui/item-${name}.png`, () => icon16(draw)])),
   'vfx/laser.png': () => laserSegment(1),
   'vfx/particle-move.png': () => particleDot('#ff9a3a'),

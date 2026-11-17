@@ -1153,6 +1153,15 @@ export const CONFIG = {
     duration: 4,
     /** Speed of everything else meanwhile (0.5 = half speed). */
     slowTo: 0.5,
+    /** Red shift: colour multiplied into the starfield meanwhile (instead of a glow at the screen's edges). */
+    redShift: "#ff8a7a",
+    /** Haze laid over the background meanwhile: colour and opacity (0–1). */
+    redHaze: "#3a0808",
+    redHazeAlpha: 0.35,
+    /** Stars smear like a long exposure meanwhile: copies drawn behind them along your movement... */
+    smearCopies: 6,
+    /** ...reaching back this many seconds of your movement. */
+    smearSeconds: 0.12,
   },
 
   /** Force Dash (passive): enemies your fleet dashes through take damage. */
@@ -1548,10 +1557,42 @@ export const CONFIG = {
    * your biggest ship this run is bigger than fullSizeUpTo, everything is drawn one tier
    * smaller per tier beyond it, with crisp smaller art (the view widens 1.5× per step).
    * Drawing only: hit sizes, ranges and speeds don't change. Ships that would be drawn
-   * smaller than a tier-1 ship become small icons (ui.icon.*).
+   * smaller than a tier-1 ship become symbols (see `commander`).
    */
   detail: {
     /** Biggest tier drawn at full size (each tier past it adds one detail step). */
     fullSizeUpTo: 6,
+  },
+
+  /**
+   * Commander view (docs/COMMANDER-VIEW.md): once your biggest ship (right now, not best this run)
+   * is tier `fromTier` or more, only the top `realTiers` tiers are drawn as ships; smaller ships (both
+   * sides) become HUD symbols by tier (ui.hud.<side>.t<tier>), their shots become HUD shots
+   * (projectile.hud) and their beams thin lines, and the background turns dim and blue-shifted.
+   * Elites always stay ships. Drawing only.
+   */
+  commander: {
+    /** It starts once your biggest ship is this tier or bigger. */
+    fromTier: 4,
+    /** Tiers drawn as ships, counting down from your biggest; smaller ones are symbols. */
+    realTiers: 3,
+    /** Symbol ships show a line toward what they're aiming at (Settings can turn it off). */
+    targetLines: true,
+    /** Opacity of a targeting line at the symbol (0–1); it fades out toward the target. */
+    targetLineAlpha: 0.4,
+    /** Colours of targeting lines and symbol beams: yours, then enemies'. */
+    lineColorPlayer: "#5fc4ff",
+    lineColorEnemy: "#ff7a4a",
+    /** Draw symbol ships' shots, as projectile.hud (Settings can turn it off). */
+    drawShots: true,
+    /** Stars' brightness while it's on, or during Time Dilation (1 = normal). */
+    starDim: 0.4,
+    /** Blue shift: colour multiplied into the starfield while it's on. */
+    blueShift: "#7fa8ff",
+    /** Haze laid over the background while it's on: colour and opacity (0–1). */
+    blueHaze: "#04102c",
+    blueHazeAlpha: 0.35,
+    /** Seconds the background takes to shift in or out. */
+    fadeTime: 1,
   },
 };

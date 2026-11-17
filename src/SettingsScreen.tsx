@@ -59,6 +59,20 @@ function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
           </span>
         </span>
       </label>
+      <label className="setting">
+        <input type="checkbox" checked={hud.commanderLines} onChange={(e) => game?.setCommanderLines(e.target.checked)} />
+        <span>
+          <b>Commander view: targeting lines</b>
+          <span className="note">With big fleets, small ships show as symbols. This draws a faint line from each one toward what it's aiming at.</span>
+        </span>
+      </label>
+      <label className="setting">
+        <input type="checkbox" checked={hud.commanderShots} onChange={(e) => game?.setCommanderShots(e.target.checked)} />
+        <span>
+          <b>Commander view: show symbol ships' shots</b>
+          <span className="note">Draws the shots of ships shown as symbols (as small HUD shots). Turn off for a calmer screen.</span>
+        </span>
+      </label>
       {IS_TOUCH_DEVICE && (
         <label className="setting">
           <input type="checkbox" checked={hud.leftHanded} onChange={(e) => game?.setLeftHanded(e.target.checked)} />

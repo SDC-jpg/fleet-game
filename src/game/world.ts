@@ -83,6 +83,8 @@ export interface Ship {
   reinforcement: { phase: 'dash' | 'join'; fromX: number; fromY: number; toX: number; toY: number; time: number } | null;
   /** Seconds it can't be damaged (reinforcements: Infinity on the way, a moment after joining). */
   immune: number;
+  /** What its AI is aiming at right now (null = nothing); drawn as a targeting line for symbol ships. */
+  target: Ship | null;
   /**
    * While its fleet is cloaked: a still copy of it where it was last seen.
    * Enemies aim at this instead (see findNearestEnemy). null = not hidden.
@@ -654,6 +656,24 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
 /** Detail steps (CONFIG.detail): one per tier your biggest ship this run is past fullSizeUpTo. */
 export const detailSteps = (state: GameState) => Math.max(0, state.maxTier - CONFIG.detail.fullSizeUpTo);
 
+/**
+ * Commander view (CONFIG.commander): the biggest tier drawn as symbols, 0 = none. Once your
+ * biggest ship right now is fromTier or more, all but the top realTiers tiers are symbols.
+ */
+export function symbolTierMax(state: GameState) {
+  const C = CONFIG.commander;
+  let top = 0;
+  for (const s of state.playerFleet.members) if (!s.dead) top = Math.max(top, s.tier);
+  return top >= C.fromTier ? top - C.realTiers : 0;
+}
+
+/**
+ * Is this ship drawn as a symbol? Commander view (tier at most `max`), or so small after the
+ * detail steps that it would be smaller than a tier-1 ship. Elites always stay ships.
+ */
+export const drawnAsSymbol = (state: GameState, s: Ship, max = symbolTierMax(state)) =>
+  !s.elite && (s.tier <= max || s.tier - detailSteps(state) < 1);
+
 /** How much smaller the world is drawn for the detail steps (1 = normal). */
 export const detailFactor = (state: GameState) => CONFIG.tiers.sizePerTier ** -detailSteps(state);
 
@@ -738,6 +758,7 @@ function addShip(
     variant: null,
     reinforcement: null,
     immune: 0,
+    target: null,
     ghost: null,
     shield: 0,
     shieldTime: 0,
@@ -1149,12 +1170,14 @@ function updateFleet(state: GameState, fleet: Fleet, dt: number) {
  * With an `arc`, only targets inside it count and the ship never turns outside it.
  */
 function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number, arc?: FireArc) {
+  ship.target = null;
   // Frozen ships can't aim; scrambled ones turn and shoot at random (updateScrambled).
   if (ship.frozen > 0 || ship.scrambled > 0) return;
   // An elite holds still while its laser warning shows, so the warning line is where the beam will go.
   if (ship.elite && ship.elite.laserCharge > 0) return;
   // Merging ships hold fire.
   const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range, arc);
+  ship.target = target;
   if (!target) {
     ship.angle = turnToward(ship.angle, idleAngle, ship.stats.turnRate * dt);
     restTurrets(ship, dt);

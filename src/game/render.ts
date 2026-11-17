@@ -4,12 +4,12 @@ import type { Assets, Sprite } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { clamp } from '../engine/math';
 import { SHIP_TYPES, CONFIG } from './config';
-import { laserLength } from './skills';
+import { BEAM_SHOW_TIME, laserLength } from './skills';
 import type { Particles } from './particles';
 import { ownedSkill, pdcPositions } from './newSkills';
 import { fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile } from './artLayout';
 import { gunsOf, shipArtBase } from './guns';
-import { controlledShip, isMergePart, type GameState, type Ship, type Team } from './world';
+import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
 
 /**
  * The art name for a tier: "<base>.t3<suffix>" for tier 3, falling back to
@@ -60,11 +60,68 @@ function teamSprite(assets: Assets, name: string, team: Team | null) {
 export interface ArtExtras {
   layouts: ArtLayoutsFile;
   particles: Particles;
+  /** Commander view options and background shifts (see CONFIG.commander); missing = all off. */
+  view?: ViewOptions;
+}
+
+/** How the commander view and background look this frame (worked out by Game.ts). */
+export interface ViewOptions {
+  /** Symbol ships show targeting lines / their shots are drawn (Settings). */
+  targetLines: boolean;
+  shots: boolean;
+  /** Blue shift (commander view) and red shift (Time Dilation), 0–1, fading in and out. */
+  blue: number;
+  red: number;
+  /** The long-exposure smear of the stars during Time Dilation: how far back (game pixels). */
+  smearX: number;
+  smearY: number;
+}
+
+/**
+ * The starfield, dimmed and colour-shifted: blue while the commander view is on, red during
+ * Time Dilation (its stars smeared like a long exposure).
+ */
+function drawBackground(r: PixelRenderer, assets: Assets, view: ViewOptions | undefined) {
+  const C = CONFIG.commander;
+  const T = CONFIG.timeDilation;
+  const blue = view?.blue ?? 0;
+  const red = view?.red ?? 0;
+  const shift = Math.max(blue, red);
+  const dim = 1 - (1 - C.starDim) * shift;
+  const smear = red > 0 && view ? T.smearCopies : 0;
+  // A black base first, so the colour shifts below tint the stars instead of filling empty space.
+  if (shift > 0) r.fillView('#000000', 1);
+  for (const [name, parallax] of [['bg.stars-far', 0.3], ['bg.stars-near', 0.6]] as const) {
+    const sprite = assets.get(name);
+    // Smear: fainter copies behind, along your movement.
+    for (let i = smear; i >= 1; i--)
+      r.drawTiled(sprite, parallax, ((dim * red * 0.6) / smear) * (1 - (i - 1) / smear) * 1.8, view!.smearX * (i / smear), view!.smearY * (i / smear));
+    r.drawTiled(sprite, parallax, dim);
+  }
+  // Colour shift, then a thin haze (red wins while Time Dilation runs).
+  if (red > 0) {
+    r.fillView(T.redShift, red, 'multiply');
+    r.fillView(T.redHaze, T.redHazeAlpha * red);
+  } else if (blue > 0) {
+    r.fillView(C.blueShift, blue, 'multiply');
+    r.fillView(C.blueHaze, C.blueHazeAlpha * blue);
+  }
+}
+
+/**
+ * A ship's symbol for the commander view: "ui.hud.<side>.t<tier>", side = player, enemy,
+ * enemy-energy or enemy-explosive (from its art), falling back to a smaller tier's symbol.
+ */
+function symbolSprite(assets: Assets, artBase: string, tier: number) {
+  const side = Object.values(SHIP_TYPES).some((t) => t.sprites.ship === artBase) ? 'player' : artBase.replace(/^ship\./, '');
+  for (let t = tier; t > 1; t--) if (assets.has(`ui.hud.${side}.t${t}`)) return assets.get(`ui.hud.${side}.t${t}`);
+  return assets.get(`ui.hud.${side}.t1`);
 }
 
 export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, extras: ArtExtras) {
-  r.drawTiled(assets.get('bg.stars-far'), 0.3);
-  r.drawTiled(assets.get('bg.stars-near'), 0.6);
+  drawBackground(r, assets, extras.view);
+  const view = extras.view;
+  const symbolMax = symbolTierMax(state);
 
   for (const w of state.wrecks) {
     // Blink when about to disappear.
@@ -75,6 +132,11 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     {
       const m = tierSpriteScaled(assets, 'ui.wreck-marker', w.tier);
       r.drawSprite(m.sprite, w.x, w.y, 0, state.time, alpha, true, m.scale);
+    }
+    // Commander view: small wrecks are grey HUD dots.
+    if (w.tier <= symbolMax || w.tier - detailSteps < 1) {
+      r.drawSprite(assets.get('ui.hud.wreck'), w.x, w.y, 0, state.time, alpha, true);
+      continue;
     }
     // Drawn from its layout (art.json), in its own colours (wrecks aren't team-coloured).
     const { name, scale } = tierArt(assets, SHIP_TYPES[w.type].sprites.ship, w.tier, '.wreck', false);
@@ -111,12 +173,20 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   // command ring and the ship you fly on top.
   const flagship = controlledShip(state);
   const ordered = state.ships.filter((s) => s !== flagship).sort((a, b) => a.tier - b.tier);
-  for (const s of ordered) drawShip(r, assets, extras.layouts, s, state.time);
+  // Commander view: symbol ships' targeting lines first, under everything (fading out toward the target).
+  if (view?.targetLines)
+    for (const s of ordered) {
+      const t = s.target;
+      if (!t || t.dead || s.dead || !drawnAsSymbol(state, s, symbolMax)) continue;
+      const color = s.team === 'player' ? CONFIG.commander.lineColorPlayer : CONFIG.commander.lineColorEnemy;
+      r.drawLine(s.x, s.y, t.x, t.y, color, CONFIG.commander.targetLineAlpha, 0);
+    }
+  for (const s of ordered) drawShip(r, assets, extras.layouts, s, state.time, drawnAsSymbol(state, s, symbolMax));
   if (flagship) {
     // The command ring is also the boost meter: its frames go from empty (first) to full (last).
     const { sprite: ring, scale } = tierSpriteScaled(assets, 'ui.command-ring', flagship.tier);
     r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1, false, scale);
-    drawShip(r, assets, extras.layouts, flagship, state.time);
+    drawShip(r, assets, extras.layouts, flagship, state.time, false);
   }
 
   // Shield bubbles over shielded ships (fading in their last second), and over reinforcements while they can't be hurt.
@@ -155,6 +225,13 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
 
   // Laser beams: one short segment image repeated along the beam's length.
   for (const b of state.beams) {
+    // Commander view: symbol ships' beams are thin lines, fading out toward the end.
+    if (b.tier <= symbolMax) {
+      const color = b.team === 'player' ? CONFIG.commander.lineColorPlayer : CONFIG.commander.lineColorEnemy;
+      const fade = 1 - b.age / BEAM_SHOW_TIME;
+      r.drawLine(b.x, b.y, b.x + Math.cos(b.angle) * b.length, b.y + Math.sin(b.angle) * b.length, color, 0.9 * fade, 0);
+      continue;
+    }
     const { name, scale } = tierArt(assets, 'vfx.laser', b.tier);
     drawBeam(r, teamSprite(assets, name, b.team), b.x, b.y, b.angle, b.length, b.width * scale, b.age);
     // The laser's Beam mounts (art.json), at the muzzle.
@@ -171,6 +248,14 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   }
 
   for (const b of state.bullets) {
+    // Commander view: symbol ships' shots (and missiles) are HUD shots, or not drawn at all (Settings).
+    if (b.tier <= symbolMax) {
+      if (view?.shots) {
+        const angle = b.homing > 0 ? (b.facing ?? Math.atan2(b.vy, b.vx)) : Math.atan2(b.vy, b.vx);
+        drawLayoutArt(r, assets, extras.layouts.objects['projectile.hud'], 'projectile.hud', b.x, b.y, angle, 'flying', b.team, state.time);
+      }
+      continue;
+    }
     const { name, scale } = tierArt(assets, b.sprite, b.tier);
     if (b.homing > 0) {
       // Missiles are drawn from their layout (art.json): Inert until they fire up, then Fired
@@ -327,26 +412,20 @@ export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, an
   for (let i = 0; i < n; i++) r.drawSprite(seg, x + dx * (i + 0.5) * w * width, y + dy * (i + 0.5) * w * width, angle, time, 1, false, width);
 }
 
-/** The icon of a ship design shown as an icon (detail steps): "ship.enemy-energy" → "ui.icon.enemy-energy", your ships → "ui.icon.player". */
-export function shipIcon(artBase: string) {
-  const name = artBase.replace(/^ship\./, '');
-  return Object.values(SHIP_TYPES).some((t) => t.sprites.ship === artBase) ? 'ui.icon.player' : `ui.icon.${name}`;
-}
-
 /** Draws one ship, plus a small health bar under it if it's damaged. */
-function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number) {
+function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number, symbol: boolean) {
   if (s.absorbed) return; // already inside the ship it's merging into
+  // Commander view (and ships too small after detail steps): a HUD symbol by tier, fixed size on screen.
+  if (symbol) {
+    r.drawSprite(symbolSprite(assets, shipArtBase(s), s.tier), s.x, s.y, 0, time, 1, true);
+    if (s.hijackedFrom) r.drawSprite(teamSprite(assets, 'ui.hijack-heart', s.team), s.x, s.y - CONFIG.hijack.heartGap / r.worldScale - 6 / r.worldScale, 0, time, 1, true);
+    return;
+  }
   // Dash trail behind the ship, pointing back along its movement. Plays once per dash.
   if (s.fleet.dashTime > 0 && !isMergePart(s)) {
     const d = tierArt(assets, 'vfx.dash', s.tier);
     const trail = teamSprite(assets, d.name, s.team);
     r.drawSprite(trail, s.x, s.y, Math.atan2(s.vy, s.vx), CONFIG.dash.duration - s.fleet.dashTime, 1, false, d.scale);
-  }
-  // Shrunk below a tier-1 ship by detail steps: a small icon instead (fixed size on screen).
-  if (s.tier - detailSteps < 1) {
-    const base = shipArtBase(s);
-    r.drawSprite(assets.get(shipIcon(base)), s.x, s.y, 0, time, 1, true);
-    return;
   }
   const { name: base, scale } = tierArt(assets, shipArtBase(s), s.tier, '', false);
   // Ships flying into a merge fade out as they reach the core.

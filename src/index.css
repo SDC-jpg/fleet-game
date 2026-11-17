@@ -1308,18 +1308,6 @@ body {
   pointer-events: none;
 }
 /* Time Dilation: a cool tint at the screen's edges (CSS placeholder, art can replace it). */
-.time-dilation-tint {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-  box-shadow: inset 0 0 160px rgba(120, 190, 255, 0.35);
-  animation: dilation-in 0.25s ease-out;
-}
-@keyframes dilation-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 
 /* Top middle: the keyboard help bar, then the wave timer under it. */
 .top-stack {

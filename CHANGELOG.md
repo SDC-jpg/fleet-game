@@ -5,6 +5,8 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-16
+- Commander view: once you fly a tier-4 ship, only your top three ship sizes are drawn as ships; smaller ships on both sides become glowing tactical symbols (dot, square, diamond...), with faint targeting lines and small HUD shots, and the starfield dims to a deep blue. Both extras can be switched off in Settings.
+- Time Dilation now turns the background red and smears the stars like a long exposure, instead of the blue glow at the screen's edges.
 - Reinforcements: after wave 30, if heavy losses leave your fleet below 70% of its best, Fleet HQ warps in a friendly fleet (once per run). It dashes in ahead of you, shielded from all damage, shoots at enemies on its way and joins your fleet.
 - Card index (Settings): uses the whole screen width, sorted into weapons, defensive skills, passive skills and fleet bonuses with a line between them, each skill on its own row with its upgrade stacks fanned out beside it; upgrade cards get a thin outline in their rarity colour.
 - Merge drawer: the buttons now sit at the bottom, under the "Made:" report, which lists each bonus on its own line like the item tooltips. Opening the merge settings turns the gear into a "Save Settings" button (save to get back to merging), and AutoMerge waits while the settings are open.
