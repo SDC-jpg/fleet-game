@@ -1,7 +1,8 @@
 # Plan: separate enemy ships, gun mounts and weapon variants (not built yet)
 
-Status: **agreed 2026-11-16, being built stage by stage** (the user: "go forward with
-phase 1 and if there are no issues continue on with the phases"). Stages 1–4 done. Related: [DETAIL-STEPS.md](DETAIL-STEPS.md)
+Status: **built 2026-11-16** (all five stages; the user: "go forward with phase 1 and
+if there are no issues continue on with the phases"). Numbers are first guesses, to be
+tuned by playing. Elites stay standard (not variants). Related: [DETAIL-STEPS.md](DETAIL-STEPS.md)
 (to be built after this one).
 
 ## Goals

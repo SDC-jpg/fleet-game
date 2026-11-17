@@ -121,6 +121,10 @@ exactly as painted. Repaint the enemy ones however you like (any colours).
   files unless run with `--force`).
 - Enemy ships have their own layouts in ShipArt (Ships → Enemy), so their
   thrusters can sit somewhere else than on your ships.
+- **Enemy variants** have their own images too: `ship.enemy-energy` (purple,
+  fires beams) and `ship.enemy-explosive` (orange, fires missiles), each with
+  `.t2`… versions and its own layouts and guns in ShipArt. Their standard guns
+  fire their weapon type.
 - Wrecks stay one grey image for both sides.
 - A **hijacked** ship keeps its old side's art and gets a small heart above it
   (`ui.hijack-heart`) in the colour of the side it now fights for.

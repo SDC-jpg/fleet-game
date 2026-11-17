@@ -444,6 +444,450 @@
           }
         }
       ]
+    },
+    "ship.enemy-energy": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -20,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {
+              "perSecond": 10
+            }
+          }
+        }
+      ]
+    },
+    "ship.enemy-energy.t2": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -29,
+          "y": -7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -29,
+          "y": 7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        }
+      ]
+    },
+    "ship.enemy-energy.t3": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": -7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": 7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        }
+      ]
+    },
+    "ship.enemy-energy.t4": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -79,
+          "y": -18,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -85,
+          "y": -9,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-3.png",
+            "boost": "parts/thruster-boost-3/"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -85,
+          "y": 9,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-3.png",
+            "boost": "parts/thruster-boost-3/"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -79,
+          "y": 18,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        }
+      ]
+    },
+    "ship.enemy-explosive": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -20,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-1.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {
+              "perSecond": 10
+            }
+          }
+        }
+      ]
+    },
+    "ship.enemy-explosive.t2": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -29,
+          "y": -7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -29,
+          "y": 7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": false,
+          "vfxX": 6,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-1.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        }
+      ]
+    },
+    "ship.enemy-explosive.t3": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": -7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": 0,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -44,
+          "y": 7,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        }
+      ]
+    },
+    "ship.enemy-explosive.t4": {
+      "base": {},
+      "mounts": [
+        {
+          "category": "thruster",
+          "x": -79,
+          "y": -18,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -85,
+          "y": -9,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-3.png",
+            "boost": "parts/thruster-boost-3/"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -85,
+          "y": 9,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-3.png",
+            "boost": "parts/thruster-boost-3/"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        },
+        {
+          "category": "thruster",
+          "x": -79,
+          "y": 18,
+          "angle": 0,
+          "flipX": false,
+          "flipY": false,
+          "scale": 1,
+          "behind": true,
+          "vfxX": 0,
+          "vfxY": 0,
+          "images": {
+            "move": "parts/thruster-move-2.png",
+            "boost": "parts/thruster-boost-2.png"
+          },
+          "emit": {
+            "move": {},
+            "boost": {}
+          }
+        }
+      ]
     }
   },
   "objects": {

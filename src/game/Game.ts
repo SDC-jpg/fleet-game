@@ -35,6 +35,7 @@ import {
   testKillEnemies,
   testSpawnElite,
   testSpawnSwarm,
+  testSpawnVariants,
   testRemoveShip,
   updateGame,
   type Card,
@@ -763,6 +764,7 @@ export class Game {
     }
     if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
     if (i.wasPressed('KeyH')) testSpawnSwarm(s, this.spawnDistance());
+    if (i.wasPressed('KeyV')) testSpawnVariants(s, this.spawnDistance());
     if (i.wasPressed('KeyO')) {
       s.elitesEnabled = !s.elitesEnabled;
       saveSetting(ELITES_SETTING, s.elitesEnabled ? 'on' : 'off');

@@ -3,7 +3,7 @@
 
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { rarityWeights } from './rarity';
-import { CONFIG, SHIP_TYPES, type FormationMode, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
+import { CONFIG, SHIP_TYPES, type EnemyVariant, type FormationMode, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
 import { enemyHealthMultiplier, lateWaveMultiplier, waveFleetValue, waveGapBase, xpToNextLevel } from './curves';
 import { interceptMissiles } from './newSkills';
 import { gunsOf, type GunSpec } from './guns';
@@ -74,6 +74,8 @@ export interface Ship {
   hijacked: number;
   /** The team it belonged to before it was hijacked (null = not hijacked). */
   hijackedFrom: Team | null;
+  /** Enemy variant (its own art; its guns fire this weapon type), or null for a standard ship. */
+  variant: EnemyVariant | null;
   /**
    * While its fleet is cloaked: a still copy of it where it was last seen.
    * Enemies aim at this instead (see findNearestEnemy). null = not hidden.
@@ -391,6 +393,8 @@ export interface GameState {
   waveLength: number;
   /** Whether the next elite slot brings a swarm instead (rolled one wave ahead, so the HUD can say so). */
   nextSwarm: boolean;
+  /** Test key V: the variant its last squadron was (they take turns). */
+  testVariant?: EnemyVariant;
   /** Seconds until you can dash again (0 = ready). */
   dashCooldown: number;
   /** Your level, and XP gathered toward the next one. */
@@ -707,6 +711,7 @@ function addShip(
     scrambleTimer: 0,
     hijacked: 0,
     hijackedFrom: null,
+    variant: null,
     ghost: null,
     shield: 0,
     shieldTime: 0,
@@ -1947,6 +1952,7 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
 
   const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
   const plan = wavePlan(state, state.wave);
+  const firstNewId = state.nextId;
   const fleetWave = plan.fleet;
 
   // Every few waves an elite comes. If this wave already brings a fleet, it waits for the next one.
@@ -1969,6 +1975,33 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
     const count = Math.min(Math.round(base * early * late), Math.round(CONFIG.maxLoneEnemiesPerWave * late), room);
     for (let i = 0; i < count; i++) spawnEnemyFleet(state, center, spawnDistance, 1, room);
   }
+  addVariantSquadron(state, state.ships.filter((s) => s.id >= firstNewId && s.team === 'enemy' && !s.elite));
+}
+
+/** The enemy variant a wave's squadron is (CONFIG.variants), or null for none this wave. */
+export function rollVariant(wave: number): EnemyVariant | null {
+  const V = CONFIG.variants;
+  const open: EnemyVariant[] = [];
+  if (wave >= V.explosiveFromWave) open.push('explosive');
+  if (wave >= V.energyFromWave) open.push('energy');
+  if (!open.length || Math.random() >= V.chance) return null;
+  return open[Math.floor(Math.random() * open.length)];
+}
+
+/**
+ * Sometimes (CONFIG.variants) a share of a new wave's ships are one enemy variant: those
+ * spawned closest to a random one of them, so they come together as a squadron.
+ */
+function addVariantSquadron(state: GameState, ships: Ship[]) {
+  const variant = rollVariant(state.wave);
+  const n = Math.round(ships.length * CONFIG.variants.share);
+  if (!variant || n < 1) return;
+  const seed = ships[Math.floor(Math.random() * ships.length)];
+  ships
+    .map((s) => ({ s, d: distSq(s.x, s.y, seed.x, seed.y) }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, n)
+    .forEach(({ s }) => (s.variant = variant));
 }
 
 /** Spawn an enemy fleet worth `value`, made of tiers by the same rule as yours. */
@@ -2109,6 +2142,20 @@ export function testSpawnSwarm(state: GameState, spawnDistance: number) {
   const center = controlledShip(state);
   const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
   if (center) spawnSwarm(state, center, spawnDistance, room);
+}
+
+/**
+ * Test key: an enemy fleet as big as this wave's would be (at least 12), all of one
+ * variant (explosive and energy take turns), from one direction.
+ */
+export function testSpawnVariants(state: GameState, spawnDistance: number) {
+  const center = controlledShip(state);
+  if (!center) return;
+  const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
+  const first = state.nextId;
+  spawnEnemyFleet(state, center, spawnDistance, Math.max(12, Math.round(waveFleetValue(Math.max(1, state.wave)))), room);
+  state.testVariant = state.testVariant === 'explosive' ? 'energy' : 'explosive';
+  for (const s of state.ships) if (s.id >= first && s.team === 'enemy') s.variant = state.testVariant;
 }
 
 /** Adds tier-1 ships to your fleet right next to the flagship. */

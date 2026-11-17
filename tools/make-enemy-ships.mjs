@@ -1,8 +1,10 @@
-// Makes the enemy ship images: a red copy of each player ship image
-// (public/assets/ships/fighter*.png → enemy*.png), recoloured once with the same
-// rule the game used to apply at load time (CONFIG.teamColors: sky-blue team
-// parts turned 170° to red). After that the enemy copies are ordinary art the
-// user can repaint freely; the game no longer recolours ships.
+// Makes the enemy ship images from the player ship images
+// (public/assets/ships/fighter*.png), with their sky-blue team parts turned once
+// (the rule the game used to apply at load time, CONFIG.teamColors):
+// - enemy*.png: red (standard enemies, ballistic guns)
+// - enemy-energy*.png: purple (energy variant)
+// - enemy-explosive*.png: orange (explosive variant)
+// After that they're ordinary art the user can repaint freely; the game doesn't recolour ships.
 //
 //   node tools/make-enemy-ships.mjs          -> only creates missing files
 //   node tools/make-enemy-ships.mjs --force  -> overwrites them (careful: replaces edited enemy art!)
@@ -18,16 +20,18 @@ const SHIPS = fileURLToPath(new URL('../public/assets/ships/', import.meta.url))
 const FORCE = process.argv.includes('--force');
 const checkAt = process.argv.indexOf('--check');
 // Same numbers as CONFIG.teamColors in src/game/config.ts.
-const RULE = { hueMin: 180, hueMax: 230, minSaturation: 0.4, shift: 170 };
+const RULE = { hueMin: 180, hueMax: 230, minSaturation: 0.4 };
+/** File name start → how far the team blue turns (degrees): 200° sky blue + 170 = red, + 90 = purple, + 195 = orange. */
+const COPIES = { enemy: 170, 'enemy-energy': 90, 'enemy-explosive': 195 };
 const TIERS = [1, 2, 3, 4, 5, 6, 7, 8];
 const src = (t) => `${SHIPS}fighter${t === 1 ? '' : `-t${t}`}.png`;
-const dst = (t) => `${SHIPS}enemy${t === 1 ? '' : `-t${t}`}.png`;
+const dst = (name, t) => `${SHIPS}${name}${t === 1 ? '' : `-t${t}`}.png`;
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH ?? '/usr/bin/chromium', args: ['--no-sandbox'] });
 try {
   const page = await browser.newPage();
   /** Recolours one PNG in the browser; returns [new PNG as base64, team-blue pixel count]. */
-  const recolor = (file) =>
+  const recolor = (file, shift = 0) =>
     page.evaluate(
       async ({ data, rule }) => {
         const img = new Image();
@@ -58,22 +62,24 @@ try {
         ctx.putImageData(px, 0, 0);
         return [c.toDataURL('image/png').split(',')[1], count];
       },
-      { data: readFileSync(file).toString('base64'), rule: RULE },
+      { data: readFileSync(file).toString('base64'), rule: { ...RULE, shift } },
     );
 
   if (checkAt >= 0) {
     for (const f of process.argv.slice(checkAt + 1)) console.log(`${(await recolor(f))[1]} team-blue pixels  ${f}`);
   } else {
-    for (const t of TIERS) {
-      if (!existsSync(src(t))) continue;
-      if (existsSync(dst(t)) && !FORCE) {
-        console.log(`kept     ${dst(t)}`);
-        continue;
+    for (const [name, shift] of Object.entries(COPIES))
+      for (const t of TIERS) {
+        const out = dst(name, t);
+        if (!existsSync(src(t))) continue;
+        if (existsSync(out) && !FORCE) {
+          console.log(`kept     ${out}`);
+          continue;
+        }
+        const [png, count] = await recolor(src(t), shift);
+        writeFileSync(out, Buffer.from(png, 'base64'));
+        console.log(`made     ${out} (${count} pixels recoloured)`);
       }
-      const [png, count] = await recolor(src(t));
-      writeFileSync(dst(t), Buffer.from(png, 'base64'));
-      console.log(`made     ${dst(t)} (${count} pixels turned red)`);
-    }
   }
 } finally {
   await browser.close();

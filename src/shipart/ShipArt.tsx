@@ -25,7 +25,7 @@ import {
   type Mount,
 } from '../game/artLayout';
 import { OBJECT_KINDS, SHIP_KIND, kindOf, tierOf, type ArtKind } from '../game/artKinds';
-import { defaultGuns, layoutGunsOrDefault } from '../game/guns';
+import { layoutGunsOrDefault } from '../game/guns';
 import type { Gun } from '../game/artLayout';
 import { GunsPanel } from './GunsPanel';
 import { tierSprite } from '../game/render';
@@ -75,8 +75,11 @@ const effectBaseOf = (name: string) => name.replace(/\.t\d+$/, '');
 const baseName = (file: string) => file.replace(/\/$/, '').replace(/^.*\//, '').replace(/\.png$/i, '');
 /** "parts/thruster-boost-1.png" → "thruster". */
 const categoryOf = (file: string) => baseName(file).split('-')[0];
-/** Enemy ships have their own art: "ship.enemy", "ship.enemy.t2"... */
-const isEnemyShip = (sprite: string) => /^ship\.enemy(\.t\d+)?$/.test(sprite);
+/** Which group a ship sprite is listed under: Player, Enemy, or an enemy variant ("ship.enemy-energy.t2" → "Enemy energy"). */
+const shipGroup = (sprite: string) => {
+  const m = /^ship\.enemy(?:-([a-z]+))?(\.t\d+)?$/.exec(sprite);
+  return !m ? 'Player' : m[1] ? `Enemy ${m[1]}` : 'Enemy';
+};
 const label = (s: string) => s[0].toUpperCase() + s.slice(1);
 /**
  * How a sprite is listed: ships by name ("fighter.t2"); objects, which sit
@@ -345,7 +348,7 @@ export function ShipArt() {
       moveGun: (i, x, y) =>
         edit((l) => {
           // Moving a standard gun places a copy of the standard guns first.
-          l.guns = layoutGunsOrDefault(l, tierOf(previewRef.current!.settings.subject)).map((g) => ({ ...g }));
+          l.guns = layoutGunsOrDefault(l, previewRef.current!.settings.subject).map((g) => ({ ...g }));
           Object.assign(l.guns[i], { x, y });
         }),
       dragStart: () => {
@@ -399,7 +402,7 @@ export function ShipArt() {
     (fn: (guns: Gun[]) => void) =>
       change((d) => {
         const l = d[section][subject];
-        l.guns = l.guns?.length ? l.guns : defaultGuns('fighter', tierOf(subject));
+        l.guns = layoutGunsOrDefault(l, subject).map((g) => ({ ...g }));
         fn(l.guns);
       }),
     [change, section, subject],
@@ -633,11 +636,13 @@ export function ShipArt() {
         </button>
         {open.ships && (
           <div className="sa-rollout-body">
-            {/* Player and enemy ships have separate art (enemies aren't recoloured). */}
-            <div className="sa-rollout-group">Player</div>
-            {subjectList(spritesOf(SHIP_KIND).filter((s) => !isEnemyShip(s)))}
-            <div className="sa-rollout-group">Enemy</div>
-            {subjectList(spritesOf(SHIP_KIND).filter(isEnemyShip))}
+            {/* Player ships, enemy ships and each enemy variant have their own art (none are recoloured). */}
+            {[...new Set(spritesOf(SHIP_KIND).map(shipGroup))].sort((a, b) => (a === 'Player' ? -1 : b === 'Player' ? 1 : a.localeCompare(b))).map((g) => (
+              <div key={g}>
+                <div className="sa-rollout-group">{g}</div>
+                {subjectList(spritesOf(SHIP_KIND).filter((s) => shipGroup(s) === g))}
+              </div>
+            ))}
           </div>
         )}
         <button className="sa-rollout" onClick={() => setOpen({ ...open, objects: !open.objects })}>
@@ -797,7 +802,7 @@ export function ShipArt() {
 
           {section === 'ships' && (
             <GunsPanel
-              guns={layoutGunsOrDefault(layout, tierOf(subject))}
+              guns={layoutGunsOrDefault(layout, subject)}
               placed={!!layout.guns?.length}
               tier={tierOf(subject)}
               images={gunImages}

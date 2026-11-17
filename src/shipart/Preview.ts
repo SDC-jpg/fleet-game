@@ -392,7 +392,7 @@ export class Preview {
   private guns() {
     const st = this.settings;
     if (st.effect || st.kind.section !== 'ships') return [];
-    return layoutGunsOrDefault(this.layout, tierOf(st.subject));
+    return layoutGunsOrDefault(this.layout, st.subject);
   }
 
   /** Mouse position in the subject's pixels. */

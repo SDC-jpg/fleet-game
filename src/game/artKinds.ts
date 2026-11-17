@@ -36,7 +36,8 @@ export const SHIP_KIND: ArtKind = {
   id: 'ship',
   label: 'Ships',
   section: 'ships',
-  matches: (s) => /^ship\.[a-z]+(\.t\d+)?$/.test(s),
+  // "ship.fighter", "ship.enemy.t2", "ship.enemy-energy.t3"...
+  matches: (s) => /^ship\.[a-z-]+(\.t\d+)?$/.test(s),
   states: [
     { id: 'idle', label: 'Idle', uses: 'idle' },
     { id: 'move', label: 'Move', uses: 'move' },

@@ -8,6 +8,8 @@
 
 /** How ships fill formation rings (see CONFIG.formationMode). */
 export type FormationMode = "original" | "fill";
+/** Enemy ship variants: their own art, and guns of that weapon type (CONFIG.variants). */
+export type EnemyVariant = "energy" | "explosive";
 
 export interface ShipType {
   /** Hit size (radius). Separate from the art size. */
@@ -41,8 +43,9 @@ export interface ShipType {
    * - Bigger tiers add ".t2", ".t3"... (e.g. "ship.fighter.t2"). A missing
    *   tier uses the closest smaller tier's art (scaled up).
    * - Wrecks add ".wreck" to the ship name (one grey wreck for both sides).
+   * - enemyVariants: the art of enemy variants (CONFIG.variants); their standard guns fire that weapon type.
    */
-  sprites: { ship: string; enemyShip: string; bullet: string };
+  sprites: { ship: string; enemyShip: string; enemyVariants: Record<EnemyVariant, string>; bullet: string };
 }
 
 /** Ship stats at tier 1. Bigger tiers are worked out from these with CONFIG.tiers. */
@@ -60,7 +63,12 @@ export const SHIP_TYPES = {
     bulletLife: 2.0,
     bulletDamage: 1,
     gunOffset: 14,
-    sprites: { ship: "ship.fighter", enemyShip: "ship.enemy", bullet: "projectile" },
+    sprites: {
+      ship: "ship.fighter",
+      enemyShip: "ship.enemy",
+      enemyVariants: { energy: "ship.enemy-energy", explosive: "ship.enemy-explosive" },
+      bullet: "projectile",
+    },
   },
 } satisfies Record<string, ShipType>;
 
@@ -467,6 +475,22 @@ export const CONFIG = {
    * The ship you fly is faster moving toward where it faces (the mouse) and
    * slower backing away. Sideways is normal speed, with a smooth blend between.
    */
+  /**
+   * Enemy variants: ships with their own art whose guns fire energy beams or missiles instead of
+   * shots. Some waves bring a squadron of one variant: a share of the wave's ships, those spawned
+   * closest together. Elites never are variants.
+   */
+  variants: {
+    /** Chance (0–1) that a wave brings a squadron of one variant. */
+    chance: 0.3,
+    /** Share of the wave's ships (elites aside) that are of that variant. */
+    share: 1 / 3,
+    /** First wave explosive (missile) enemies can come. */
+    explosiveFromWave: 7,
+    /** First wave energy (beam) enemies can come. When both can, each is as likely. */
+    energyFromWave: 12,
+  },
+
   /**
    * Ship guns, placed per ship in ShipArt (art.json). Every ship of a tier has the same damage per
    * second budget (a tier-1 ship's bulletDamage / fireCooldown, × powerPerTier per tier), shared

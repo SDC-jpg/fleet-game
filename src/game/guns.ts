@@ -3,7 +3,7 @@
 // tier deals about the same damage per second whatever its guns; see CONFIG.guns).
 // Firing itself is in world.ts (fireGuns).
 
-import { CONFIG, SHIP_TYPES, type ShipTypeId } from './config';
+import { CONFIG, SHIP_TYPES, type EnemyVariant, type ShipTypeId } from './config';
 import type { ArtLayoutsFile, Gun, WeaponType } from './artLayout';
 import type { Ship } from './world';
 
@@ -28,26 +28,34 @@ export interface GunSpec {
 }
 
 /**
- * A ship's art name before its tier: enemy ships have their own art. A hijacked
- * ship keeps the art (and guns) of the side it came from.
+ * A ship's art name before its tier: enemy ships (and each enemy variant) have their
+ * own art. A hijacked ship keeps the art (and guns) of the side it came from.
  */
-export function shipArtBase(s: Pick<Ship, 'type' | 'team' | 'hijackedFrom'>) {
+export function shipArtBase(s: Pick<Ship, 'type' | 'team' | 'hijackedFrom' | 'variant'>) {
   const sprites = SHIP_TYPES[s.type].sprites;
-  return (s.hijackedFrom ?? s.team) === 'enemy' ? sprites.enemyShip : sprites.ship;
+  if ((s.hijackedFrom ?? s.team) !== 'enemy') return sprites.ship;
+  return s.variant ? sprites.enemyVariants[s.variant] : sprites.enemyShip;
+}
+
+/** The weapon type a ship design's standard guns fire: an enemy variant's own, otherwise ballistic. */
+export function artWeapon(artBase: string): WeaponType {
+  for (const t of Object.values(SHIP_TYPES))
+    for (const [variant, name] of Object.entries(t.sprites.enemyVariants)) if (name === artBase) return variant as EnemyVariant;
+  return 'ballistic';
 }
 
 /** "ship.fighter" at tier 3 → "ship.fighter.t3" (tier 1 has no suffix). */
 export const tierName = (base: string, tier: number) => (tier === 1 ? base : `${base}.t${tier}`);
 
 /** The standard guns for a tier (used when a ship has no guns placed): 1 at tier 1, 2 side by side above. */
-export function defaultGuns(type: ShipTypeId, tier: number): Gun[] {
+export function defaultGuns(type: ShipTypeId, tier: number, weapon: WeaponType = 'ballistic'): Gun[] {
   const t = SHIP_TYPES[type];
   const size = CONFIG.tiers.sizePerTier ** (tier - 1);
   const x = Math.round(t.gunOffset * size);
-  if (tier === 1) return [{ x, y: 0, angle: 0, size: 1, type: 'ballistic', turret: false }];
+  if (tier === 1) return [{ x, y: 0, angle: 0, size: 1, type: weapon, turret: false }];
   // Spread across 80% of the ship's width, like the guns before they could be placed.
   const side = Math.round(t.radius * size * 0.4);
-  return [-side, side].map((y) => ({ x, y, angle: 0, size: tier, type: 'ballistic', turret: false }));
+  return [-side, side].map((y) => ({ x, y, angle: 0, size: tier, type: weapon, turret: false }));
 }
 
 /** A tier's damage per second (before bonuses): a tier-1 ship's, × powerPerTier per tier. */
@@ -100,11 +108,11 @@ export function setGunLayouts(data: ArtLayoutsFile | null) {
 /** The guns placed on a ship design in ShipArt, or the standard ones. */
 export function gunLayout(type: ShipTypeId, artBase: string, tier: number): Gun[] {
   const placed = layouts?.ships[tierName(artBase, tier)]?.guns;
-  return placed && placed.length ? placed : defaultGuns(type, tier);
+  return placed && placed.length ? placed : defaultGuns(type, tier, artWeapon(artBase));
 }
 
 /** A ship's guns (worked out once per design and tier). */
-export function gunsOf(s: Pick<Ship, 'type' | 'team' | 'hijackedFrom' | 'tier'>): GunSpec[] {
+export function gunsOf(s: Pick<Ship, 'type' | 'team' | 'hijackedFrom' | 'tier' | 'variant'>): GunSpec[] {
   const base = shipArtBase(s);
   const key = `${s.type}|${base}|${s.tier}`;
   let specs = cache.get(key);
@@ -115,7 +123,12 @@ export function gunsOf(s: Pick<Ship, 'type' | 'team' | 'hijackedFrom' | 'tier'>)
   return specs;
 }
 
-/** The guns a layout has (copied), or the standard ones for its tier if none are placed. For ShipArt. */
-export function layoutGunsOrDefault(layout: { guns?: Gun[] } | undefined, tier: number, type: ShipTypeId = 'fighter'): Gun[] {
-  return layout?.guns?.length ? layout.guns : defaultGuns(type, tier);
+/**
+ * For ShipArt: the guns a ship sprite's layout has, or the standard ones for its design and
+ * tier if none are placed ("ship.enemy-energy.t2" → 2 energy guns).
+ */
+export function layoutGunsOrDefault(layout: { guns?: Gun[] } | undefined, sprite: string, type: ShipTypeId = 'fighter'): Gun[] {
+  if (layout?.guns?.length) return layout.guns;
+  const tier = Number(/\.t(\d+)$/.exec(sprite)?.[1] ?? 1);
+  return defaultGuns(type, tier, artWeapon(sprite.replace(/\.t\d+$/, '')));
 }
