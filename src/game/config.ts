@@ -491,10 +491,16 @@ export const CONFIG = {
     types: {
       /** Plain shots (today's guns). */
       ballistic: { rate: 1, efficiency: 1 },
-      /** Short beams that hurt every ship in a line. */
-      energy: { rate: 2.5, efficiency: 0.6 },
-      /** Small homing missiles. */
-      explosive: { rate: 3, efficiency: 0.75 },
+      /**
+       * Short beams (Laser skill art and sound) that hurt every enemy in a line at once.
+       * length and width are for a size-1 gun; they grow like shot reach and ship size.
+       */
+      energy: { rate: 2.5, efficiency: 0.6, length: 260, width: 4 },
+      /**
+       * Small homing missiles (they fly like the Missiles skill's, CONFIG.missiles): `missiles` per
+       * shot sharing its damage, fanned out up to `spread` degrees either side of where the gun points.
+       */
+      explosive: { rate: 3, efficiency: 0.75, missiles: 2, spread: 20 },
     },
   },
 

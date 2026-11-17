@@ -10,6 +10,8 @@ import type { RunStats } from './game/world';
 /** A weapon's name on screen. */
 export function sourceName(id: string) {
   if (id === 'gun') return 'Base weapon';
+  if (id === 'gun-energy') return 'Base weapon (energy)';
+  if (id === 'gun-explosive') return 'Base weapon (explosive)';
   if (id === 'merge') return 'Merge burst';
   return (SKILLS as Record<string, { name: string }>)[id]?.name ?? id;
 }

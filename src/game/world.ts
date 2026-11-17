@@ -7,6 +7,7 @@ import { CONFIG, SHIP_TYPES, type FormationMode, type Rarity, type ShipType, typ
 import { enemyHealthMultiplier, lateWaveMultiplier, waveFleetValue, waveGapBase, xpToNextLevel } from './curves';
 import { interceptMissiles } from './newSkills';
 import { gunsOf, type GunSpec } from './guns';
+import type { WeaponType } from './artLayout';
 import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
@@ -1341,7 +1342,7 @@ function fireGuns(
   // AI ships fire a little irregularly; one random wait and aim error per volley.
   const jitter = mode === 'player' ? 1 : randRange(0.85, 1.15);
   const error = randRange(-spread, spread);
-  let fired = false;
+  const fired = new Set<WeaponType>();
   guns.forEach((g, i) => {
     const gx = ship.x + g.x * cos - g.y * sin;
     const gy = ship.y + g.x * sin + g.y * cos;
@@ -1358,14 +1359,88 @@ function fireGuns(
     const wait = g.interval * cooldownMul * jitter;
     // Your fleet's fire-rate bonus makes the wait between shots shorter.
     ship.gunTimers[i] = ship.team === 'player' ? wait / state.bonus.fireRate : wait;
-    addBullet(state, ship, gx, gy, dir + error, 'gun', g);
-    fired = true;
+    if (g.type === 'energy') fireEnergyGun(state, ship, g, gx, gy, dir + error);
+    else if (g.type === 'explosive') fireExplosiveGun(state, ship, g, gx, gy, dir + error, aimX, aimY);
+    else addBullet(state, ship, gx, gy, dir + error, 'gun', g);
+    fired.add(g.type);
   });
-  if (!fired) return;
-  // One sound per volley. Your wingmen are quieter than the ship you fly.
+  // One sound per weapon type per volley. Your wingmen are quieter than the ship you fly.
   const enemy = ship.team === 'enemy';
   const volume = enemy || ship === controlledShip(state) ? 1 : CONFIG.audio.allyShotVolume;
-  addSound(state, enemy ? 'sfx.shoot.enemy' : 'sfx.shoot', ship, ship.tier, volume);
+  for (const type of fired) {
+    const sound = type === 'energy' ? 'sfx.laser' : type === 'explosive' ? 'sfx.missile' : enemy ? 'sfx.shoot.enemy' : 'sfx.shoot';
+    addSound(state, sound, ship, ship.tier, volume);
+  }
+}
+
+/** What a gun's kills count as in the statistics: "gun" (ballistic) or "gun-energy"/"gun-explosive"; Hijack for ships you took over. */
+function gunSource(ship: Ship, type: WeaponType): DamageSource {
+  if (ship.hijackedFrom === 'enemy' && ship.team === 'player') return 'hijack';
+  return type === 'ballistic' ? 'gun' : `gun-${type}`;
+}
+
+/** An energy gun's shot: a short beam that hurts every enemy along it at once (like the Laser skill). */
+function fireEnergyGun(state: GameState, ship: Ship, g: GunSpec, x0: number, y0: number, a: number) {
+  const E = CONFIG.guns.types.energy;
+  const T = CONFIG.tiers;
+  const length = E.length * T.rangePerTier ** (g.size - 1);
+  const halfWidth = (E.width * T.sizePerTier ** (g.size - 1)) / 2;
+  const damage = g.damage * (ship.team === 'player' ? state.bonus.damage : 1);
+  const dx = Math.cos(a);
+  const dy = Math.sin(a);
+  for (const s of state.ships) {
+    if (s.team === ship.team || s.dead || s.merge) continue;
+    // How far along the beam the ship is, and how far to the side of it.
+    const along = (s.x - x0) * dx + (s.y - y0) * dy;
+    const side = Math.abs((s.x - x0) * dy - (s.y - y0) * dx);
+    if (along < -s.stats.radius || along > length + s.stats.radius || side > s.stats.radius + halfWidth) continue;
+    damageShip(state, s, damage, gunSource(ship, 'energy'));
+    addEffect(state, 'vfx.hit', s.x, s.y, 0, g.size);
+  }
+  state.beams.push({ team: ship.team, tier: g.size, x: x0, y: y0, angle: a, length, width: 1, age: 0 });
+}
+
+/**
+ * An explosive gun's shot: small homing missiles (flying like the Missiles skill's), fanned out
+ * around where the gun points, all locked on the enemy nearest the aim point in front of the gun.
+ */
+function fireExplosiveGun(state: GameState, ship: Ship, g: GunSpec, x0: number, y0: number, a: number, aimX: number, aimY: number) {
+  const X = CONFIG.guns.types.explosive;
+  const M = CONFIG.missiles;
+  const n = Math.max(1, Math.round(X.missiles));
+  const spread = (X.spread * Math.PI) / 180;
+  const half = (M.lockArc * Math.PI) / 360;
+  let target: Ship | null = null;
+  let best = Infinity;
+  for (const s of state.ships) {
+    if (s.team === ship.team || s.dead || s.merge || s.ghost) continue;
+    if (distSq(s.x, s.y, x0, y0) > M.lockRange ** 2) continue;
+    if (Math.abs(wrapAngle(Math.atan2(s.y - y0, s.x - x0) - a)) > half) continue;
+    const d = distSq(s.x, s.y, aimX, aimY);
+    if (d < best) [best, target] = [d, s];
+  }
+  const damage = (g.damage / n) * (ship.team === 'player' ? state.bonus.damage : 1);
+  for (let i = 0; i < n; i++) {
+    const m = a + (n === 1 ? 0 : (i / (n - 1) - 0.5) * 2 * spread) + randRange(-0.08, 0.08);
+    state.bullets.push({
+      team: ship.team,
+      sprite: 'projectile.missile',
+      source: gunSource(ship, 'explosive'),
+      tier: g.size,
+      x: x0,
+      y: y0,
+      vx: ship.vx + Math.cos(m) * M.ejectSpeed,
+      vy: ship.vy + Math.sin(m) * M.ejectSpeed,
+      life: M.life,
+      damage,
+      radius: 2 * CONFIG.tiers.sizePerTier ** (g.size - 1),
+      homing: M.turnRate,
+      target,
+      facing: m,
+      launchAngle: a,
+      igniteAt: randRange(M.igniteMin, M.igniteMax),
+    });
+  }
 }
 
 /**

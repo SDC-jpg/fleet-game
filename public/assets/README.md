@@ -101,7 +101,10 @@ http://localhost:5173/shipart.html. The published copy
   right, centred on its pivot; placeholders `gun-turret-1`…`4`). Damage isn't set
   by hand: every ship of a tier shares the same damage per second between its guns
   by size, so four small turrets fire smaller, quicker shots than two big cannons.
-  The panel shows the numbers. A ship with no guns placed uses the standard ones
+  The panel shows the numbers. Weapon types: **ballistic** (normal shots),
+  **energy** (a short beam drawn with the laser art, `vfx.laser`, of the gun's
+  size) and **explosive** (small missiles drawn with `projectile.missile`).
+  A ship with no guns placed uses the standard ones
   (1 at tier 1, 2 side by side above); "Use standard guns" goes back to them.
 - The old `fighter-*-move.png` and `fighter-*-boost.png` images are no longer
   used by the game, but they're still in `ships/` and can be picked as a
