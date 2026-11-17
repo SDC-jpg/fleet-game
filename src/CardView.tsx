@@ -12,6 +12,7 @@ export function CardView({
   number,
   onPick,
   className = '',
+  outline = false,
 }: {
   card: CardInfo;
   game: Game | null;
@@ -20,13 +21,16 @@ export function CardView({
   /** Clicking picks it (level-up screen); without it the card can't be clicked. */
   onPick?: () => void;
   className?: string;
+  /** A thin 1 px outline in the rarity's colour instead of a glow (card index). */
+  outline?: boolean;
 }) {
   const border = card.rarity ? borderLook(card.rarity) : null;
-  const glow = card.rarity && !card.rarity.holo ? { boxShadow: `0 0 14px ${card.rarity.color}55` } : undefined;
+  const glow =
+    card.rarity && !card.rarity.holo ? { boxShadow: outline ? `0 0 0 1px ${card.rarity.color}` : `0 0 14px ${card.rarity.color}55` } : undefined;
   const Tag = onPick ? 'button' : 'div';
   return (
     <Tag
-      className={`card ${border?.className ?? ''} ${card.rarity?.holo ? 'holo-glow' : ''} ${onPick ? '' : 'static'} ${className}`}
+      className={`card ${border?.className ?? ''} ${card.rarity?.holo ? (outline ? 'holo-outline' : 'holo-glow') : ''} ${onPick ? '' : 'static'} ${className}`}
       style={{ ...border?.style, ...glow }}
       onClick={
         onPick

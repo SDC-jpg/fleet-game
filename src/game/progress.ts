@@ -145,36 +145,44 @@ export interface CardGroup {
   cards: (CardInfo & { card: Card })[];
 }
 
+/** One skill (or fleet bonus) in the card index: its own card, then a stack per upgrade. */
+export interface CardFamily {
+  title: string;
+  groups: CardGroup[];
+}
+
 /**
- * Every card the game can offer, for the card index (Settings): new skills,
- * each skill's upgrades in every rarity (middle values, no rolled spread),
- * and the fleet bonus cards.
+ * Every card the game can offer, for the card index: by type (weapons, defensive skills,
+ * passive skills, fleet bonuses), each skill with its upgrade stacks (all rarities) beside it.
  */
-export function cardIndex(): { section: string; groups: CardGroup[] }[] {
+export function cardIndex(): { section: string; families: CardFamily[] }[] {
   const C = CONFIG.cards;
-  const skills = enabledSkills();
   // A blank game is enough to describe cards (rank numbers show as rank 2).
   const blank = { skills: [] } as unknown as GameState;
   const card = (c: Card) => ({ ...describeCard(c, blank), card: c });
+  const family = (skill: SkillId): CardFamily => ({
+    title: SKILLS[skill].name,
+    groups: [
+      { title: 'New skill', cards: [card({ kind: 'skill', skill })] },
+      ...skillStats(skill).map((stat) => ({
+        title: `Upgrade: ${upgradeText(skill, stat, rankAmount(stat, 'common', false)).replace(/^\+[\d%]+ /, '')}`,
+        cards: RARITY_ORDER.map((rarity) => {
+          const info = card({ kind: 'rank', skill, stat, rarity, amount: rankAmount(stat, rarity, false) });
+          return { ...info, title: SKILLS[skill].name, label: `Upgrade · up to rank ${C.maxRank}` };
+        }),
+      })),
+    ],
+  });
+  const bySide = (side: string) => enabledSkills().filter((k) => SKILLS[k].side === side).map(family);
   return [
-    { section: 'New skills', groups: skills.map((skill) => ({ title: SKILLS[skill].name, cards: [card({ kind: 'skill', skill })] })) },
-    {
-      section: 'Skill upgrades',
-      groups: skills.flatMap((skill) =>
-        skillStats(skill).map((stat) => ({
-          title: `${SKILLS[skill].name}: ${upgradeText(skill, stat, rankAmount(stat, 'common', false)).replace(/^\+[\d%]+ /, '')}`,
-          cards: RARITY_ORDER.map((rarity) => {
-            const info = card({ kind: 'rank', skill, stat, rarity, amount: rankAmount(stat, rarity, false) });
-            return { ...info, title: SKILLS[skill].name, label: `Upgrade · up to rank ${C.maxRank}` };
-          }),
-        })),
-      ),
-    },
+    { section: 'Weapons', families: bySide('left') },
+    { section: 'Defensive skills', families: bySide('right') },
+    { section: 'Passive skills', families: bySide('passive') },
     {
       section: 'Fleet bonuses',
-      groups: (['damage', 'fireRate', 'repair'] as const).map((kind) => {
+      families: (['damage', 'fireRate', 'repair'] as const).map((kind) => {
         const info = card({ kind });
-        return { title: info.title, cards: [info] };
+        return { title: info.title, groups: [{ title: 'Fleet bonus', cards: [info] }] };
       }),
     },
   ];

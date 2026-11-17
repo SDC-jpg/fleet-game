@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-16
+- Card index (Settings): uses the whole screen width, sorted into weapons, defensive skills, passive skills and fleet bonuses with a line between them, each skill's card shown right before its upgrade stacks; upgrade cards get a thin outline in their rarity colour.
 - Merge drawer: the buttons now sit at the bottom, under the "Made:" report, which lists each bonus on its own line like the item tooltips. Opening the merge settings turns the gear into a "Save Settings" button (save to get back to merging), and AutoMerge waits while the settings are open.
 - New Lifetime tab in the pause menu: all your finished runs added up (runs, time played, ships destroyed and lost, fleet value, items collected and merged, kills per weapon and skill).
 - Touch screens: a much bigger thumbstick, placed further in from the corner, and a "Left-handed controls" setting that swaps the sides of the on-screen controls.

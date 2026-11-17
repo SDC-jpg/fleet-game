@@ -67,6 +67,8 @@ const sameBox = (a: Box | null, b: Box | null) => a === b || (!!a && !!b && a.x 
 
 export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null }) {
   const [tab, setTab] = useState(view.tab);
+  /** Settings → Card index is open: the screen widens to show more cards side by side. */
+  const [wide, setWide] = useState(false);
   view.tab = tab;
   const [drag, setDrag] = useState<Drag | null>(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -224,7 +226,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
   return (
     <div
       ref={panelRef}
-      className={'panel center equipment' + (drag ? ' dragging' : '') + (merging ? ' merging' : '')}
+      className={'panel center equipment' + (drag ? ' dragging' : '') + (merging ? ' merging' : '') + (wide && tab === 'settings' ? ' wide' : '')}
       onMouseMove={(e) => setMouse({ x: e.clientX, y: e.clientY })}
     >
       <div className="equipment-head">
@@ -255,7 +257,7 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
       </div>
 
       {tab === 'equipment' && <div className="note equipment-hint">Drag into slots · right-click to equip or take off · bonuses apply to your whole fleet</div>}
-      {tab === 'settings' && <SettingsScreen hud={hud} game={game} />}
+      {tab === 'settings' && <SettingsScreen hud={hud} game={game} onWide={setWide} />}
       {tab === 'log' && <RunLog runs={loadRuns()} embedded />}
       {tab === 'lifetime' && <LifetimeStats />}
 

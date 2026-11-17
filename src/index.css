@@ -1003,10 +1003,25 @@ body {
   padding-right: 6px;
 }
 .card-index section { margin-bottom: 16px; }
-.card-groups {
+/* A line between types (weapons, defensive, passive, fleet). */
+.card-index section + section {
+  border-top: 1px solid #2c3a66;
+  padding-top: 12px;
+}
+.card-index h2 { margin: 0 0 8px; font-size: 15px; }
+/* Each skill: its card, then its upgrade stacks beside it. Everything flows in order and wraps,
+   so each row is filled; a new skill starts with extra space before it. */
+.card-families {
   display: flex;
   flex-wrap: wrap;
   gap: 14px 18px;
+}
+.card-family {
+  display: contents;
+}
+.card-family > .card-group:first-child:not(:first-of-type),
+.card-family + .card-family > .card-group:first-child {
+  margin-left: 22px;
 }
 .card-group .group-title {
   font-size: 11px;
@@ -1031,6 +1046,15 @@ body {
 .equipment-head .spacer { flex: 1; }
 .equipment-hint { align-self: stretch; text-align: center; margin-top: 4px; }
 .card-index .card { background: #0e1224; }
+/* Mythic cards in the card index: a thin pastel outline instead of a glow. */
+.card.holo-outline { box-shadow: 0 0 0 1px rgba(220, 200, 255, 0.85); }
+/* The dev note sits in the header, beside the tabs. */
+.settings > .tabs .dev-note { align-self: center; margin-left: 10px; }
+/* The pause screen with the card index open: as wide as the window allows, keeping at least
+   one card width (150 px) free on each side. */
+.equipment.wide {
+  width: max(min(700px, 96vw), calc(100vw - 2 * 150px));
+}
 
 /* The game page: nothing can be selected (text boxes still can). */
 .game-page {

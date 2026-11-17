@@ -1,7 +1,8 @@
 // Settings (a tab of the pause screen): General settings, and the card index
-// (every level-up card the game can offer, each upgrade's rarities stacked).
+// (every level-up card the game can offer, by type, each skill with its
+// upgrades' rarities stacked beside it). The card index widens the pause screen.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TEST_KEYS_ENABLED, type Game, type HudInfo } from './game/Game';
 import { IS_TOUCH_DEVICE } from './engine/touch';
 import { cardIndex } from './game/progress';
@@ -15,9 +16,16 @@ type Tab = 'general' | 'cards';
 /** The open tab, remembered while the page is open. */
 const view: { tab: Tab } = { tab: 'general' };
 
-export function SettingsScreen({ hud, game }: { hud: HudInfo; game: Game | null }) {
+/** `onWide`: told when the card index opens or closes (the pause screen widens for it). */
+export function SettingsScreen({ hud, game, onWide }: { hud: HudInfo; game: Game | null; onWide?: (wide: boolean) => void }) {
   const [tab, setTab] = useState(view.tab);
   view.tab = tab;
+  /** Dev only: the last card taken from the card index (shown so a click visibly did something). */
+  const [taken, setTaken] = useState('');
+  useEffect(() => {
+    onWide?.(tab === 'cards');
+    return () => onWide?.(false);
+  }, [tab, onWide]);
   return (
     <div className="settings">
       <div className="chips tabs">
@@ -27,8 +35,12 @@ export function SettingsScreen({ hud, game }: { hud: HudInfo; game: Game | null 
         <button className={tab === 'cards' ? 'on' : ''} onClick={() => setTab('cards')}>
           Card index
         </button>
+        {/* In the header so it stays in view while the cards scroll. */}
+        {tab === 'cards' && TEST_KEYS_ENABLED && (
+          <span className="note dev-note">Dev: click a card to get it now{taken && ` · Got: ${taken}`}</span>
+        )}
       </div>
-      {tab === 'general' ? <General hud={hud} game={game} /> : <CardIndex game={game} />}
+      {tab === 'general' ? <General hud={hud} game={game} /> : <CardIndex game={game} onTaken={setTaken} />}
     </div>
   );
 }
@@ -91,41 +103,44 @@ function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
   );
 }
 
-/** Every card, grouped. Upgrades show all their rarities as a stack (hover one to bring it forward). */
-function CardIndex({ game }: { game: Game | null }) {
+/**
+ * Every card, by type (a line between types). Each skill is one block: its card, then a stack
+ * per upgrade with all its rarities (hover one to bring it forward). Blocks wrap to fill the width.
+ */
+function CardIndex({ game, onTaken }: { game: Game | null; onTaken: (name: string) => void }) {
   const sections = useMemo(() => cardIndex(), []);
-  /** Dev only: the last card taken (shown so a click visibly did something). */
-  const [taken, setTaken] = useState('');
   return (
     <div className="card-index">
-      {TEST_KEYS_ENABLED && (
-        <div className="note dev-note">Dev: click a card to get it now{taken && ` · Got: ${taken}`}</div>
-      )}
       {sections.map((s) => (
         <section key={s.section}>
           <h2>{s.section}</h2>
-          <div className="card-groups">
-            {s.groups.map((g) => (
-              <div key={g.title} className="card-group">
-                <div className="group-title">{g.title}</div>
-                <div className="card-stack" style={{ width: 150 + (g.cards.length - 1) * STACK_X, height: 210 + (g.cards.length - 1) * STACK_Y }}>
-                  {g.cards.map((c, i) => (
-                    <div key={i} className="stacked" style={{ left: i * STACK_X, top: i * STACK_Y, zIndex: i }}>
-                      <CardView
-                        card={c}
-                        game={game}
-                        onPick={
-                          TEST_KEYS_ENABLED
-                            ? () => {
-                                game?.debugGiveCard(c.card);
-                                setTaken(`${c.title}${c.card.kind === 'rank' ? ` (${c.card.rarity})` : ''}`);
-                              }
-                            : undefined
-                        }
-                      />
+          <div className="card-families">
+            {s.families.map((f) => (
+              <div key={f.title} className="card-family">
+                {f.groups.map((g) => (
+                  <div key={g.title} className="card-group">
+                    <div className="group-title">{g.title}</div>
+                    <div className="card-stack" style={{ width: 150 + (g.cards.length - 1) * STACK_X, height: 210 + (g.cards.length - 1) * STACK_Y }}>
+                      {g.cards.map((c, i) => (
+                        <div key={i} className="stacked" style={{ left: i * STACK_X, top: i * STACK_Y, zIndex: i }}>
+                          <CardView
+                            card={c}
+                            game={game}
+                            outline
+                            onPick={
+                              TEST_KEYS_ENABLED
+                                ? () => {
+                                    game?.debugGiveCard(c.card);
+                                    onTaken(`${c.title}${c.card.kind === 'rank' ? ` (${c.card.rarity})` : ''}`);
+                                  }
+                                : undefined
+                            }
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
