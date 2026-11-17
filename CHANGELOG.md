@@ -6,7 +6,7 @@ Keep each change on one line starting with `- `.
 
 ## 2026-11-16
 - Reinforcements: after wave 30, if heavy losses leave your fleet below 70% of its best, Fleet HQ warps in a friendly fleet (once per run). It dashes in ahead of you, shielded from all damage, shoots at enemies on its way and joins your fleet.
-- Card index (Settings): uses the whole screen width, sorted into weapons, defensive skills, passive skills and fleet bonuses with a line between them, each skill's card shown right before its upgrade stacks; upgrade cards get a thin outline in their rarity colour.
+- Card index (Settings): uses the whole screen width, sorted into weapons, defensive skills, passive skills and fleet bonuses with a line between them, each skill on its own row with its upgrade stacks fanned out beside it; upgrade cards get a thin outline in their rarity colour.
 - Merge drawer: the buttons now sit at the bottom, under the "Made:" report, which lists each bonus on its own line like the item tooltips. Opening the merge settings turns the gear into a "Save Settings" button (save to get back to merging), and AutoMerge waits while the settings are open.
 - New Lifetime tab in the pause menu: all your finished runs added up (runs, time played, ships destroyed and lost, fleet value, items collected and merged, kills per weapon and skill).
 - Touch screens: a much bigger thumbstick, placed further in from the corner, and a "Left-handed controls" setting that swaps the sides of the on-screen controls.

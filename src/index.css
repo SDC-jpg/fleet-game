@@ -1024,26 +1024,31 @@ body {
   padding-top: 12px;
 }
 .card-index h2 { margin: 0 0 8px; font-size: 15px; }
-/* Each skill: its card, then its upgrade stacks beside it. Everything flows in order and wraps,
-   so each row is filled; a new skill starts with extra space before it. */
+/* A skill with upgrades fills a row, one card tall: its card, then its upgrade stacks sharing
+   the rest, each fanning its rarities across its share. Skills without upgrades sit side by side. */
 .card-families {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px 18px;
+  gap: 16px 18px;
 }
 .card-family {
-  display: contents;
+  display: flex;
+  gap: 18px;
 }
-.card-family > .card-group:first-child:not(:first-of-type),
-.card-family + .card-family > .card-group:first-child {
-  margin-left: 22px;
+.card-family.has-upgrades {
+  flex: 0 0 100%;
+}
+.card-group.spread {
+  flex: 1 1 0;
+  min-width: 190px;
 }
 .card-group .group-title {
   font-size: 11px;
   opacity: 0.7;
   margin-bottom: 4px;
 }
-.card-stack { position: relative; }
+.card-stack { position: relative; width: 150px; height: 210px; }
+.card-group.spread .card-stack { width: 100%; }
 .card-stack .stacked { position: absolute; }
 .card-stack .stacked:hover { z-index: 20 !important; }
 .card-index .card {
