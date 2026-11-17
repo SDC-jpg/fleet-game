@@ -350,6 +350,9 @@ function addChangelogLine(files) {
   // "vfx/explosion-t2.png" → "explosion"; "ships/enemy-energy-t3.png" → "energy enemy ship"; wrecks → "wreck".
   const nameOf = (f) => {
     const base = f.replace(/^.*\//, '').replace(/\.png$/, '').replace(/-t\d+(?=-wreck$|$)/, '');
+    // Player-facing names for files whose names are code words.
+    const friendly = { bullet: 'gun shots', projectile: 'gun shots', 'pod-shot': 'laser pod shots', pdc: 'point defense shots' };
+    if (friendly[base]) return friendly[base];
     if (!f.startsWith('ships/')) return base.replace(/-/g, ' ');
     if (base.endsWith('wreck')) return 'wreck';
     const variant = /^enemy-(\w+)$/.exec(base);
