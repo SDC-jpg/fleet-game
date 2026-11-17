@@ -1,7 +1,9 @@
 # Plan: detail steps for very big fleets (not built yet)
 
 Status: **agreed in principle 2026-11-16, on hold.** The user wants to discuss other
-changes that may affect it before anything is built.
+changes that may affect it before anything is built. To be built after
+[SHIP-GUNS-AND-VARIANTS.md](SHIP-GUNS-AND-VARIANTS.md) (separate enemy ships, gun mounts,
+weapon variants), which changes the set of ship art this plan shrinks.
 
 ## The problem
 
@@ -51,4 +53,5 @@ pixel. Nothing is blurred.
 - How the automatic shrinking picks colours (keep only the art's own colours, like
   RotSprite does, so it stays pixel art).
 - Naming of hand-drawn small versions in the manifest/art files.
-- How this interacts with the other changes the user wants to discuss first.
+- Icons without team recolouring: a red version for enemies, maybe different per enemy
+  variant (see SHIP-GUNS-AND-VARIANTS.md).
