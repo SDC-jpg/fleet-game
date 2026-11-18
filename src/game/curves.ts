@@ -58,3 +58,80 @@ export function waveStartTime(wave: number) {
   for (let k = 1; k < wave; k++) t += averageWaveGap(k);
   return t;
 }
+
+/**
+ * How many ships of each tier a fleet of this value has: [tier 1, tier 2, ...].
+ * Below the merge threshold it's all tier 1. Above it, it's like writing the
+ * value in base shipsPerMerge (e.g. 300 = 2 × 144 + 1 × 12).
+ */
+export function tierCounts(value: number): number[] {
+  const per = CONFIG.tiers.shipsPerMerge;
+  if (value < CONFIG.tiers.mergeStartsAt) return [value];
+  const counts: number[] = [];
+  for (let v = value; v > 0; v = Math.floor(v / per)) counts.push(v % per);
+  return counts;
+}
+
+/** Does this wave bring an enemy fleet (instead of lone fighters)? */
+export function isFleetWave(wave: number) {
+  const first = CONFIG.enemyFleetsFromWave;
+  return wave >= first && (wave - first) % CONFIG.enemyFleetEveryNthWave === 0;
+}
+
+/** Lone fighters a wave without an enemy fleet brings (before the limit on enemies alive at once). */
+export function loneEnemyCount(wave: number) {
+  const base = 1 + Math.floor(wave * CONFIG.loneEnemiesPerWave);
+  const early = wave <= CONFIG.earlyWavesUntil ? 1 + CONFIG.earlyWaveExtraEnemies : 1;
+  // Late waves bring more (and allow more).
+  const late = lateWaveMultiplier(wave);
+  return Math.min(Math.round(base * early * late), Math.round(CONFIG.maxLoneEnemiesPerWave * late));
+}
+
+/** XP an enemy of this tier is worth (CONFIG.levels.xpByTier; past its end, growing by its last step). */
+export function xpForTier(tier: number) {
+  const table = CONFIG.levels.xpByTier;
+  if (tier <= table.length) return table[Math.max(0, tier - 1)];
+  const last = table[table.length - 1];
+  const step = table.length > 1 ? last / table[table.length - 2] : 1;
+  return last * step ** (tier - table.length);
+}
+
+/** XP for destroying an enemy of `tier` while flying a ship of `yourTier`: less for smaller enemies (xpLowerTierFactor), at least 1. */
+export function killXp(tier: number, yourTier: number) {
+  const below = Math.max(0, yourTier - tier);
+  return Math.max(1, Math.round(xpForTier(tier) * CONFIG.levels.xpLowerTierFactor ** below));
+}
+
+/** XP an elite of this tier gives: more than a normal ship, but never more than elite.xpMaxLevels levels' worth. */
+export function eliteXp(tier: number, yourTier: number, level: number) {
+  return Math.min(killXp(tier, yourTier) * CONFIG.elite.xpMultiplier, CONFIG.elite.xpMaxLevels * xpToNextLevel(level));
+}
+
+/**
+ * Estimate for the tuning page: the level you'd have when each wave starts if you
+ * destroyed every enemy of the waves before it (lone fighters, enemy fleets and
+ * elites; swarms left out since they depend on your fleet, and every kill counted
+ * at full XP). Real players miss some, so it's an upper guide. Index = wave.
+ */
+export function expectedLevels(maxWave: number): number[] {
+  const levels = [1, 1];
+  let level = 1;
+  let xp = 0;
+  let eliteDue = false;
+  const gain = (amount: number) => {
+    xp += amount;
+    while (xp >= xpToNextLevel(level)) xp -= xpToNextLevel(level++);
+  };
+  for (let wave = 1; wave < maxWave; wave++) {
+    const E = CONFIG.elite;
+    const fleet = isFleetWave(wave);
+    const counts = tierCounts(Math.max(1, Math.round(waveFleetValue(wave))));
+    const eliteSlot: boolean = eliteDue || (E.enabled && wave >= E.firstWave && wave % E.everyNthWave === 0);
+    eliteDue = eliteSlot && fleet;
+    if (eliteSlot && !fleet) gain(eliteXp(counts.length + E.extraTiers, 1, level));
+    if (fleet) counts.forEach((n, i) => gain(n * xpForTier(i + 1)));
+    else gain(loneEnemyCount(wave));
+    levels.push(level);
+  }
+  return levels;
+}

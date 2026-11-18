@@ -12,7 +12,7 @@ import { renderGame, setDetailSteps, tierArt, tierSprite, type ViewOptions } fro
 import { setGunLayouts, shipArtBase } from './guns';
 import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
-import { applyCard, describeCard, gainXp, pickCard, testGiveAllSkills, type CardInfo } from './progress';
+import { applyCard, cancelReplace, describeCard, gainXp, pickCard, replacedBy, testGiveAllSkills, type CardInfo } from './progress';
 import { clearEquipment, loadEquipment, saveEquipment } from './save';
 import { recordRun, type RunRecord } from './runLog';
 import { addRunToLifetime, clearLifetime } from './lifetime';
@@ -107,6 +107,8 @@ export interface HudInfo {
   }[];
   /** Level-up cards on offer (the game is paused meanwhile), or null. */
   cards: CardInfo[] | null;
+  /** Asking before a card replaces one of your skills: which card, the new skill, the one it replaces and its rank. */
+  replacing: { card: number; name: string; old: string; rank: number } | null;
   /** Your equipment (only sent while paused, for the equipment screen). */
   equipment: EquipmentInfo | null;
   /** The item you just picked up (shown for a few seconds), or null. */
@@ -585,9 +587,17 @@ export class Game {
     this.sendHud();
   }
 
-  pickCard(index: number) {
-    pickCard(this.state, index);
+  /** Pick a level-up card. A card replacing one of your skills asks first; picking it again (or `confirmed`) takes it. */
+  pickCard(index: number, confirmed = this.state.confirmCard === index) {
+    pickCard(this.state, index, confirmed);
     this.playQueuedSounds();
+    this.needsDraw = true;
+    this.sendHud();
+  }
+
+  /** "Keep my skill": back to the cards without replacing anything. */
+  cancelReplace() {
+    cancelReplace(this.state);
     this.needsDraw = true;
     this.sendHud();
   }
@@ -687,6 +697,9 @@ export class Game {
     if (cards && !this.paused) {
       const n = cards.findIndex((_, k) => i.wasPressed(`Digit${k + 1}`));
       if (n >= 0) this.pickCard(n);
+      // Asked "replace your skill?": Enter replaces, Backspace keeps it.
+      else if (this.state.confirmCard !== null && i.wasPressed('Enter')) this.pickCard(this.state.confirmCard, true);
+      else if (this.state.confirmCard !== null && i.wasPressed('Backspace')) this.cancelReplace();
     } else if (!this.paused && !this.state.gameOver) {
       // Otherwise 1–9 select a weapon skill, and the mouse wheel steps through them.
       for (let k = 0; k < 9; k++) if (i.wasPressed(`Digit${k + 1}`)) selectWeapon(this.state, k);
@@ -1040,6 +1053,13 @@ export class Game {
         slot: st.skills.filter((k) => SKILLS[k.id].side === 'left').indexOf(sk),
       })),
       cards: st.cards ? st.cards.map((c) => describeCard(c, st)) : null,
+      replacing: (() => {
+        const card = st.confirmCard !== null ? st.cards?.[st.confirmCard] : undefined;
+        const old = card && replacedBy(st, card);
+        return card?.kind === 'skill' && old
+          ? { card: st.confirmCard!, name: SKILLS[card.skill].name, old: SKILLS[old.id].name, rank: old.rank }
+          : null;
+      })(),
       equipment: this.paused ? equipmentInfo(st, this.openMerge, this.openLog, this.autoMergeState) : null,
       found: st.found && st.time - st.found.time < 3 ? itemInfo(st, st.found.item) : null,
       eliteAlert: st.time - st.eliteAlertTime < eliteAlertTime(st),

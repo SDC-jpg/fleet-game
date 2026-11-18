@@ -5,6 +5,8 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-17
+- Levelling reworked: each enemy now gives XP by its size (1 for the smallest, 3 for the next, then 9, 27…) instead of its full worth, so you no longer jump several levels from one big kill. You should reach about level 4 by the first elite and around level 20 by wave 100.
+- You now carry one weapon and one defence at a time. New weapon and defence cards still come up; picking one asks before it replaces yours (Enter to replace, Backspace to keep), and the old skill's upgrades are lost.
 - New art: gun shots, the laser beam, gun turrets and the small enemy ships (all three kinds), with their guns and engines placed to match.
 - Ships bigger than tier 4 no longer turn slower than a tier-4 ship.
 

@@ -4,7 +4,7 @@
 
 import { CONFIG, SKILLS, enabledSkills, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
-import { addSound, type Card, type GameState } from './world';
+import { addSound, type Card, type GameState, type OwnedSkill } from './world';
 import { updateBonuses } from './equipment';
 import { RARITY_ORDER, rarityInfo, rollRarity } from './rarity';
 import { addMod, newMods, rankAmount, skillStats, upgradeText } from './upgrades';
@@ -20,13 +20,30 @@ export function gainXp(state: GameState, amount: number) {
   }
 }
 
-/** Skills you can still pick up: not owned yet, and with room on their side (left or right click). */
-function newSkillOptions(state: GameState): SkillId[] {
+/** Is there room for another skill on this side (weapon, defence or passive)? */
+function hasRoom(state: GameState, side: string) {
   const C = CONFIG.cards;
+  const max = side === 'left' ? C.maxWeapons : side === 'right' ? C.maxDefences : C.maxPassives;
+  return state.skills.filter((k) => SKILLS[k.id].side === side).length < max;
+}
+
+/**
+ * The skill of yours a new-skill card would replace (its side is full), or null if
+ * there's room. Weapons replace the selected weapon; defences the oldest one.
+ * Passives are never replaced (a full passive side gets no new passive cards).
+ */
+export function replacedBy(state: GameState, card: Card): OwnedSkill | null {
+  if (card.kind !== 'skill' || state.skills.some((k) => k.id === card.skill)) return null;
+  const side = SKILLS[card.skill].side;
+  if (side === 'passive' || hasRoom(state, side)) return null;
+  const mine = state.skills.filter((k) => SKILLS[k.id].side === side);
+  return (side === 'left' ? mine[state.activeWeapon] : undefined) ?? mine[0] ?? null;
+}
+
+/** Skills you don't have yet that a card can offer: with room on their side, or (weapons and defences) replacing one of yours. */
+function newSkillOptions(state: GameState): SkillId[] {
   const owned = state.skills.map((s) => s.id);
-  const count = (side: string) => owned.filter((id) => SKILLS[id].side === side).length;
-  const room = { left: count('left') < C.maxWeapons, right: count('right') < C.maxDefences, passive: count('passive') < C.maxPassives };
-  return enabledSkills().filter((id) => !owned.includes(id) && room[SKILLS[id].side]);
+  return enabledSkills().filter((id) => !owned.includes(id) && (SKILLS[id].side !== 'passive' || hasRoom(state, 'passive')));
 }
 
 /** A rank-up card for one of your skills: one of its stats, with a rarity-based bonus. */
@@ -44,7 +61,10 @@ export function drawCards(state: GameState): Card[] {
   // Skills with nothing to upgrade (Crisis Jump, Tech Scanner: no stats) never get upgrade cards.
   const canRankUp = state.skills.filter((sk) => sk.rank < C.maxRank && skillStats(sk.id).length > 0);
   const pool: { card: Card; weight: number }[] = [
-    ...newSkillOptions(state).map((skill) => ({ card: { kind: 'skill', skill } as Card, weight: C.newSkillWeight })),
+    ...newSkillOptions(state).map((skill) => {
+      const card: Card = { kind: 'skill', skill };
+      return { card, weight: replacedBy(state, card) ? C.replaceSkillWeight : C.newSkillWeight };
+    }),
     ...canRankUp.map((sk) => ({ card: rankCard(sk.id), weight: C.rankUpWeight })),
     { card: { kind: 'damage' }, weight: 1 },
     { card: { kind: 'fireRate' }, weight: 1 },
@@ -60,7 +80,6 @@ export function drawCards(state: GameState): Card[] {
   return picked;
 }
 
-/** Take one of the offered cards. If more level-ups are waiting, new cards come up straight away. */
 /**
  * A card's effect: a new skill (a new weapon gets selected), a rank-up, or a
  * fleet bonus. `force` (dev card index): an upgrade for a skill you don't have
@@ -74,7 +93,13 @@ export function applyCard(state: GameState, card: Card, force = false) {
     if (SKILLS[id].side === 'left') state.activeWeapon = state.skills.filter((k) => SKILLS[k.id].side === 'left').length - 1;
   };
   if (card.kind === 'skill') {
-    if (!has(card.skill) || !force) addSkill(card.skill);
+    // A full side: the new skill takes the place of one of yours (its upgrades go with it).
+    const old = force ? null : replacedBy(state, card);
+    if (old) {
+      const i = state.skills.indexOf(old);
+      state.skills[i] = { id: card.skill, rank: 1, timer: 0, mods: newMods() };
+      if (SKILLS[card.skill].side === 'left') state.activeWeapon = state.skills.filter((k) => SKILLS[k.id].side === 'left').indexOf(state.skills[i]);
+    } else if (!has(card.skill) || !force) addSkill(card.skill);
   } else if (card.kind === 'rank') {
     if (force && !has(card.skill)) addSkill(card.skill);
     const sk = state.skills.find((k) => k.id === card.skill);
@@ -89,12 +114,27 @@ export function applyCard(state: GameState, card: Card, force = false) {
   addSound(state, 'sfx.card', { x: 0, y: 0 }, 1, 1, true);
 }
 
-export function pickCard(state: GameState, index: number) {
+/**
+ * Take one of the offered cards. A card that would replace one of your skills
+ * first asks (state.confirmCard); `confirmed` takes it anyway. If more level-ups
+ * are waiting, new cards come up straight away.
+ */
+export function pickCard(state: GameState, index: number, confirmed = false) {
   const card = state.cards?.[index];
   if (!card) return;
+  if (!confirmed && replacedBy(state, card)) {
+    state.confirmCard = index;
+    return;
+  }
+  state.confirmCard = null;
   applyCard(state, card);
   state.pendingLevels--;
   state.cards = state.pendingLevels > 0 ? drawCards(state) : null;
+}
+
+/** Back out of replacing a skill: the cards stay on offer. */
+export function cancelReplace(state: GameState) {
+  state.confirmCard = null;
 }
 
 /** Test helper: get every skill you don't have yet (ignores the weapon/defence limits). */
@@ -117,7 +157,10 @@ export function describeCard(card: Card, state: GameState): CardInfo {
   const C = CONFIG.cards;
   if (card.kind === 'skill') {
     const s = SKILLS[card.skill];
-    const label = s.side === 'left' ? 'New weapon · left click' : s.side === 'right' ? 'New defence · right click' : 'Passive skill · always on';
+    const old = replacedBy(state, card);
+    const label = old
+      ? `${s.side === 'left' ? 'New weapon' : 'New defence'} · replaces ${SKILLS[old.id].name}`
+      : s.side === 'left' ? 'New weapon · left click' : s.side === 'right' ? 'New defence · right click' : 'Passive skill · always on';
     return { title: s.name, text: s.text, icon: s.icon, label, rarity: null };
   }
   if (card.kind === 'rank') {

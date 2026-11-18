@@ -592,16 +592,20 @@ export const CONFIG = {
   },
 
   /**
-   * Experience and levels. Kills give XP (enemy value × xpPerValue). The XP
-   * needed for the next level grows each level: firstLevelXp × growth^(level − 1).
+   * Experience and levels. Each enemy destroyed gives the XP its tier is worth in
+   * xpByTier (its own table, not linked to fleet value). The XP needed for the next
+   * level grows each level: firstLevelXp × growth^(level − 1). The tuning page's
+   * Progression preview shows the level you'd reach by each wave.
    */
   levels: {
-    /** XP per tier-1 ship's worth of enemy destroyed. */
-    xpPerValue: 1,
+    /** XP for destroying an enemy of each tier (tier 1 first). Tiers past the end of the list keep growing by its last step. */
+    xpByTier: [1, 3, 9, 27, 81, 243, 729, 2187],
+    /** Enemies smaller than the ship you fly: XP × this per tier below it (1 = full XP; 0.5 = half per tier). Never less than 1 XP. */
+    xpLowerTierFactor: 1,
     /** XP needed to go from level 1 to level 2. */
-    firstLevelXp: 50,
+    firstLevelXp: 15,
     /** Each level needs this many times more XP than the last (1 = always the same). */
-    growth: 1.15,
+    growth: 1.24,
     /** Least seconds between reaching a level and the cards appearing. They also wait for the explosion of the kill that did it to finish. */
     cardDelay: 0.5,
   },
@@ -610,14 +614,16 @@ export const CONFIG = {
   cards: {
     /** Cards to choose from at each level-up. */
     choices: 3,
-    /** Most weapon skills (left click) you can have at once. */
-    maxWeapons: 3,
-    /** Most defence skills (right click) you can have at once. */
-    maxDefences: 2,
+    /** Most weapon skills (left click) you can have at once. With them full, new weapon cards still come up and replace one (after asking). */
+    maxWeapons: 1,
+    /** Most defence skills (right click) you can have at once. With them full, new defence cards still come up and replace one (after asking). */
+    maxDefences: 1,
     /** Most passive skills (always on, no button) you can have at once. */
     maxPassives: 4,
     /** How much more likely a new-skill card is than a bonus card. */
     newSkillWeight: 3,
+    /** How likely each card offering a skill that would replace one of yours is, compared to a bonus card (there are many of them, so it's low). */
+    replaceSkillWeight: 0.3,
     /** How much more likely a rank-up card (for a skill you have) is than a bonus card. */
     rankUpWeight: 3,
     /** Highest rank a skill can reach (rank 1 = just picked). */

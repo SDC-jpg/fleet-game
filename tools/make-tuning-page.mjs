@@ -162,6 +162,7 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
   }).outputFiles[0].text;
   const curves = await import(`data:text/javascript;base64,${Buffer.from(bundle).toString('base64')}`);
   const points = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150, 200];
+  const levelAt = curves.expectedLevels(201);
   let total = 0;
   const totals = {};
   for (let level = 1; level <= 200; level++) {
@@ -186,8 +187,10 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
       '"Enemy health ×" multiplies the health of enemies arriving that wave (enemyHealthPerWave). ' +
       '"Play time" is the average time from the start of a run until that wave starts (pauses not counted; ' +
       'waves come on a clock, see waveInterval, waveIntervalShrink, waveIntervalRandom and waveIntervalMin). ' +
+      '"Level at wave start" is the level you\'d have if you destroyed every enemy of the waves before it ' +
+      '(lone fighters, fleets and elites at full XP, swarms left out; see levels.xpByTier), so real runs land a bit lower. ' +
       'XP columns are for reaching that level.',
-    columns: ['wave / level', 'play time to reach wave', 'enemy fleet value', 'late fleet ×', 'lone ×', 'enemy health ×', 'XP for next level', 'total XP to reach it'],
+    columns: ['wave / level', 'play time to reach wave', 'enemy fleet value', 'late fleet ×', 'lone ×', 'enemy health ×', 'level at wave start', 'XP for next level', 'total XP to reach it'],
     items: points.map((n) => [
       String(n),
       clock(curves.waveStartTime(n)),
@@ -195,6 +198,7 @@ for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
       curves.lateFleetMultiplier(n) < 100 ? curves.lateFleetMultiplier(n).toFixed(2) : String(Math.round(curves.lateFleetMultiplier(n))),
       curves.lateWaveMultiplier(n).toFixed(2),
       curves.enemyHealthMultiplier(n) < 100 ? curves.enemyHealthMultiplier(n).toFixed(2) : String(Math.round(curves.enemyHealthMultiplier(n))),
+      String(levelAt[n]),
       String(curves.xpToNextLevel(n)),
       String(totals[n]),
     ]),

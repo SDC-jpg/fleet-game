@@ -4,7 +4,8 @@
 import { approach, clamp, distSq, randRange, turnToward, wrapAngle } from '../engine/math';
 import { rarityWeights } from './rarity';
 import { CONFIG, SHIP_TYPES, type EnemyVariant, type FormationMode, type Rarity, type ShipType, type ShipTypeId, type SkillId, type SkillStat } from './config';
-import { enemyHealthMultiplier, lateWaveMultiplier, waveFleetValue, waveGapBase, xpToNextLevel } from './curves';
+import { eliteXp, enemyHealthMultiplier, isFleetWave, killXp, loneEnemyCount, tierCounts, waveFleetValue, waveGapBase } from './curves';
+export { tierCounts } from './curves';
 import { interceptMissiles } from './newSkills';
 import { gunsOf, type GunSpec } from './guns';
 import type { WeaponType } from './artLayout';
@@ -423,6 +424,8 @@ export interface GameState {
   cardWaitUntil: number;
   /** The level-up cards on offer (the game is paused while there are some). */
   cards: Card[] | null;
+  /** The offered card waiting for "replace your skill?" to be answered (pickCard), or null. */
+  confirmCard: number | null;
   /** Skills you've picked, in the order you got them. */
   skills: OwnedSkill[];
   /** Which of your weapon skills (left click) is selected, counting only weapons in the order you got them. Only that one fires (1, 2, 3 or the mouse wheel switch). */
@@ -560,19 +563,6 @@ export function statsFor(type: ShipTypeId, team: Team, tier: number): ShipStats 
   };
 }
 
-/**
- * How many ships of each tier a fleet of this value has: [tier 1, tier 2, ...].
- * Below the merge threshold it's all tier 1. Above it, it's like writing the
- * value in base 16 (e.g. 300 = 1 × 256 + 2 × 16 + 12).
- */
-export function tierCounts(value: number): number[] {
-  const per = CONFIG.tiers.shipsPerMerge;
-  if (value < CONFIG.tiers.mergeStartsAt) return [value];
-  const counts: number[] = [];
-  for (let v = value; v > 0; v = Math.floor(v / per)) counts.push(v % per);
-  return counts;
-}
-
 // ---------- Setup ----------
 
 export function createGame(effectDuration: (sprite: string, tier: number) => number): GameState {
@@ -606,6 +596,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     cardDelay: 0,
     cardWaitUntil: 0,
     cards: null,
+    confirmCard: null,
     skills: [],
     activeWeapon: 0,
     cardBonus: { damage: 0, fireRate: 0 },
@@ -1753,9 +1744,10 @@ function removeDeadShips(state: GameState) {
       by.kills++;
       by.value += value;
       const levels = state.pendingLevels;
-      const xp = tierValue(s.tier) * CONFIG.levels.xpPerValue;
+      // XP by the enemy's tier (CONFIG.levels.xpByTier), less if it's smaller than the ship you fly (xpLowerTierFactor).
       // An elite gives more, but never more than CONFIG.elite.xpMaxLevels levels' worth.
-      gainXp(state, s.elite ? Math.min(xp * CONFIG.elite.xpMultiplier, CONFIG.elite.xpMaxLevels * xpToNextLevel(state.level)) : xp);
+      const yourTier = controlledShip(state)?.tier ?? 1;
+      gainXp(state, s.elite ? eliteXp(s.tier, yourTier, state.level) : killXp(s.tier, yourTier));
       // Levelled up: the cards wait until this kill's explosion has finished playing.
       if (state.pendingLevels > levels)
         state.cardWaitUntil = Math.max(state.cardWaitUntil, state.time + state.effectDuration('vfx.explosion', s.tier));
@@ -2092,8 +2084,7 @@ function updateReinforcements(state: GameState, dt: number) {
  */
 export function wavePlan(state: GameState, wave: number) {
   const E = CONFIG.elite;
-  const first = CONFIG.enemyFleetsFromWave;
-  const fleet = wave >= first && (wave - first) % CONFIG.enemyFleetEveryNthWave === 0;
+  const fleet = isFleetWave(wave);
   const eliteSlot =
     state.eliteDue || ((state.elitesEnabled || CONFIG.swarm.enabled) && wave >= E.firstWave && wave % E.everyNthWave === 0);
   const special = eliteSlot && !fleet;
@@ -2133,11 +2124,7 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
     addSound(state, 'sfx.alert', center, 1, 1, true);
   } else {
     // A handful of lone fighters from random directions (a few more in the first waves).
-    const base = 1 + Math.floor(state.wave * CONFIG.loneEnemiesPerWave);
-    const early = state.wave <= CONFIG.earlyWavesUntil ? 1 + CONFIG.earlyWaveExtraEnemies : 1;
-    // Late waves bring more (and allow more).
-    const late = lateWaveMultiplier(state.wave);
-    const count = Math.min(Math.round(base * early * late), Math.round(CONFIG.maxLoneEnemiesPerWave * late), room);
+    const count = Math.min(loneEnemyCount(state.wave), room);
     for (let i = 0; i < count; i++) spawnEnemyFleet(state, center, spawnDistance, 1, room);
   }
   addVariantSquadron(state, state.ships.filter((s) => s.id >= firstNewId && s.team === 'enemy' && !s.elite));

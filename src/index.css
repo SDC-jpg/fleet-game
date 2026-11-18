@@ -205,6 +205,46 @@ body {
   flex-wrap: wrap;
   justify-content: center;
 }
+/* "Replace your skill?" under the cards (placeholder look, like the other panels). */
+.card-screen .card.replace-pick {
+  border-color: #ffd34a;
+}
+.card-screen .card.replace-other {
+  opacity: 0.45;
+}
+.replace-confirm {
+  margin-top: 20px;
+  padding: 14px 20px;
+  background: rgba(14, 18, 36, 0.95);
+  border: 2px solid #ffd34a;
+}
+.replace-confirm .hint {
+  margin: 4px 0 12px;
+}
+.replace-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.replace-buttons button {
+  font: inherit;
+  color: inherit;
+  padding: 6px 14px;
+  background: #1b2442;
+  border: 1px solid #3a4b80;
+  cursor: pointer;
+}
+.replace-buttons button:hover {
+  border-color: #ffd34a;
+}
+.replace-buttons button.replace-yes {
+  border-color: #ffd34a;
+}
+.replace-buttons .key {
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.6;
+}
 .card {
   position: relative;
   width: 200px;
