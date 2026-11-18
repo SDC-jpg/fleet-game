@@ -7,11 +7,12 @@ import { TEST_KEYS_ENABLED, type Game, type HudInfo } from './game/Game';
 import { IS_TOUCH_DEVICE } from './engine/touch';
 import { cardIndex } from './game/progress';
 import { CardView } from './CardView';
+import type { CrtParams } from './engine/crt';
 
 /** A card's width in the card index (pixels; matches .card-index .card). */
 const CARD_W = 150;
 
-type Tab = 'general' | 'cards';
+type Tab = 'general' | 'screen' | 'cards';
 /** The open tab, remembered while the page is open. */
 const view: { tab: Tab } = { tab: 'general' };
 
@@ -31,6 +32,9 @@ export function SettingsScreen({ hud, game, onWide }: { hud: HudInfo; game: Game
         <button className={tab === 'general' ? 'on' : ''} onClick={() => setTab('general')}>
           General
         </button>
+        <button className={tab === 'screen' ? 'on' : ''} onClick={() => setTab('screen')}>
+          Screen effect
+        </button>
         <button className={tab === 'cards' ? 'on' : ''} onClick={() => setTab('cards')}>
           Card index
         </button>
@@ -39,7 +43,13 @@ export function SettingsScreen({ hud, game, onWide }: { hud: HudInfo; game: Game
           <span className="note dev-note">Dev: click a card to get it now{taken && ` · Got: ${taken}`}</span>
         )}
       </div>
-      {tab === 'general' ? <General hud={hud} game={game} /> : <CardIndex game={game} onTaken={setTaken} />}
+      {tab === 'general' ? (
+        <General hud={hud} game={game} />
+      ) : tab === 'screen' ? (
+        <ScreenEffect hud={hud} game={game} />
+      ) : (
+        <CardIndex game={game} onTaken={setTaken} />
+      )}
     </div>
   );
 }
@@ -49,6 +59,13 @@ function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
   const [cleared, setCleared] = useState(false);
   return (
     <div className="settings-general">
+      <label className="setting">
+        <input type="checkbox" checked={hud.crt.params.enabled} onChange={(e) => game?.setCrt({ enabled: e.target.checked })} />
+        <span>
+          <b>Screen effect (old CRT screen)</b>
+          <span className="note">Glow, colour fringes, curved glass and colour stripes. Change its look in the Screen effect tab.</span>
+        </span>
+      </label>
       <label className="setting">
         <input type="checkbox" checked={hud.cursorLock} onChange={(e) => game?.setCursorLock(e.target.checked)} />
         <span>
@@ -111,6 +128,69 @@ function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
             )}
           </span>
         </span>
+      </div>
+    </div>
+  );
+}
+
+/** The screen effect's sliders: setting, label, range and step. */
+const CRT_SLIDERS: { key: NumericCrt; label: string; min: number; max: number; step: number }[] = [
+  { key: 'bloom', label: 'Glow', min: 0, max: 2, step: 0.05 },
+  { key: 'bloomRadius', label: 'Glow spread', min: 1, max: 40, step: 1 },
+  { key: 'bloomThreshold', label: 'Glow from brightness', min: 0, max: 1, step: 0.05 },
+  { key: 'bloomTint', label: 'Glow tint', min: 0, max: 1, step: 0.05 },
+  { key: 'aberration', label: 'Colour fringes', min: 0, max: 8, step: 0.25 },
+  { key: 'curvature', label: 'Curved glass', min: 0, max: 0.3, step: 0.01 },
+  { key: 'mask', label: 'Colour stripes', min: 0, max: 1, step: 0.05 },
+  { key: 'maskSize', label: 'Stripe size', min: 0.5, max: 6, step: 0.25 },
+  { key: 'scanlines', label: 'Scanlines', min: 0, max: 1, step: 0.05 },
+  { key: 'vignette', label: 'Dark corners', min: 0, max: 1, step: 0.05 },
+  { key: 'blackLift', label: 'Lifted blacks', min: 0, max: 1, step: 0.05 },
+  { key: 'softness', label: 'Softness', min: 0, max: 1, step: 0.05 },
+  { key: 'noise', label: 'Grain', min: 0, max: 0.3, step: 0.01 },
+  { key: 'flicker', label: 'Flicker', min: 0, max: 0.2, step: 0.01 },
+  { key: 'rollBand', label: 'Rolling band', min: 0, max: 0.3, step: 0.01 },
+];
+type NumericCrt = { [K in keyof CrtParams]: CrtParams[K] extends number ? K : never }[keyof CrtParams];
+
+/** Settings → Screen effect: one switch for the whole effect, "over the HUD too", and a slider per part. */
+function ScreenEffect({ hud, game }: { hud: HudInfo; game: Game | null }) {
+  const { params: p, supported } = hud.crt;
+  return (
+    <div className="settings-general screen-effect">
+      <div className="setting">
+        <button className={'crt-switch' + (p.enabled ? ' on' : '')} onClick={() => game?.setCrt({ enabled: !p.enabled })}>
+          Screen effect: {p.enabled ? 'On' : 'Off'}
+        </button>
+        <span className="note">
+          {supported ? 'An old CRT screen look: glow, colour fringes, curved glass, colour stripes.' : "This browser can't draw the effect (WebGL 2 isn't available)."}
+        </span>
+      </div>
+      <div className={p.enabled ? '' : 'crt-off'}>
+        <label className="setting">
+          <input type="checkbox" checked={p.hud} onChange={(e) => game?.setCrt({ hud: e.target.checked })} />
+          <span>
+            <b>Also over the HUD and menus</b>
+            <span className="note">Colour stripes, dark corners and a glow on text. Off = only the game view.</span>
+          </span>
+        </label>
+        <div className="crt-sliders">
+          {CRT_SLIDERS.map((s) => (
+            <label key={s.key} className="crt-slider">
+              <span>{s.label}</span>
+              <input
+                type="range"
+                min={s.min}
+                max={s.max}
+                step={s.step}
+                value={p[s.key]}
+                onChange={(e) => game?.setCrt({ [s.key]: Number(e.target.value) })}
+              />
+              <span className="value">{p[s.key]}</span>
+            </label>
+          ))}
+        </div>
+        <button onClick={() => game?.resetCrt()}>Reset to defaults</button>
       </div>
     </div>
   );

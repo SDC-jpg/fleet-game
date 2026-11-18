@@ -14,6 +14,7 @@ import { EquipmentScreen, FoundToast } from './EquipmentScreen';
 import { KillChart } from './KillChart';
 import { TouchControls } from './TouchControls';
 import { IS_TOUCH_DEVICE } from './engine/touch';
+import { CrtOverlay } from './CrtOverlay';
 
 /** "2026/11/13 v20": when this version was built (in the viewer's time zone) and its number. */
 const BUILD_STAMP = (() => {
@@ -189,6 +190,8 @@ export default function App() {
           <button onClick={() => gameRef.current?.restart()}>Play again (R)</button>
         </div>
       )}
+      {/* CRT screen effect over the HUD and menus too (Settings → Screen effect). Last, so it covers everything. */}
+      {hud?.crt.params.enabled && hud.crt.params.hud && hud.crt.supported && <CrtOverlay crt={hud.crt} />}
     </>
   );
 }

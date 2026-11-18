@@ -1,6 +1,7 @@
 // Connects everything: input -> game rules -> drawing, plus info for the on-screen HUD.
 
-import { spriteDuration, type Assets } from '../engine/assets';
+import { ASSET_ROOT, spriteDuration, type Assets } from '../engine/assets';
+import { CrtFilter, type CrtParams } from '../engine/crt';
 import { Input } from '../engine/input';
 import { IS_TOUCH_DEVICE, newTouchState } from '../engine/touch';
 import { startLoop } from '../engine/loop';
@@ -148,6 +149,8 @@ export interface HudInfo {
   cursorLock: boolean;
   /** Settings (touch screens): controls mirrored, thumbstick on the right. */
   leftHanded: boolean;
+  /** Settings → Screen effect: the CRT effect's settings, whether it works here, and its stripe image (for the page overlay). */
+  crt: { params: CrtParams; supported: boolean; maskUrl: string; stripeWidth: number; stripeAverage: number };
   /** Settings: commander view targeting lines / symbol ships' shots drawn. */
   commanderLines: boolean;
   commanderShots: boolean;
@@ -222,6 +225,24 @@ export interface EquipmentInfo {
 /** "Monitor 1920×1080 · scaling 125% · 3 px per art pixel". */
 function displayText(d: { monitor: string; scaling: number; pixelsPerArtPixel: number }) {
   return `Monitor ${d.monitor} · scaling ${d.scaling}% · ${d.pixelsPerArtPixel} px per art pixel`;
+}
+
+/** Where the screen effect's settings are remembered (only the ones changed from CONFIG.crt). */
+const CRT_SETTING = 'fleet-game.crt';
+function loadCrt(): CrtParams {
+  const defaults = { ...(CONFIG.crt as CrtParams) };
+  try {
+    const saved = JSON.parse(loadSetting(CRT_SETTING) ?? '{}') as Partial<CrtParams>;
+    for (const key of Object.keys(defaults) as (keyof CrtParams)[])
+      if (typeof saved[key] === typeof defaults[key]) (defaults as Record<string, unknown>)[key] = saved[key];
+  } catch {
+    // Unreadable: defaults.
+  }
+  return defaults;
+}
+function saveCrt(p: CrtParams) {
+  const changed = Object.fromEntries(Object.entries(p).filter(([k, v]) => (CONFIG.crt as Record<string, unknown>)[k] !== v));
+  saveSetting(CRT_SETTING, JSON.stringify(changed));
 }
 
 export class Game {
@@ -343,6 +364,10 @@ export class Game {
     this.sounds = sounds;
     this.onHud = onHud;
     this.renderer = new PixelRenderer(canvas);
+    // The CRT screen effect, laid over the game canvas (Settings → Screen effect).
+    const mask = assets.get('ui.crt-mask').frames[0].image as HTMLImageElement;
+    this.crtFilter = new CrtFilter(canvas, mask);
+    this.renderer.crt = { filter: this.crtFilter, params: this.crt };
     // How rotated ships are drawn (test key U, or ShipArt's Rotation buttons), remembered in this browser.
     const rotation = loadSetting(ROTATION_SETTING) as RotationMode | null;
     if (rotation && ROTATION_MODES.includes(rotation)) this.renderer.rotation = rotation;
@@ -891,6 +916,22 @@ export class Game {
     }
   }
 
+  /** CRT screen effect: its settings (CONFIG.crt, changed in Settings → Screen effect and remembered in this browser). */
+  crt: CrtParams = loadCrt();
+  private crtFilter!: CrtFilter;
+  /** Change some of the screen effect's settings (e.g. { enabled: false } switches it off). */
+  setCrt(change: Partial<CrtParams>) {
+    Object.assign(this.crt, change);
+    saveCrt(this.crt);
+    this.needsDraw = true;
+    this.sendHud();
+  }
+  /** The screen effect's look back to the defaults (on/off and "over the HUD" stay as they are). */
+  resetCrt() {
+    const { enabled, hud } = this.crt;
+    this.setCrt({ ...(CONFIG.crt as CrtParams), enabled, hud });
+  }
+
   /** Commander view settings (Settings → General; remembered in this browser). */
   commanderLines = loadToggle(COMMANDER_LINES_SETTING, CONFIG.commander.targetLines);
   commanderShots = loadToggle(COMMANDER_SHOTS_SETTING, CONFIG.commander.drawShots);
@@ -1082,6 +1123,13 @@ export class Game {
       autoFire: this.autoFire,
       cursorLock: this.input.cursorLock,
       leftHanded: this.leftHanded,
+      crt: {
+        params: { ...this.crt },
+        supported: this.crtFilter.supported,
+        maskUrl: ASSET_ROOT + (this.assets.fileOf('ui.crt-mask') ?? ''),
+        stripeWidth: this.crtFilter.stripeWidth,
+        stripeAverage: this.crtFilter.stripeAverage,
+      },
       commanderLines: this.commanderLines,
       commanderShots: this.commanderShots,
       fps: this.fps,

@@ -546,6 +546,15 @@ function hijackHeart() {
   return img;
 }
 
+// CRT screen effect (src/engine/crt.ts): one repeat of the screen's colour stripes, from left to
+// right. The game tiles it across the screen (and over the HUD), each image pixel as wide as the
+// "Stripe size" setting. A plain technical texture: red, green and blue columns like a tube's grille.
+function crtMask() {
+  const img = new Img(3, 1);
+  ['#ff2020', '#20ff20', '#2020ff'].forEach((c, x) => img.set(x, 0, hex(c)));
+  return img;
+}
+
 // Commander view symbols (docs/COMMANDER-VIEW.md): a HUD mark per ship tier, in its side's colour,
 // with a soft glow around it. T1 dot, T2 hollow square, T3 diamond with a dot, T4 ring with a dot,
 // T5 diamond with a square, T6 triangle with a dot, T7 double diamond, T8 hollow square with a diamond.
@@ -1710,6 +1719,7 @@ const FILES = {
   'vfx/shimmer.png': shimmerSheet,
   'ui/cursor.png': cursorCross,
   'ui/hijack-heart.png': hijackHeart,
+  'ui/crt-mask.png': crtMask,
   ...Object.fromEntries(
     Object.entries({ player: '#5fc4ff', enemy: '#ff6a4a', 'enemy-energy': '#b878ff', 'enemy-explosive': '#ffae3a' }).flatMap(([side, color]) =>
       [1, 2, 3, 4, 5, 6, 7, 8].map((t) => [`ui/hud-${side}-t${t}.png`, () => hudSymbol(t, color)]),

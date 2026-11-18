@@ -346,6 +346,15 @@ ships become symbols (docs/COMMANDER-VIEW.md). All of it is art you can replace:
 The targeting lines, symbol beams, star dimming and blue/red shifts are colours in
 `CONFIG.commander` and `CONFIG.timeDilation` (tuning page).
 
+## Screen effect (old CRT screen)
+
+The game can be shown through an old tube-screen effect (glow, colour fringes, curved glass,
+colour stripes; Settings → Screen effect). Its stripes come from one image:
+
+| Name | What it is |
+|---|---|
+| `ui.crt-mask` | One repeat of the screen's colour stripes, left to right (placeholder: 3×1 pixels, red, green, blue). It's tiled across the whole screen, each pixel as wide as the "Stripe size" setting. Any width works (e.g. add dark gap columns, or soften the colours); a 1-pixel-tall image gives vertical stripes. The effect makes up for how much darker it makes the picture. |
+
 ## Sounds
 
 Sound effects live in `sfx/` and are listed in the `"sounds"` section of

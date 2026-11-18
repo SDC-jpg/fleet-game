@@ -1574,6 +1574,53 @@ export const CONFIG = {
   },
 
   /**
+   * CRT screen effect (src/engine/crt.ts): an old tube screen look over the game: glow,
+   * colour fringes, curved glass, colour stripes, dark corners, tint, grain and flicker.
+   * These are the defaults; players change them in Settings → Screen effect (remembered in
+   * their browser). Sizes are in pixels of a 1080-pixel-tall screen (bigger screens scale them).
+   */
+  crt: {
+    /** Effect on (players can switch it off in Settings). */
+    enabled: true,
+    /** Also over the HUD and menus (colour stripes, dark corners and a glow on text); off = the game view only. */
+    hud: true,
+    /** Curved glass: how much the picture bulges (0 = flat). */
+    curvature: 0.04,
+    /** Colour fringes: how far red and blue drift apart at the screen's edges (pixels). */
+    aberration: 2,
+    /** Glow around bright things (0 = none). */
+    bloom: 0.9,
+    /** How far the glow spreads (pixels). */
+    bloomRadius: 12,
+    /** Only colours brighter than this glow (0–1). */
+    bloomThreshold: 0.45,
+    /** How much the glow takes on bloomColor (0 = its own colours). */
+    bloomTint: 0.35,
+    /** Colour the glow is tinted toward. */
+    bloomColor: '#b46cff',
+    /** Colour stripes (the tube's red/green/blue grille, image ui.crt-mask): strength (0–1). */
+    mask: 0.4,
+    /** Width of one image pixel of the stripes (pixels). */
+    maskSize: 1.5,
+    /** Horizontal scanlines: strength (0–1). */
+    scanlines: 0,
+    /** Dark corners (0–1). */
+    vignette: 0.5,
+    /** Dark areas lifted toward liftColor, for a washed-out retro look (0–1). */
+    blackLift: 0.35,
+    /** Colour the dark areas are lifted toward. */
+    liftColor: '#2a0c4a',
+    /** Softness: blurs the picture slightly (0–1). */
+    softness: 0.3,
+    /** Film grain (0–1). */
+    noise: 0.04,
+    /** Brightness flicker (0–1). */
+    flicker: 0.02,
+    /** A faint bright band rolling slowly down the screen (0–1). */
+    rollBand: 0.05,
+  },
+
+  /**
    * Commander view (docs/COMMANDER-VIEW.md): once your biggest ship (right now, not best this run)
    * is tier `fromTier` or more, only the top `realTiers` tiers are drawn as ships; smaller ships (both
    * sides) become HUD symbols by tier (ui.hud.<side>.t<tier>), their shots become HUD shots

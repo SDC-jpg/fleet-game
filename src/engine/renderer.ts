@@ -23,10 +23,12 @@
 import { frameAt, type Frame, type Sprite } from './assets';
 import { angleStep, rotatedFrame, stepAngle } from './rotsprite';
 import { shrunkFrame } from './shrink';
+import type { CrtFilter, CrtParams } from './crt';
 
 export type RotationMode = 'grid' | 'hires' | 'rotsprite';
 export const ROTATION_MODES: RotationMode[] = ['grid', 'hires', 'rotsprite'];
 export const ROTATION_LABELS: Record<RotationMode, string> = { grid: 'Grid', hires: 'Hi-res', rotsprite: 'RotSprite' };
+
 
 export class PixelRenderer {
   private screen: HTMLCanvasElement;
@@ -418,8 +420,13 @@ export class PixelRenderer {
     );
   }
 
-  /** Copy the buffer to the screen, enlarged. */
+  /** The CRT screen effect (crt.ts) and its settings, if the game uses it. */
+  crt: { filter: CrtFilter; params: CrtParams } | null = null;
+
+  /** Copy the buffer to the screen, enlarged (through the CRT effect when it's on). */
   end() {
+    if (this.crt?.params.enabled && this.crt.filter.render(this.buffer, this.bufferScale, this.crt.params)) return;
+    this.crt?.filter.hide();
     this.sctx.imageSmoothingEnabled = false;
     this.sctx.fillStyle = '#000';
     this.sctx.fillRect(0, 0, this.screen.width, this.screen.height);

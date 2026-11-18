@@ -249,6 +249,7 @@
     "vfx.laser-warning.t6": { "file": "vfx/laser-warning-t6.png", "frameWidth": 8, "frameHeight": 48, "frames": 2, "fps": 12 },
     "vfx.laser-warning.t7": { "file": "vfx/laser-warning-t7.png", "frameWidth": 8, "frameHeight": 70, "frames": 2, "fps": 12 },
     "vfx.laser-warning.t8": { "file": "vfx/laser-warning-t8.png", "frameWidth": 8, "frameHeight": 105, "frames": 2, "fps": 12 },
+    "ui.crt-mask": { "file": "ui/crt-mask.png" },
     "ui.cursor": { "file": "ui/cursor.png" },
     "ui.hijack-heart": { "file": "ui/hijack-heart.png" },
     "ui.hud.player.t1": { "file": "ui/hud-player-t1.png" },

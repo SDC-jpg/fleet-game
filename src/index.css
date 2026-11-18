@@ -1431,3 +1431,71 @@ body {
   border-bottom: 1px solid #1f2742;
   padding: 3px 0;
 }
+
+/* CRT screen effect (engine/crt.ts draws the game view; CrtOverlay.tsx covers the HUD and menus). */
+.crt-canvas {
+  position: fixed;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+.crt-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483000;
+}
+/* Colour stripes: the stripe image tiled across, multiplied over everything below. */
+.crt-stripes {
+  background-repeat: repeat;
+  mix-blend-mode: multiply;
+}
+.crt-vignette {
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.55) 80%, #000 115%);
+}
+/* Text glow with red and blue fringes either side (inherited by all text that has no shadow of its own). */
+body.crt-hud {
+  text-shadow:
+    calc(var(--crt-fringe) * -1) 0 rgba(255, 40, 120, var(--crt-fringe-alpha)),
+    var(--crt-fringe) 0 rgba(40, 220, 255, var(--crt-fringe-alpha)),
+    0 0 var(--crt-glow) color-mix(in srgb, var(--crt-glow-color) calc(var(--crt-glow-alpha) * 100%), transparent);
+}
+
+/* Settings → Screen effect (placeholder look, like the other settings). */
+.screen-effect .crt-switch {
+  white-space: nowrap;
+  font: inherit;
+  color: inherit;
+  padding: 6px 16px;
+  margin-right: 12px;
+  background: #1b2442;
+  border: 1px solid #3a4b80;
+  cursor: pointer;
+}
+.screen-effect .crt-switch.on {
+  border-color: #ffd34a;
+  color: #ffd34a;
+}
+.screen-effect .crt-off {
+  opacity: 0.45;
+}
+.crt-sliders {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 24px;
+  margin: 8px 0 12px;
+}
+.crt-slider {
+  display: grid;
+  grid-template-columns: 11em 1fr 3em;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.crt-slider input {
+  width: 100%;
+}
+.crt-slider .value {
+  text-align: right;
+  opacity: 0.7;
+}
