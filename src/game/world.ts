@@ -357,6 +357,31 @@ export interface Beam {
   age: number;
 }
 
+/**
+ * An energy gun's beam while it's on (CONFIG.guns.types.energy): attached to its gun, traced
+ * every step to the first thing in its way (`hit`, or null = it runs on to `length`).
+ */
+export interface EnergyBeam {
+  ship: Ship;
+  /** Which of the ship's guns. */
+  gun: number;
+  team: Team;
+  tier: number;
+  /** Damage per second while it touches a ship. */
+  dps: number;
+  source: DamageSource;
+  /** The shot's random aim error (radians), kept while it's on. */
+  error: number;
+  age: number;
+  /** Where it starts and points this step, and how long it is. */
+  x: number;
+  y: number;
+  angle: number;
+  length: number;
+  /** Where it's burning something (a ship, a Shield bubble or a Force Wall), or null. */
+  hit: { x: number; y: number } | null;
+}
+
 /** A mine waiting for an enemy to come near. */
 export interface Mine {
   team: Team;
@@ -466,6 +491,10 @@ export interface GameState {
   unlocked: QolDrop | null;
   found: { item: Item; time: number } | null;
   beams: Beam[];
+  /** Energy guns' beams that are on (each stays on for a while, see EnergyBeam). */
+  energyBeams: EnergyBeam[];
+  /** How far a beam with nothing in its way reaches (energy.reachScreens × the screen's diagonal; set each step). */
+  beamReach: number;
   mines: Mine[];
   /** Things the newer skills left in the world for a moment (crescents, ion balls, lances...). */
   skillObjs: SkillObj[];
@@ -618,6 +647,8 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     autoMerge: false,
     unlocked: null,
     beams: [],
+    energyBeams: [],
+    beamReach: 4000,
     mines: [],
     skillObjs: [],
     elitesEnabled: CONFIG.elite.enabled,
@@ -694,6 +725,7 @@ export function rebuildPlayerFleet(state: GameState, value: number) {
   state.effects = [];
   state.merges = [];
   state.beams = [];
+  state.energyBeams = [];
   state.mines = [];
   state.skillObjs = [];
   state.loot = [];
@@ -909,6 +941,8 @@ function trailAt(fleet: Fleet, delay: number, dt: number): LeaderSample {
 
 export function updateGame(state: GameState, controls: Controls, dt: number, spawnDistance: number) {
   state.time += dt;
+  // Energy beams with nothing in the way reach this far (spawnDistance is half the screen's diagonal plus a margin).
+  state.beamReach = CONFIG.guns.types.energy.reachScreens * 2 * Math.max(100, spawnDistance - CONFIG.spawnMargin);
   updateEffects(state, dt);
   updateDebris(state, dt);
   // After the end, the world keeps going for a moment so you see your flagship go up; then it stops.
@@ -945,6 +979,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
     for (let i = 0; i < s.gunTimers.length; i++) s.gunTimers[i] -= dtOf(s);
   }
 
+  updateEnergyBeams(state, dt, edt);
   updateBullets(state, dt, edt);
   removeDeadShips(state);
   updateWrecks(state, dt);
@@ -1411,7 +1446,7 @@ function fireGuns(
     const wait = g.interval * cooldownMul * jitter;
     // Your fleet's fire-rate bonus makes the wait between shots shorter.
     ship.gunTimers[i] = ship.team === 'player' ? wait / state.bonus.fireRate : wait;
-    if (g.type === 'energy') fireEnergyGun(state, ship, g, gx, gy, dir + error);
+    if (g.type === 'energy') fireEnergyGun(state, ship, g, i, error);
     else if (g.type === 'explosive') fireExplosiveGun(state, ship, g, gx, gy, dir + error, aimX, aimY);
     else addBullet(state, ship, gx, gy, dir + error, 'gun', g);
     fired.add(g.type);
@@ -1431,25 +1466,107 @@ function gunSource(ship: Ship, type: WeaponType): DamageSource {
   return type === 'ballistic' ? 'gun' : `gun-${type}`;
 }
 
-/** An energy gun's shot: a short beam that hurts every enemy along it at once (like the Laser skill). */
-function fireEnergyGun(state: GameState, ship: Ship, g: GunSpec, x0: number, y0: number, a: number) {
-  const E = CONFIG.guns.types.energy;
-  const T = CONFIG.tiers;
-  const length = E.length * T.rangePerTier ** (g.size - 1);
-  const halfWidth = (E.width * T.sizePerTier ** (g.size - 1)) / 2;
+/**
+ * An energy gun's shot: a beam that stays on for a while (CONFIG.guns.types.energy.duration),
+ * burning whatever it touches. A gun whose beam is still on keeps that beam going instead of
+ * starting a second one: the damage it had left is added to the new shot's.
+ */
+export function fireEnergyGun(state: GameState, ship: Ship, g: GunSpec, gun: number, error: number) {
+  const D = CONFIG.guns.types.energy.duration;
   const damage = g.damage * (ship.team === 'player' ? state.bonus.damage : 1);
-  const dx = Math.cos(a);
-  const dy = Math.sin(a);
-  for (const s of state.ships) {
-    if (s.team === ship.team || s.dead || s.merge) continue;
-    // How far along the beam the ship is, and how far to the side of it.
-    const along = (s.x - x0) * dx + (s.y - y0) * dy;
-    const side = Math.abs((s.x - x0) * dy - (s.y - y0) * dx);
-    if (along < -s.stats.radius || along > length + s.stats.radius || side > s.stats.radius + halfWidth) continue;
-    damageShip(state, s, damage, gunSource(ship, 'energy'));
-    addEffect(state, 'vfx.hit', s.x, s.y, 0, g.size);
+  const old = state.energyBeams.find((b) => b.ship === ship && b.gun === gun);
+  if (old) {
+    const left = old.dps * Math.max(0, D - old.age);
+    old.dps = (left + damage) / D;
+    old.age = 0;
+    old.error = error;
+    return;
   }
-  state.beams.push({ team: ship.team, tier: g.size, x: x0, y: y0, angle: a, length, width: 1, age: 0 });
+  const beam: EnergyBeam = {
+    ship,
+    gun,
+    team: ship.team,
+    tier: g.size,
+    dps: damage / D,
+    source: gunSource(ship, 'energy'),
+    error,
+    age: 0,
+    x: ship.x,
+    y: ship.y,
+    angle: 0,
+    length: 0,
+    hit: null,
+  };
+  state.energyBeams.push(beam);
+  traceEnergyBeam(state, beam);
+}
+
+/** Put a beam on its gun (where it is and points now) and find the first thing in its way. Returns the ship it touches, if any. */
+function traceEnergyBeam(state: GameState, b: EnergyBeam): Ship | null {
+  const ship = b.ship;
+  const g = shipGuns(ship)[b.gun];
+  if (!g) return null;
+  const cos = Math.cos(ship.angle);
+  const sin = Math.sin(ship.angle);
+  b.x = ship.x + g.x * cos - g.y * sin;
+  b.y = ship.y + g.x * sin + g.y * cos;
+  b.angle = ship.angle + (g.turret ? ship.gunAim[b.gun] : g.angle) + b.error;
+  const dx = Math.cos(b.angle);
+  const dy = Math.sin(b.angle);
+  let best = state.beamReach;
+  let target: Ship | null = null;
+  // Ships of the other side (a Shield bubble or immunity makes them bigger: the beam stops at the bubble).
+  for (const s of state.ships) {
+    if (s.team === b.team || s.dead || s.merge || s.absorbed) continue;
+    const r = s.stats.radius * (s.shield > 0 || s.immune > 0 ? CONFIG.guns.types.energy.shieldRadius : 1);
+    const along = (s.x - b.x) * dx + (s.y - b.y) * dy;
+    const side = (s.x - b.x) * dy - (s.y - b.y) * dx;
+    if (Math.abs(side) >= r) continue;
+    const half = Math.sqrt(r * r - side * side);
+    if (along + half < 0) continue; // behind the gun
+    const t = Math.max(0, along - half);
+    if (t < best) [best, target] = [t, s];
+  }
+  // Force Walls of the other side.
+  for (const o of state.skillObjs) {
+    if (o.kind !== 'wall' || o.team === b.team || o.age >= o.life || !o.points) continue;
+    for (let i = 0; i + 1 < o.points.length; i++) {
+      const t = rayHitsSegment(b.x, b.y, dx, dy, o.points[i], o.points[i + 1]);
+      if (t !== null && t < best) [best, target] = [t, null];
+    }
+  }
+  b.length = best;
+  b.hit = best < state.beamReach ? { x: b.x + dx * best, y: b.y + dy * best } : null;
+  return target;
+}
+
+/** How far along a ray (from x, y going dx, dy) it crosses segment a–b, or null if it doesn't. */
+function rayHitsSegment(x: number, y: number, dx: number, dy: number, a: { x: number; y: number }, b: { x: number; y: number }) {
+  const ex = b.x - a.x;
+  const ey = b.y - a.y;
+  const d = dx * ey - dy * ex;
+  if (Math.abs(d) < 1e-9) return null;
+  const t = ((a.x - x) * ey - (a.y - y) * ex) / d;
+  const u = ((a.x - x) * dy - (a.y - y) * dx) / d;
+  return t >= 0 && u >= 0 && u <= 1 ? t : null;
+}
+
+/**
+ * Energy beams each step: follow their guns, burn what they touch (when it's destroyed, the
+ * beam carries on to what's behind next step) and switch off after their time, or when their
+ * ship is gone, frozen, merging or changed sides.
+ */
+export function updateEnergyBeams(state: GameState, dt: number, edt: number) {
+  const D = CONFIG.guns.types.energy.duration;
+  state.energyBeams = state.energyBeams.filter((b) => {
+    const s = b.ship;
+    const bdt = b.team === 'player' ? dt : edt;
+    b.age += bdt;
+    if (b.age >= D || s.dead || s.merge || s.absorbed || s.team !== b.team || s.frozen > 0) return false;
+    const target = traceEnergyBeam(state, b);
+    if (target) damageShip(state, target, b.dps * bdt, b.source);
+    return true;
+  });
 }
 
 /**

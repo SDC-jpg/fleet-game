@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-17
+- Energy weapons (the purple enemies' guns, and energy guns on your ships) now fire a searing beam that stays on for almost a second: it reaches far across the screen, stops at the first ship, shield or force wall in its way and burns it with a glowing, sizzling cut point that follows as ships move. If the ship it burns is destroyed, the beam carries on to whatever is behind.
 - New default screen look: a stronger glow and darker corners, with the HUD and menus left clear.
 - The pause menu can now be dragged anywhere by its top bar; it remembers where you put it and snaps back to the middle when you drag it close (or double-click its top bar).
 - Screen effect presets: save your favourite screen effect settings as presets (kept in your browser), switch between them, or go back to the game's default look.

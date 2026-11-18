@@ -377,6 +377,30 @@ function hitSheet(S = 16) {
   return sheet;
 }
 
+// Energy beam impact (world.ts traceEnergyBeam): a looping searing spot where a beam burns
+// something. The image faces right = back toward the shooter (the game turns it), so the sparks
+// spray back out of the cut. Core white, sparks in team sky blue (recoloured per side).
+function laserImpactSheet(S = 16) {
+  const F = 4, k = S / 16, c = S / 2;
+  const sheet = new Img(S * F, S);
+  for (let f = 0; f < F; f++) {
+    const frame = new Img(S, S);
+    // Sparks: short streaks in a cone pointing right, different each frame.
+    for (let i = 0; i < 6; i++) {
+      const a = (noise(i, f, 3) - 0.5) * 2.2;
+      const len = (3 + noise(i, f, 9) * 4) * k;
+      for (let t = 1.5 * k; t < len; t += 0.5) {
+        const x = Math.round(c + Math.cos(a) * t - 0.5), y = Math.round(c + Math.sin(a) * t - 0.5);
+        frame.set(x, y, hex(t < len * 0.5 ? '#9fdcff' : '#3fb6ff'));
+      }
+    }
+    disc(frame, c, c, (f % 2 ? 2.6 : 3.2) * k, hex('#3fb6ff'));
+    disc(frame, c, c, (f % 2 ? 1.5 : 2) * k, hex('#ffffff'));
+    sheet.blit(frame, f * S, 0);
+  }
+  return sheet;
+}
+
 function recruitSheet(S = 48) {
   const F = 6, k = S / 48;
   const sheet = new Img(S * F, S);
@@ -1698,6 +1722,7 @@ const FILES = {
   'vfx/flagship-explosion.png': () => flagshipExplosionSheet(96),
   'vfx/debris.png': debrisSheet,
   'vfx/hit.png': () => hitSheet(16),
+  'vfx/laser-impact.png': () => laserImpactSheet(16),
   'vfx/recruit.png': () => recruitSheet(48),
   'ui/command-ring.png': () => commandRing(44),
   'ui/wreck-marker.png': () => wreckMarker(48),
@@ -1838,6 +1863,7 @@ for (const tier of [2, 3, 4]) {
   FILES[`vfx/warp-out-t${tier}.png`] = () => warpOutSheet(even(64 * k));
   FILES[`vfx/warp-in-t${tier}.png`] = () => warpInSheet(even(64 * k));
   FILES[`vfx/hit-t${tier}.png`] = () => hitSheet(even(16 * k));
+  FILES[`vfx/laser-impact-t${tier}.png`] = () => laserImpactSheet(even(16 * k));
   FILES[`vfx/recruit-t${tier}.png`] = () => recruitSheet(even(48 * k));
   // The merge flash is sized for the ship it creates.
   FILES[tier === 2 ? 'vfx/merge.png' : `vfx/merge-t${tier}.png`] = () => mergeSheet(TIER_CANVAS[tier]);

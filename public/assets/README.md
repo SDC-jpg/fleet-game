@@ -199,7 +199,8 @@ recoloured when the game starts:
 | --- | --- |
 | `ui.skill.laser`, `.missiles`, `.mines`, `.shield`, `.repulse` | Skill icons (cards and HUD; placeholders 16 px) |
 | `ui.card.damage`, `ui.card.fire-rate`, `ui.card.repair` | Icons for the fleet bonus cards |
-| `vfx.laser` (+ tiers) | One short **segment** of the laser beam, repeated along its length. Faces right; plays once (the beam narrows away). Sky blue = team colour |
+| `vfx.laser` (+ tiers) | One short **segment** of the laser beam, repeated along its length. Faces right; plays once (the beam narrows away). Sky blue = team colour. Also the energy guns' beams (they stay on 0.8 s and hold the last frame; set it to loop in ShipArt → Effects to keep it moving) |
+| `vfx.laser-impact` (+ `.t2`…`.t4`) | Where an energy gun's beam burns something: a **looping** searing spot, turned so the image's right side faces back up the beam toward the shooter (sparks spray that way). Sky blue = team colour |
 | `projectile.missile` (+ tiers) | Homing missile, faces right, team-coloured. No flame painted on: the flame is separate |
 | `vfx.missile-hit` (+ tiers) | Small round burst when a missile hits, plays once |
 | `projectile.mine` (+ tiers) | Mine, loops (blinking light), team-coloured |
@@ -213,7 +214,7 @@ recoloured when the game starts:
 Effects grown by "size" upgrades (Repulse, mine blasts, Freeze, the laser's
 width) are drawn enlarged, so they look a little blockier; that's expected.
 
-Sounds: `sfx.laser`, `sfx.missile` (launch "thump"), `sfx.missile-ignite` (fire-up), `sfx.missile-hit`, `sfx.mine` (dropped), `sfx.mine-blast`,
+Sounds: `sfx.laser`, `sfx.laser-sear` (looping hiss while energy beams burn something on screen; louder with more), `sfx.missile` (launch "thump"), `sfx.missile-ignite` (fire-up), `sfx.missile-hit`, `sfx.mine` (dropped), `sfx.mine-blast`,
 `sfx.shield`, `sfx.repulse`, `sfx.freeze`, `sfx.levelup`, `sfx.card` (card picked).
 
 ### Newer skills

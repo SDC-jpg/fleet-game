@@ -679,6 +679,12 @@ export class Game {
     // While boosting, the boost loop takes over from the hum (it's the same sound, a little louder).
     this.sounds.setLoop('sfx.engine-move', thrust === 'move' ? CONFIG.audio.engineMoveLevel : 0, pitch);
     this.sounds.setLoop('sfx.engine-boost', thrust === 'boost' ? CONFIG.audio.engineBoostLevel : 0, pitch);
+    // Energy beams burning something on screen: a searing hiss, louder with more of them.
+    const v = this.renderer.view;
+    const searing = playing
+      ? this.state.energyBeams.filter((b) => b.hit && b.hit.x > v.x && b.hit.x < v.x + v.w && b.hit.y > v.y && b.hit.y < v.y + v.h).length
+      : 0;
+    this.sounds.setLoop('sfx.laser-sear', Math.min(1, searing * CONFIG.audio.searLevelPerBeam), 1);
   }
 
   private update(dt: number) {

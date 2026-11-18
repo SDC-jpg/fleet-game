@@ -68,7 +68,7 @@ tuned by playing. Elites stay standard (not variants). Related: [DETAIL-STEPS.md
 ### 4. Weapon types
 
 - **Ballistic:** today's shots.
-- **Energy:** a short beam that hurts every ship in a line.
+- **Energy:** (changed 2026-11-17) a searing beam that stays on for 0.8 s, attached to its gun: it stops at the first enemy ship, Shield bubble or Force Wall and burns it while it touches (the shot's damage spread over its time); with nothing in the way it reaches twice the screen's diagonal; when what it burns is destroyed it carries on. Was: a short beam that hurt every ship in a line.
 - **Explosive:** small missiles (one or several).
 - Energy and explosive reuse the Laser and Missiles skill code with their own numbers
   (in config). Their art can be swapped like everything else.

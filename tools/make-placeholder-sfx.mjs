@@ -236,6 +236,19 @@ function engineMove() {
   });
 }
 
+/** Laser sear (looping): an energy beam burning something: bright crackling hiss over a buzzing tone. */
+function laserSear() {
+  const r = rng(73);
+  const hp = lowpass();
+  const buzz = oscillator('square');
+  return renderLoop(1, (t) => {
+    const hiss = r() * 2 - 1 - hp(r() * 2 - 1, 1800);
+    const crackle = r() < 0.02 ? (r() * 2 - 1) * 2 : 0;
+    const tone = buzz(240 + 12 * Math.sin(t * 2 * Math.PI * 9)) * 0.18;
+    return (hiss * 0.5 + crackle + tone) * (0.85 + 0.15 * Math.sin(t * 2 * Math.PI * 23));
+  });
+}
+
 /** Dash: a quick "fwoosh" of noise that opens up, plus a rising zip. */
 function dash() {
   const r = rng(21);
@@ -585,6 +598,7 @@ const FILES = {
   'hijack.wav': hijack,
   'pdc.wav': pdc,
   'engine-move.wav': engineMove,
+  'laser-sear.wav': laserSear,
   // The user's choice (2026-11-16): boosting uses the same hum, a little louder (manifest volume).
   'engine-boost.wav': engineMove,
   'time-dilation.wav': timeDilation,

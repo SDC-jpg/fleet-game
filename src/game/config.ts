@@ -546,10 +546,15 @@ export const CONFIG = {
       /** Plain shots (today's guns). */
       ballistic: { rate: 1, efficiency: 1 },
       /**
-       * Short beams (Laser skill art and sound) that hurt every enemy in a line at once.
-       * length and width are for a size-1 gun; they grow like shot reach and ship size.
+       * Searing beams (Laser skill art): each shot stays on for `duration` seconds, attached to its gun
+       * (it sweeps as the ship turns). It stops at the first enemy ship, Shield bubble or Force Wall in its
+       * way and burns it for as long as it touches (the shot's damage spread over `duration`; a gun that
+       * fires again while its beam is on keeps the one beam going, with the damage left added). With
+       * nothing in the way it reaches `reachScreens` × the screen's diagonal. If what it burns is
+       * destroyed, it carries on to whatever is behind. `width` is for a size-1 gun (grows like ship size).
+       * `shieldRadius`: a shielded ship's bubble, × its hit radius.
        */
-      energy: { rate: 2.5, efficiency: 0.6, length: 260, width: 4 },
+      energy: { rate: 2.5, efficiency: 0.6, width: 4, duration: 0.8, reachScreens: 2, shieldRadius: 1.4 },
       /**
        * Small homing missiles (they fly like the Missiles skill's, CONFIG.missiles): `missiles` per
        * shot by default (each gun can set its own in ShipArt), sharing the shot's damage, fanned out
@@ -1547,6 +1552,8 @@ export const CONFIG = {
     engineMoveLevel: 1,
     /** The ship you fly: engine sound while boosting (sfx.engine-boost loop, playing instead of the hum), 0 = silent. */
     engineBoostLevel: 1,
+    /** Energy beams burning something on screen: the sear loop's loudness (sfx.laser-sear) per beam, up to full. */
+    searLevelPerBeam: 0.35,
   },
 
   /**

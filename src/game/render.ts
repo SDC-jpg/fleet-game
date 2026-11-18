@@ -238,6 +238,25 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, b.angle, 'beam', b.team, b.age, 1, false, scale);
   }
 
+  // Energy guns' beams (CONFIG.guns.types.energy): the laser image along the beam up to what it burns,
+  // and a searing impact there (vfx.laser-impact, turned to face back up the beam).
+  const ED = CONFIG.guns.types.energy.duration;
+  for (const b of state.energyBeams) {
+    const alpha = Math.min(1, b.age / 0.05, (ED - b.age) / 0.15);
+    if (b.tier <= symbolMax) {
+      const color = b.team === 'player' ? CONFIG.commander.lineColorPlayer : CONFIG.commander.lineColorEnemy;
+      r.drawLine(b.x, b.y, b.x + Math.cos(b.angle) * b.length, b.y + Math.sin(b.angle) * b.length, color, 0.9 * alpha, b.hit ? 0.9 * alpha : 0);
+      continue;
+    }
+    const { name, scale } = tierArt(assets, 'vfx.laser', b.tier);
+    drawBeam(r, teamSprite(assets, name, b.team), b.x, b.y, b.angle, b.length, scale, b.age, alpha);
+    drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, b.angle, 'beam', b.team, b.age, alpha, false, scale);
+    if (b.hit) {
+      const imp = tierArt(assets, 'vfx.laser-impact', b.tier);
+      r.drawSprite(teamSprite(assets, imp.name, b.team), b.hit.x, b.hit.y, b.angle + Math.PI, state.time, alpha, false, imp.scale);
+    }
+  }
+
   drawSkillObjects(state, r, assets, extras);
 
   // Point Defense Cannons: two small turrets on the flagship, pointing where they aim.
@@ -404,12 +423,32 @@ function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets, ex
 }
 
 /** A beam: one short segment image repeated along its length, scaled by `width`. */
-export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: number, length: number, width: number, time: number) {
-  const w = seg.frames[0].w;
-  const n = Math.ceil(length / (w * width));
+export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: number, length: number, width: number, time: number, alpha = 1) {
+  const step = seg.frames[0].w * width;
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
-  for (let i = 0; i < n; i++) r.drawSprite(seg, x + dx * (i + 0.5) * w * width, y + dy * (i + 0.5) * w * width, angle, time, 1, false, width);
+  // Only the part on screen (beams can reach far past it).
+  const v = r.view;
+  const pad = step + seg.frames[0].h * width;
+  let lo = 0;
+  let hi = length;
+  for (const [p, d, min, max] of [
+    [x, dx, v.x - pad, v.x + v.w + pad],
+    [y, dy, v.y - pad, v.y + v.h + pad],
+  ]) {
+    if (Math.abs(d) < 1e-9) {
+      if (p < min || p > max) return;
+      continue;
+    }
+    const t1 = (min - p) / d;
+    const t2 = (max - p) / d;
+    lo = Math.max(lo, Math.min(t1, t2));
+    hi = Math.min(hi, Math.max(t1, t2));
+  }
+  if (hi <= lo) return;
+  const first = Math.max(0, Math.floor(lo / step));
+  const last = Math.min(Math.ceil(length / step), Math.ceil(hi / step));
+  for (let i = first; i < last; i++) r.drawSprite(seg, x + dx * (i + 0.5) * step, y + dy * (i + 0.5) * step, angle, time, alpha, false, width);
 }
 
 /** Draws one ship, plus a small health bar under it if it's damaged. */
