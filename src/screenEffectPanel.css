@@ -1,0 +1,158 @@
+/* The screen effect panel (ScreenEffectPanel.tsx): in the game's Settings and in ShipArt.
+   Placeholder look, like the other settings. */
+.screen-effect .crt-switch {
+  white-space: nowrap;
+  font: inherit;
+  color: inherit;
+  padding: 6px 16px;
+  margin-right: 12px;
+  background: #1b2442;
+  border: 1px solid #3a4b80;
+  cursor: pointer;
+}
+.screen-effect .crt-switch.on {
+  border-color: #ffd34a;
+  color: #ffd34a;
+}
+.screen-effect .crt-off {
+  opacity: 0.45;
+}
+.crt-sliders {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 24px;
+  margin: 8px 0 12px;
+}
+.crt-slider {
+  display: grid;
+  grid-template-columns: 11em 1fr 3em;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.crt-slider input {
+  width: 100%;
+}
+.crt-slider .value {
+  text-align: right;
+  opacity: 0.7;
+}
+
+
+/* Screen effect panel: presets (ScreenEffectPanel.tsx; also in ShipArt). Placeholder look. */
+.screen-effect {
+  text-align: left;
+}
+.screen-effect h3 {
+  margin: 12px 0 6px;
+  font-size: 13px;
+}
+.screen-effect .note {
+  opacity: 0.6;
+  font-size: 12px;
+}
+.screen-effect button {
+  margin: 0;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  background: #1b2442;
+  border: 1px solid #3a4b80;
+  cursor: pointer;
+}
+.screen-effect button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.screen-effect .crt-switch {
+  padding: 6px 16px;
+  font-size: 14px;
+  margin-right: 12px;
+}
+.fx-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fx-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 170px;
+  overflow-y: auto;
+}
+.fx-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+}
+.fx-preset.on {
+  border-color: #ffd34a;
+  background: rgba(255, 211, 74, 0.06);
+}
+.screen-effect .fx-preset .fx-name {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  text-align: left;
+  font-size: 13px;
+}
+.fx-preset .fx-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+/* The live default's badge (also on the preset it came from). */
+.fx-live {
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: #0b0d18;
+  background: #5fe08a;
+  padding: 1px 5px;
+}
+.fx-live .fx-stale {
+  font-weight: normal;
+  letter-spacing: 0;
+  color: #0b0d18;
+}
+.fx-live:has(.fx-stale) {
+  background: #ffb347;
+}
+.fx-name-edit {
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  background: #0e1224;
+  border: 1px solid #3a4b80;
+  padding: 3px 6px;
+  width: 12em;
+}
+.fx-save {
+  margin-top: 6px;
+}
+.fx-save .note {
+  margin-right: auto;
+}
+.fx-message {
+  margin-top: 4px;
+}
+.fx-hud {
+  margin-top: 12px;
+  cursor: pointer;
+}
+.screen-effect .fx-hud {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+.screen-effect .fx-hud input {
+  margin: 2px 0 0;
+}
+.screen-effect .fx-hud b {
+  font-size: 13px;
+}

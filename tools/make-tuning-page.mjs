@@ -8,7 +8,7 @@
 // so it can see the comments. See the notes at the top of config.ts.
 
 import ts from 'typescript';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { execSync } from 'node:child_process';
 import { buildSync } from 'esbuild';
@@ -224,6 +224,23 @@ sections.push({
   ].map(([name, value, description]) => ({ name, value, description })),
 });
 
+// The screen effect everyone gets: the preset designated as the live default (if one was).
+{
+  const file = `${ROOT}/public/assets/screen-effect.json`;
+  if (existsSync(file)) {
+    const live = JSON.parse(readFileSync(file, 'utf8'));
+    sections.push({
+      title: `Screen effect: live default (“${live.name}”)`,
+      where: 'public/assets/screen-effect.json',
+      intro:
+        'The CRT screen effect players get by default: a preset chosen with "Designate as live default" (Settings → Screen effect, ' +
+        'or ShipArt, while running locally). These values replace the CONFIG.crt ones above; players can still change them or switch the effect off.',
+      head: ['Setting', 'Live value', 'What it does'],
+      rows: Object.entries(live.look ?? {}).map(([name, value]) => ({ name, value: String(value), description: `See CONFIG.crt.${name} above.` })),
+    });
+  }
+}
+
 if (missing.length) console.warn(`Settings without a description (add a /** */ comment in config.ts):\n  ${missing.join('\n  ')}`);
 
 // ---------- Version info ----------
@@ -257,7 +274,7 @@ const CATEGORIES = [
 ];
 function categoryOf(sec) {
   const key = sec.where.startsWith('CONFIG.') ? sec.where.slice(7) : '';
-  if (ART.includes(key) || sec.where.endsWith('manifest.json')) return 'art';
+  if (ART.includes(key) || sec.where.endsWith('manifest.json') || sec.where.endsWith('screen-effect.json')) return 'art';
   if (WEAPONS.includes(key)) return 'weapons';
   if (OTHER.includes(key)) return 'other';
   const side = skillSide[key];

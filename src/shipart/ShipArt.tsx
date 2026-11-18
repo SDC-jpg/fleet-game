@@ -34,6 +34,8 @@ import { Preview } from './Preview';
 import { NumberField } from './fields';
 import { VfxPanel } from './VfxPanel';
 import { EffectPanel } from './EffectPanel';
+import { ScreenEffectWindow } from './ScreenEffectWindow';
+import { screenEffect } from '../game/screenEffect';
 
 /** Editing and saving only work with the dev server (npm run dev). */
 const READ_ONLY = !import.meta.env.DEV;
@@ -124,6 +126,9 @@ export function ShipArt() {
   const [guides, setGuides] = useState(savedView.guides ?? true);
   // Stars on or off, remembered in this browser.
   const [stars, setStars] = useState(() => loadSetting('shipart.stars') !== 'off');
+  // The game's screen effect over the preview (own switch), and its settings window.
+  const [crt, setCrt] = useState(() => loadSetting('shipart.crt') === 'on');
+  const [fxOpen, setFxOpen] = useState(false);
   // How rotated ships are drawn; shared with the game (same browser setting).
   const [rotation, setRotation] = useState<RotationMode>(() => {
     const r = loadSetting(ROTATION_SETTING) as RotationMode | null;
@@ -173,7 +178,7 @@ export function ShipArt() {
   // Load the art, the layouts and the list of art files.
   useEffect(() => {
     (async () => {
-      const a = await Assets.load();
+      const [a] = await Promise.all([Assets.load(), screenEffect.loadLive()]);
       const d = await loadArtLayouts(a);
       const f = await loadArtFiles(a, d);
       // The remembered view may name art or a mount that is gone since.
@@ -314,7 +319,7 @@ export function ShipArt() {
   const effect = effectBase && assets ? tierSprite(assets, effectBase, effectTier) : null;
 
   const previewSettings = () =>
-    data && { data, subject, kind, state, effect, zoom, detail, spin, fly, team, guides, stars, rotation, selected, selectedPoint, selectedGun, readOnly: READ_ONLY };
+    data && { data, subject, kind, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, readOnly: READ_ONLY };
 
   // Start the preview once everything has loaded.
   useEffect(() => {
@@ -385,7 +390,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, rotation, selected, selectedPoint, selectedGun, patch]);
+  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, patch]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -630,6 +635,21 @@ export function ShipArt() {
               {ROTATION_LABELS[m]}
             </button>
           ))}
+        </div>
+        <div className="sa-group" title="The game's screen effect (old CRT screen) over the preview">
+          <button
+            className={crt ? 'on' : ''}
+            onClick={() => {
+              setCrt(!crt);
+              saveSetting('shipart.crt', crt ? 'off' : 'on');
+            }}
+            title="Show the preview through the game's screen effect (only here: the game has its own switch)"
+          >
+            CRT
+          </button>
+          <button className={fxOpen ? 'on' : ''} onClick={() => setFxOpen(!fxOpen)} title="The screen effect's settings and presets">
+            Screen effect…
+          </button>
         </div>
         <div className="sa-spacer" />
         {READ_ONLY ? (
@@ -973,6 +993,7 @@ export function ShipArt() {
           )}
         </fieldset>
       </aside>
+      {fxOpen && <ScreenEffectWindow onClose={() => setFxOpen(false)} />}
     </div>
   );
 }

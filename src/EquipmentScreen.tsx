@@ -27,6 +27,7 @@ import { CircuitLines, type Box } from './merge/CircuitLines';
 import { useMergeSlots } from './merge/useMergeSlots';
 import { MERGE_COUNT, pickMergeSet } from './game/equipment';
 import { LifetimeStats } from './LifetimeStats';
+import { usePanelPosition } from './usePanelPosition';
 import { RunLog } from './RunLog';
 import { loadRuns } from './game/runLog';
 
@@ -163,6 +164,8 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
   const buttonRef = useRef<HTMLButtonElement>(null);
   const inventoryRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  // The whole pause screen can be dragged by its header (remembered in this browser).
+  const place = usePanelPosition(panelRef, 'fleet-game.pause-position');
   const [boxes, setBoxes] = useState<{ group: Box | null; button: Box | null; inventory: Box | null; drawer: Box | null }>({
     group: null,
     button: null,
@@ -226,10 +229,13 @@ export function EquipmentScreen({ hud, game }: { hud: HudInfo; game: Game | null
   return (
     <div
       ref={panelRef}
-      className={'panel center equipment' + (drag ? ' dragging' : '') + (merging ? ' merging' : '') + (wide && tab === 'settings' ? ' wide' : '')}
+      className={
+        'panel center equipment' + (drag ? ' dragging' : '') + (merging ? ' merging' : '') + (wide && tab === 'settings' ? ' wide' : '') + (place.snapped ? ' snapped' : '')
+      }
+      style={{ transform: place.translate }}
       onMouseMove={(e) => setMouse({ x: e.clientX, y: e.clientY })}
     >
-      <div className="equipment-head">
+      <div className={'equipment-head' + (place.moving ? ' moving' : '')} {...place.headerProps}>
         <h1>Paused</h1>
         <div className="chips tabs">
           <button className={tab === 'equipment' ? 'on' : ''} onClick={() => setTab('equipment')}>

@@ -1461,41 +1461,20 @@ body.crt-hud {
     0 0 var(--crt-glow) color-mix(in srgb, var(--crt-glow-color) calc(var(--crt-glow-alpha) * 100%), transparent);
 }
 
-/* Settings → Screen effect (placeholder look, like the other settings). */
-.screen-effect .crt-switch {
-  white-space: nowrap;
-  font: inherit;
-  color: inherit;
-  padding: 6px 16px;
-  margin-right: 12px;
-  background: #1b2442;
-  border: 1px solid #3a4b80;
+/* The pause screen can be dragged by its header (usePanelPosition.ts). */
+.equipment-head {
+  cursor: grab;
+  touch-action: none;
+}
+.equipment-head.moving {
+  cursor: grabbing;
+}
+.equipment-head button,
+.equipment-head input {
   cursor: pointer;
 }
-.screen-effect .crt-switch.on {
-  border-color: #ffd34a;
-  color: #ffd34a;
-}
-.screen-effect .crt-off {
-  opacity: 0.45;
-}
-.crt-sliders {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 24px;
-  margin: 8px 0 12px;
-}
-.crt-slider {
-  display: grid;
-  grid-template-columns: 11em 1fr 3em;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-.crt-slider input {
-  width: 100%;
-}
-.crt-slider .value {
-  text-align: right;
-  opacity: 0.7;
+/* Snapped back to its normal place while dragging: a brief bright outline. */
+.equipment.snapped {
+  outline: 2px solid #ffd34a;
+  outline-offset: 2px;
 }

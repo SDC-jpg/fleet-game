@@ -4,6 +4,8 @@
 // points (like a missile's impact point) with the mouse. Guides (outlines and
 // handles) are drawn on a second canvas on top.
 
+import { CrtFilter, type CrtParams } from '../engine/crt';
+import { screenEffect } from '../game/screenEffect';
 import type { Assets } from '../engine/assets';
 import { PixelRenderer, type RotationMode } from '../engine/renderer';
 import { CONFIG, SHIP_TYPES } from '../game/config';
@@ -32,6 +34,8 @@ export interface PreviewSettings {
   guides: boolean;
   /** false = plain black background instead of stars. */
   stars: boolean;
+  /** The game's screen effect (CRT) over the preview (its look comes from game/screenEffect.ts). */
+  crt: boolean;
   /** How rotated sprites are drawn (see renderer.ts). */
   rotation: RotationMode;
   /** The selected mount (index), or point (name). */
@@ -69,6 +73,9 @@ const SEQ = { ignite: 0.25, impact: 1.25, restart: 2.1 };
 
 export class Preview {
   private renderer: PixelRenderer;
+  private crt: CrtFilter;
+  private unwatchCrt: () => void;
+  private crtParams: () => CrtParams;
   private overlay: HTMLCanvasElement;
   private particles = new Particles();
   private handle = 0;
@@ -91,6 +98,16 @@ export class Preview {
     this.renderer = new PixelRenderer(canvas, true);
     this.overlay = overlay;
     this.settings = settings;
+    // The game's screen effect over the preview (toolbar: CRT). Here it always draws its own
+    // stripes and dark corners, since there's no game HUD to cover.
+    const mask = assets.get('ui.crt-mask').frames[0].image as HTMLImageElement;
+    this.crt = new CrtFilter(canvas, mask);
+    // On/off is ShipArt's own toolbar switch (settings.crt), not the game's.
+    const params = () => ({ ...screenEffect.params, enabled: this.settings.crt, hud: false });
+    this.renderer.crt = { filter: this.crt, params: params() };
+    this.crtParams = params;
+    this.unwatchCrt = screenEffect.subscribe(() => (this.renderer.crt!.params = params()));
+    screenEffect.setDrawInfo(this.crt.supported, { url: '', width: this.crt.stripeWidth });
     overlay.addEventListener('mousedown', this.onDown);
     window.addEventListener('mousemove', this.onMove);
     window.addEventListener('mouseup', this.onUp);
@@ -107,6 +124,8 @@ export class Preview {
 
   destroy() {
     cancelAnimationFrame(this.handle);
+    this.unwatchCrt();
+    this.crt.destroy();
     this.overlay.removeEventListener('mousedown', this.onDown);
     window.removeEventListener('mousemove', this.onMove);
     window.removeEventListener('mouseup', this.onUp);
@@ -167,6 +186,7 @@ export class Preview {
   private frame(dt: number) {
     const st = this.settings;
     const r = this.renderer;
+    r.crt!.params = this.crtParams(); // the toolbar's CRT switch may have changed
     this.time += dt;
     if (st.state !== this.lastState) {
       this.lastState = st.state;

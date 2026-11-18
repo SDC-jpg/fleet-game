@@ -6,6 +6,8 @@
 //                          image files), rewriting only those entries' lines
 //   POST /__shipart/import-zip?name=vfx.x  unpacks a zip of PNG frames into public/assets/vfx/x/
 //                          (frame-01.png, frame-02.png...) and returns their paths
+//   POST /__shipart/screen-effect  writes the screen effect preset designated as the live
+//                          default to public/assets/screen-effect.json (game/screenEffect.ts)
 //   GET  /__shipart/info   the project folder's Windows path, if it's shared from Windows into
 //                          the container (so ShipArt can offer "Copy folder path"). Worked out
 //                          while running, never written to a file: it contains the user's name.
@@ -201,6 +203,35 @@ export function shipArtPlugin(): Plugin {
             const data = JSON.parse(body);
             if (typeof data?.sprites !== 'object') throw new Error('no sprites');
             patchManifest(assetsDir, data.sprites);
+            res.end('saved');
+          } catch (e) {
+            res.statusCode = 400;
+            res.end(`Not saved: ${(e as Error).message}`);
+          }
+        });
+      });
+      server.middlewares.use('/__shipart/screen-effect', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end('POST only');
+          return;
+        }
+        let body = '';
+        req.on('data', (chunk) => {
+          body += chunk;
+          if (body.length > 100_000) req.destroy(); // far bigger than any preset
+        });
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            if (typeof data !== 'object' || !data || typeof data.name !== 'string' || typeof data.look !== 'object') throw new Error('not a preset');
+            const file = {
+              _readme: 'The screen effect (CRT) preset everyone gets by default. Set from Settings → Screen effect or ShipArt with "Designate as live default" (local only).',
+              id: typeof data.id === 'string' ? data.id : null,
+              name: data.name,
+              look: data.look,
+            };
+            writeFileSync(join(assetsDir, 'screen-effect.json'), JSON.stringify(file, null, 2) + '\n');
             res.end('saved');
           } catch (e) {
             res.statusCode = 400;

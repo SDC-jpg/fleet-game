@@ -15,6 +15,7 @@ import { KillChart } from './KillChart';
 import { TouchControls } from './TouchControls';
 import { IS_TOUCH_DEVICE } from './engine/touch';
 import { CrtOverlay } from './CrtOverlay';
+import { screenEffect } from './game/screenEffect';
 
 /** "2026/11/13 v20": when this version was built (in the viewer's time zone) and its number. */
 const BUILD_STAMP = (() => {
@@ -34,7 +35,11 @@ export default function App() {
   // Load the art, then start the game. Stop it when the page closes.
   useEffect(() => {
     let cancelled = false;
-    Promise.all([Assets.load().then(async (assets) => ({ assets, layouts: await loadArtLayouts(assets) })), Sounds.load(CONFIG.audio.masterVolume)])
+    Promise.all([
+      Assets.load().then(async (assets) => ({ assets, layouts: await loadArtLayouts(assets) })),
+      Sounds.load(CONFIG.audio.masterVolume),
+      screenEffect.loadLive(),
+    ])
       .then(([{ assets, layouts }, sounds]) => {
         if (cancelled || !canvasRef.current) return;
         const game = new Game(canvasRef.current, assets, sounds, layouts, setHud);
@@ -191,7 +196,7 @@ export default function App() {
         </div>
       )}
       {/* CRT screen effect over the HUD and menus too (Settings → Screen effect). Last, so it covers everything. */}
-      {hud?.crt.params.enabled && hud.crt.params.hud && hud.crt.supported && <CrtOverlay crt={hud.crt} />}
+      {hud && <CrtOverlay />}
     </>
   );
 }

@@ -306,6 +306,12 @@ export class CrtFilter {
     gl.bindSampler(unit, sampler);
   }
 
+  /** Remove the effect's canvas (when the game or preview stops). */
+  destroy() {
+    this.canvas.remove();
+    this.gl?.getExtension('WEBGL_lose_context')?.loseContext();
+  }
+
   /** Stop showing the effect (the plain game canvas shows again). */
   hide() {
     this.canvas.style.display = 'none';
@@ -328,7 +334,8 @@ export class CrtFilter {
     this.canvas.style.height = this.screen.style.height;
     this.canvas.style.display = 'block';
     this.sizeBloom(w, h);
-    const k = h / 1080;
+    // Sized by the window (not this canvas), so a small preview (ShipArt) matches the game.
+    const k = (window.innerHeight * (window.devicePixelRatio || 1)) / 1080;
     const map = [w / (source.width * scale), h / (source.height * scale)];
 
     // The picture.

@@ -5,10 +5,17 @@
 // view then leaves its own stripes and corners to this layer, so they aren't applied twice.
 
 import { useEffect } from 'react';
-import type { HudInfo } from './game/Game';
+import { useScreenEffect } from './game/screenEffect';
 
-export function CrtOverlay({ crt }: { crt: HudInfo['crt'] }) {
-  const p = crt.params;
+/** Shown only while the effect is on, set to cover the HUD, and drawable here. */
+export function CrtOverlay() {
+  const fx = useScreenEffect();
+  return fx.enabled && fx.look.hud && fx.supported ? <Layers /> : null;
+}
+
+function Layers() {
+  const fx = useScreenEffect();
+  const p = fx.look;
   // Pixels of a 1080-pixel-tall screen → page pixels (same scale as the game view's effect).
   const k = window.innerHeight / 1080;
 
@@ -31,8 +38,8 @@ export function CrtOverlay({ crt }: { crt: HudInfo['crt'] }) {
       <div
         className="crt-layer crt-stripes"
         style={{
-          backgroundImage: `url(${crt.maskUrl})`,
-          backgroundSize: `${crt.stripeWidth * Math.max(0.1, p.maskSize) * k}px 100%`,
+          backgroundImage: `url(${fx.mask.url})`,
+          backgroundSize: `${fx.mask.width * Math.max(0.1, p.maskSize) * k}px 100%`,
           opacity: p.mask,
         }}
       />

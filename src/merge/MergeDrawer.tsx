@@ -141,7 +141,7 @@ export const MergeDrawer = forwardRef<HTMLDivElement, MergeDrawerProps>(function
   const shownResult = preview ? (shownFirst ? mergeResult(shownFirst) : null) : result;
 
   return (
-    <div ref={ref} className="merge-drawer" style={p.style}>
+    <div ref={ref} className="merge-drawer" style={p.style} data-sticks-out>
       <h2>{p.name}</h2>
       <div className="merge-view">
         <div className={'merge-track' + (settings ? ' slid' : '')}>
