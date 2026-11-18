@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-17
+- New default screen look: a stronger glow and darker corners, with the HUD and menus left clear.
 - The pause menu can now be dragged anywhere by its top bar; it remembers where you put it and snaps back to the middle when you drag it close (or double-click its top bar).
 - Screen effect presets: save your favourite screen effect settings as presets (kept in your browser), switch between them, or go back to the game's default look.
 - New screen effect: an old CRT screen look with glow, colour fringes, curved glass and colour stripes, over the game and the HUD. Switch it off, or keep the HUD and menus clear, in Settings, and tune each part in Settings → Screen effect.

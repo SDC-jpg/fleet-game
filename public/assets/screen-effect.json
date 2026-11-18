@@ -1,0 +1,25 @@
+{
+  "_readme": "The screen effect (CRT) preset everyone gets by default. Set from Settings → Screen effect or ShipArt with \"Designate as live default\" (local only).",
+  "id": "6odbapuq",
+  "name": "Custom2",
+  "look": {
+    "hud": false,
+    "curvature": 0.05,
+    "aberration": 3.25,
+    "bloom": 1.25,
+    "bloomRadius": 17,
+    "bloomThreshold": 0.7,
+    "bloomTint": 0.8,
+    "bloomColor": "#b46cff",
+    "mask": 0.25,
+    "maskSize": 1.5,
+    "scanlines": 0,
+    "vignette": 1,
+    "blackLift": 0.15,
+    "liftColor": "#2a0c4a",
+    "softness": 0.3,
+    "noise": 0.03,
+    "flicker": 0.02,
+    "rollBand": 0.05
+  }
+}
