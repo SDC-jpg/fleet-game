@@ -38,7 +38,7 @@ export function CardScreen({ hud, game }: { hud: HudInfo; game: Game | null }) {
           <div>
             Replace <b>{r.old}</b> (rank {r.rank}) with <b>{r.name}</b>?
           </div>
-          <div className="hint">{r.old} and its upgrades will be gone.</div>
+          <div className="hint">{r.old} keeps its rank and upgrades: pick it again later and it comes back as it is.</div>
           <div className="replace-buttons">
             <button className="replace-yes" onClick={() => game?.pickCard(r.card, true)}>
               Replace <span className="key">Enter</span>

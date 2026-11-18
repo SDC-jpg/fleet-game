@@ -428,6 +428,8 @@ export interface GameState {
   confirmCard: number | null;
   /** Skills you've picked, in the order you got them. */
   skills: OwnedSkill[];
+  /** Skills you replaced with another, kept with their rank and upgrades: picking one again brings it back as it was. */
+  setAside: OwnedSkill[];
   /** Which of your weapon skills (left click) is selected, counting only weapons in the order you got them. Only that one fires (1, 2, 3 or the mouse wheel switch). */
   activeWeapon: number;
   /** Extra damage and fire rate from bonus cards (0.1 = +10%). */
@@ -598,6 +600,7 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     cards: null,
     confirmCard: null,
     skills: [],
+    setAside: [],
     activeWeapon: 0,
     cardBonus: { damage: 0, fireRate: 0 },
     skillBonus: {},

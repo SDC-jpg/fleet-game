@@ -29,6 +29,8 @@ export interface RunSnapshot {
   xp: number;
   pendingLevels: number;
   skills: OwnedSkill[];
+  /** Skills replaced by others, kept with their upgrades (missing in older snapshots). */
+  setAside?: OwnedSkill[];
   /** The selected weapon skill (missing in older snapshots). */
   activeWeapon?: number;
   cardBonus: { damage: number; fireRate: number };
@@ -62,6 +64,7 @@ export function saveRun(state: GameState) {
     // Cards on screen count as a level still to pick (they're drawn again).
     pendingLevels: state.pendingLevels + (state.cards ? 1 : 0),
     skills: state.skills.map((sk) => ({ ...sk, mods: { ...sk.mods } })),
+    setAside: state.setAside.map((sk) => ({ ...sk, mods: { ...sk.mods } })),
     activeWeapon: state.activeWeapon,
     cardBonus: { ...state.cardBonus },
     stats: emptyStats(state.stats),
@@ -111,6 +114,7 @@ export function restoreRun(state: GameState, snap: RunSnapshot) {
   state.skills = snap.skills
     .filter((sk) => sk.id in SKILLS && skillEnabled(sk.id as SkillId))
     .map((sk) => ({ ...sk, timer: 0 }));
+  state.setAside = (snap.setAside ?? []).filter((sk) => sk.id in SKILLS && skillEnabled(sk.id as SkillId));
   state.activeWeapon = snap.activeWeapon ?? 0;
   state.cardBonus = { ...snap.cardBonus };
   state.stats = emptyStats(snap.stats);

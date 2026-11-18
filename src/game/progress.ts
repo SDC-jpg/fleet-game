@@ -40,6 +40,19 @@ export function replacedBy(state: GameState, card: Card): OwnedSkill | null {
   return (side === 'left' ? mine[state.activeWeapon] : undefined) ?? mine[0] ?? null;
 }
 
+/** A skill as you get it: one you set aside earlier comes back with its rank and upgrades (ready to use); otherwise new, at rank 1. */
+function takeSkill(state: GameState, id: SkillId): OwnedSkill {
+  const i = state.setAside.findIndex((k) => k.id === id);
+  if (i < 0) return { id, rank: 1, timer: 0, mods: newMods() };
+  const [back] = state.setAside.splice(i, 1);
+  return { ...back, timer: 0 };
+}
+
+/** A skill you set aside (replaced earlier), or undefined. */
+export function setAsideSkill(state: GameState, id: SkillId) {
+  return state.setAside?.find((k) => k.id === id);
+}
+
 /** Skills you don't have yet that a card can offer: with room on their side, or (weapons and defences) replacing one of yours. */
 function newSkillOptions(state: GameState): SkillId[] {
   const owned = state.skills.map((s) => s.id);
@@ -89,15 +102,16 @@ export function applyCard(state: GameState, card: Card, force = false) {
   const C = CONFIG.cards;
   const has = (id: SkillId) => state.skills.some((k) => k.id === id);
   const addSkill = (id: SkillId) => {
-    state.skills.push({ id, rank: 1, timer: 0, mods: newMods() });
+    state.skills.push(takeSkill(state, id));
     if (SKILLS[id].side === 'left') state.activeWeapon = state.skills.filter((k) => SKILLS[k.id].side === 'left').length - 1;
   };
   if (card.kind === 'skill') {
-    // A full side: the new skill takes the place of one of yours (its upgrades go with it).
+    // A full side: the new skill takes the place of one of yours, which is set aside with its rank and upgrades.
     const old = force ? null : replacedBy(state, card);
     if (old) {
       const i = state.skills.indexOf(old);
-      state.skills[i] = { id: card.skill, rank: 1, timer: 0, mods: newMods() };
+      state.setAside.push(old);
+      state.skills[i] = takeSkill(state, card.skill);
       if (SKILLS[card.skill].side === 'left') state.activeWeapon = state.skills.filter((k) => SKILLS[k.id].side === 'left').indexOf(state.skills[i]);
     } else if (!has(card.skill) || !force) addSkill(card.skill);
   } else if (card.kind === 'rank') {
@@ -161,7 +175,8 @@ export function describeCard(card: Card, state: GameState): CardInfo {
     const label = old
       ? `${s.side === 'left' ? 'New weapon' : 'New defence'} · replaces ${SKILLS[old.id].name}`
       : s.side === 'left' ? 'New weapon · left click' : s.side === 'right' ? 'New defence · right click' : 'Passive skill · always on';
-    return { title: s.name, text: s.text, icon: s.icon, label, rarity: null };
+    const back = setAsideSkill(state, card.skill);
+    return { title: back ? `${s.name} (back at rank ${back.rank})` : s.name, text: s.text, icon: s.icon, label, rarity: null };
   }
   if (card.kind === 'rank') {
     const s = SKILLS[card.skill];
