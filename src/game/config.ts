@@ -514,7 +514,7 @@ export const CONFIG = {
     /** Chance (0–1) that a wave brings a squadron of one variant. */
     chance: 0.3,
     /** Share of the wave's ships (elites aside) that are of that variant. */
-    share: 1 / 3,
+    share: 0.5,
     /** First wave explosive (missile) enemies can come. */
     explosiveFromWave: 7,
     /** First wave energy (beam) enemies can come. When both can, each is as likely. */

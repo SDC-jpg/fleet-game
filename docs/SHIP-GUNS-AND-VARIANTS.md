@@ -23,7 +23,7 @@ tuned by playing. Elites stay standard (not variants). Related: [DETAIL-STEPS.md
    may later be coloured by weapon type instead). Only ships stop being recoloured.
 5. The hijack marker is a **blue heart** (`ui.hijack-heart`, in the colour of the side
    the ship fights for).
-6. **Variant mix:** each wave has a 30% chance that a third of its ships are of one
+6. **Variant mix:** each wave has a 30% chance that half of its ships (a third until 2026-11-18) are of one
    variant, explosive or energy (a toss-up). Those ships come clustered together, so
    they feel like a squadron of that type. Explosive enemies can appear from wave 7,
    energy enemies from wave 12.

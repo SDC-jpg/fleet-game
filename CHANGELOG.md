@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-18
+- Purple (energy) and orange (explosive) enemy squadrons are bigger: when one comes, half of the wave is that kind (was a third).
 - Ships are now hit by their actual shape instead of a round area: shots, missiles and beams that pass between a ship's wings miss. Small ships (both yours and the enemy's) are noticeably harder to hit.
 
 ## 2026-11-17
