@@ -43,11 +43,13 @@ export interface PreviewSettings {
   selectedPoint: string | null;
   /** The selected gun (ships only). */
   selectedGun: number | null;
+  /** The selected circle of the ship's hit shape, or null. */
+  selectedHit: number | null;
   readOnly: boolean;
 }
 
 /** What the mouse is dragging. */
-type Drag = { kind: 'mount' | 'vfx' | 'point' | 'gun'; index: number; point?: string; grabX: number; grabY: number };
+type Drag = { kind: 'mount' | 'vfx' | 'point' | 'gun' | 'hit' | 'hitSize'; index: number; point?: string; grabX: number; grabY: number };
 
 export interface PreviewEvents {
   /** A mount was clicked (null = empty space). */
@@ -58,6 +60,11 @@ export interface PreviewEvents {
   selectGun: (index: number) => void;
   /** A gun moved to (x, y), in the ship's pixels. */
   moveGun: (index: number, x: number, y: number) => void;
+  /** A hit shape circle was clicked. */
+  selectHit: (index: number) => void;
+  /** A hit shape circle moved to (x, y), or was resized to radius r, in the ship's pixels. */
+  moveHit: (index: number, x: number, y: number) => void;
+  resizeHit: (index: number, r: number) => void;
   /** A drag is starting (save an undo step). */
   dragStart: () => void;
   /** A mount moved to (x, y), its VFX point to offset (x, y), or a point to (x, y), in the subject's pixels. */
@@ -384,6 +391,37 @@ export class Preview {
       ctx.font = '10px monospace';
       ctx.fillText(def.label, s.x + 8, s.y - 6);
     }
+    // Hit shape (ships): green circles (the selected one gold, with a dot to drag its edge); none = the round hit circle, dashed.
+    if (st.kind.section === 'ships' && !st.effect) {
+      const scale = this.renderer.worldToScreen(1, 0).x - this.renderer.worldToScreen(0, 0).x;
+      const circles = layout.hitShape ?? [];
+      if (!circles.length) {
+        const c = this.toScreen({ x: 0, y: 0 });
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = 'rgba(95,224,138,0.45)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, this.roundHitRadius() * scale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      circles.forEach((h, i) => {
+        const selected = st.selectedHit === i;
+        const c = this.toScreen(h);
+        ctx.strokeStyle = selected ? '#ffd34a' : 'rgba(95,224,138,0.8)';
+        ctx.lineWidth = selected ? 2 : 1;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, h.r * scale, 0, Math.PI * 2);
+        ctx.moveTo(c.x + 2, c.y);
+        ctx.arc(c.x, c.y, 2, 0, Math.PI * 2);
+        ctx.stroke();
+        if (selected) {
+          const e = this.toScreen(this.hitEdge(h));
+          ctx.fillStyle = '#ffd34a';
+          ctx.fillRect(e.x - 3, e.y - 3, 6, 6);
+        }
+      });
+    }
     // Guns: an orange ring with a line where it points; a turret also shows its arc (dashed).
     this.guns().forEach((g, i) => {
       const selected = st.selectedGun === i;
@@ -412,6 +450,17 @@ export class Preview {
       ctx.font = '10px monospace';
       ctx.fillText(String(i + 1), p.x + 6, p.y + 12);
     });
+  }
+
+  /** The round hit circle a ship without a hit shape uses (its tier's hit radius). */
+  private roundHitRadius() {
+    const tier = Number(/\.t(\d+)$/.exec(this.settings.subject)?.[1] ?? 1);
+    return SHIP_TYPES.fighter.radius * CONFIG.tiers.sizePerTier ** (tier - 1);
+  }
+
+  /** A hit circle's resize handle: on its edge, to the right of its centre (in the ship's pixels). */
+  private hitEdge(h: { x: number; y: number; r: number }) {
+    return { x: h.x + h.r, y: h.y };
   }
 
   /** The shown ship's guns (the standard ones if none are placed); none for objects. */
@@ -472,6 +521,26 @@ export class Preview {
       }
     }
     if (!layout) return this.events.select(null);
+    // Then the hit shape (ships): the selected circle's edge handle, then any circle's centre.
+    if (st.kind.section === 'ships' && layout?.hitShape?.length) {
+      const circles = layout.hitShape;
+      const sel = st.selectedHit !== null ? circles[st.selectedHit] : undefined;
+      if (sel) {
+        const e = this.hitEdge(sel);
+        if (Math.hypot(p.x - e.x, p.y - e.y) <= near) {
+          if (!st.readOnly) this.startDrag({ kind: 'hitSize', index: st.selectedHit!, grabX: sel.x, grabY: sel.y });
+          return;
+        }
+      }
+      for (let i = circles.length - 1; i >= 0; i--) {
+        const h = circles[i];
+        if (Math.hypot(p.x - h.x, p.y - h.y) <= Math.max(near, Math.min(h.r * 0.4, near * 2))) {
+          this.events.selectHit(i);
+          if (!st.readOnly) this.startDrag({ kind: 'hit', index: i, grabX: p.x - h.x, grabY: p.y - h.y });
+          return;
+        }
+      }
+    }
     // Then the selected mount's VFX point. Other mounts' points can't be grabbed,
     // so clicking a mount's middle picks the mount.
     const sel = st.selected !== null ? layout.mounts[st.selected] : undefined;
@@ -502,10 +571,16 @@ export class Preview {
     const p = this.shipPoint(e);
     this.events.hover(inside ? { x: Math.round(p.x), y: Math.round(p.y) } : null);
     if (!this.drag) return;
+    // Resizing a hit circle: its radius is the distance from its centre (half pixels).
+    if (this.drag.kind === 'hitSize') {
+      this.events.resizeHit(this.drag.index, Math.max(1, Math.round(Math.hypot(p.x - this.drag.grabX, p.y - this.drag.grabY) * 2) / 2));
+      return;
+    }
     // Whole pixels only, so pixel art lines up.
     const x = Math.round(p.x - this.drag.grabX);
     const y = Math.round(p.y - this.drag.grabY);
     if (this.drag.kind === 'gun') this.events.moveGun(this.drag.index, x, y);
+    else if (this.drag.kind === 'hit') this.events.moveHit(this.drag.index, x, y);
     else if (this.drag.kind === 'mount') this.events.moveMount(this.drag.index, x, y);
     else if (this.drag.kind === 'vfx') this.events.moveVfx(this.drag.index, x, y);
     else this.events.movePoint(this.drag.point!, x, y);

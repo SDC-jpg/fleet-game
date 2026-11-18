@@ -3,6 +3,7 @@
 // fleet's damage bonus applies too. Elite enemies use the same skills, decided
 // by simple rules (updateEliteSkills). Like world.ts, nothing is drawn here.
 
+import { rayHitsShip } from './hitShape';
 import { distSq, randRange, wrapAngle } from '../engine/math';
 import { CONFIG, SKILLS, enabledSkills, type SkillId, type SkillStat } from './config';
 import { cannibalize, startTimeDilation, updateCrisisJump, updateForceDash, updatePdc } from './newSkills';
@@ -198,10 +199,9 @@ function fireLaser(state: GameState, ship: Ship, sk: OwnedSkill) {
   const damage = L.damage * powerOf(state, ship) * mods.power;
   for (const s of state.ships) {
     if (s.team === ship.team || s.dead || s.merge) continue;
-    // How far along the beam the ship is, and how far to the side of it.
-    const along = (s.x - x0) * dx + (s.y - y0) * dy;
-    const side = Math.abs((s.x - x0) * dy - (s.y - y0) * dx);
-    if (along < -s.stats.radius || along > length + s.stats.radius || side > s.stats.radius + halfWidth) continue;
+    // The beam (as wide as it's drawn) against the ship's hit shape, within the beam's length.
+    const t = rayHitsShip(s, x0, y0, dx, dy, halfWidth);
+    if (t === null || t > length) continue;
     damageShip(state, s, damage, 'laser');
     addEffect(state, 'vfx.hit', s.x, s.y, 0, ship.tier + 1);
   }

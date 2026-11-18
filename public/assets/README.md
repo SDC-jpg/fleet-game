@@ -126,6 +126,14 @@ http://localhost:5173/shipart.html. The published copy
 - **Save** writes `art.json` in this folder; the game reads it. Draw parts
   facing **right** like the ships (a flame's nozzle end on the right).
 - Dash doesn't change thrusters; it adds the dash trail (`vfx.dash`).
+- **Hit shape** (ships only, the Hit shape section): green circles along the hull
+  that shots, missiles and beams hit, so they respect the ship's general shape
+  (shots pass between the wings). **Fit to art** places them from the image's
+  solid pixels; drag a circle's centre to move it, or the gold square on the
+  selected one's edge to resize it (or type x, y, r). **Fit all ships…** fits
+  every ship image. When you change a ship's image (its outline, not just its
+  colours), ShipArt asks "Autofit collision to the new art?" when you view it.
+  Without circles a ship uses one round hit circle (dashed).
 - **Guns** (ships only, the Guns section): where each gun sits (drag its orange
   ring), which way it points, its size (the tier of shot it fires), weapon type,
   fixed or **turret** (turns on its own, faster than the hull, within the dashed
@@ -134,7 +142,7 @@ http://localhost:5173/shipart.html. The published copy
   by hand: every ship of a tier shares the same damage per second between its guns
   by size, so four small turrets fire smaller, quicker shots than two big cannons.
   The panel shows the numbers. Weapon types: **ballistic** (normal shots),
-  **energy** (a short beam drawn with the laser art, `vfx.laser`, of the gun's
+  **energy** (a searing beam drawn with the laser art, `vfx.laser`, of the gun's
   size) and **explosive** (small missiles drawn with `projectile.missile`; set
   "Missiles per shot" per gun, default 1, and they share the shot's damage).
   A ship with no guns placed uses the standard ones

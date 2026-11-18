@@ -8,6 +8,7 @@ import { eliteXp, enemyHealthMultiplier, isFleetWave, killXp, loneEnemyCount, ti
 export { tierCounts } from './curves';
 import { interceptMissiles } from './newSkills';
 import { gunsOf, type GunSpec } from './guns';
+import { pointHitsShip, rayHitsShip } from './hitShape';
 import type { WeaponType } from './artLayout';
 import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
@@ -1515,17 +1516,17 @@ function traceEnergyBeam(state: GameState, b: EnergyBeam): Ship | null {
   const dy = Math.sin(b.angle);
   let best = state.beamReach;
   let target: Ship | null = null;
-  // Ships of the other side (a Shield bubble or immunity makes them bigger: the beam stops at the bubble).
+  // Ships of the other side: their hit shape, or the round Shield bubble (or immunity) around them.
   for (const s of state.ships) {
     if (s.team === b.team || s.dead || s.merge || s.absorbed) continue;
-    const r = s.stats.radius * (s.shield > 0 || s.immune > 0 ? CONFIG.guns.types.energy.shieldRadius : 1);
-    const along = (s.x - b.x) * dx + (s.y - b.y) * dy;
-    const side = (s.x - b.x) * dy - (s.y - b.y) * dx;
-    if (Math.abs(side) >= r) continue;
-    const half = Math.sqrt(r * r - side * side);
-    if (along + half < 0) continue; // behind the gun
-    const t = Math.max(0, along - half);
-    if (t < best) [best, target] = [t, s];
+    let t: number | null;
+    if (s.shield > 0 || s.immune > 0) {
+      const r = s.stats.radius * CONFIG.guns.types.energy.shieldRadius;
+      const along = (s.x - b.x) * dx + (s.y - b.y) * dy;
+      const side = (s.x - b.x) * dy - (s.y - b.y) * dx;
+      t = Math.abs(side) >= r || along + Math.sqrt(r * r - side * side) < 0 ? null : Math.max(0, along - Math.sqrt(r * r - side * side));
+    } else t = rayHitsShip(s, b.x, b.y, dx, dy);
+    if (t !== null && t < best) [best, target] = [t, s];
   }
   // Force Walls of the other side.
   for (const o of state.skillObjs) {
@@ -1777,8 +1778,8 @@ function updateBullets(state: GameState, playerDt: number, enemyDt: number) {
     for (const s of state.ships) {
       // Merging ships can't be hit: shots pass through.
       if (s.team === b.team || s.dead || s.merge) continue;
-      const r = s.stats.radius + b.radius;
-      if (distSq(b.x, b.y, s.x, s.y) > r * r) continue;
+      // The ship's hit shape (its circles from ShipArt, or one round circle).
+      if (!pointHitsShip(s, b.x, b.y, b.radius)) continue;
       damageShip(state, s, b.damage, b.source);
       b.life = 0;
       if (b.homing > 0) {

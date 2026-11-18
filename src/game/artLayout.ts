@@ -107,6 +107,20 @@ export interface ArtLayout {
   guns?: Gun[];
   /** Named points (objects only), e.g. "impact". */
   points?: Record<string, Point>;
+  /**
+   * Ships only: the shape shots, missiles and beams hit (circles in the ship's pixels, turning
+   * with it; see game/hitShape.ts). Missing = one round hit circle (the tier's hit radius).
+   */
+  hitShape?: HitCircle[];
+  /** Fingerprint of the image's outline when the hit shape was fitted (ShipArt asks to fit again when it changes). */
+  hitShapeArt?: string;
+}
+
+/** One circle of a ship's hit shape, in the ship's pixels from its centre (facing right). */
+export interface HitCircle {
+  x: number;
+  y: number;
+  r: number;
 }
 
 /** Animation settings for an image file or frame folder (most are single pictures and need none). */

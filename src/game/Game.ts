@@ -12,6 +12,7 @@ import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
 import { renderGame, setDetailSteps, tierArt, tierSprite, type ViewOptions } from './render';
 import { setGunLayouts, shipArtBase } from './guns';
+import { setHitLayouts } from './hitShape';
 import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { applyCard, cancelReplace, describeCard, gainXp, pickCard, replacedBy, testGiveAllSkills, type CardInfo } from './progress';
@@ -342,6 +343,7 @@ export class Game {
     this.assets = assets;
     this.layouts = layouts;
     setGunLayouts(layouts);
+    setHitLayouts(layouts);
     this.sounds = sounds;
     this.onHud = onHud;
     this.renderer = new PixelRenderer(canvas);

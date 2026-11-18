@@ -565,6 +565,15 @@ export const CONFIG = {
   },
 
   /**
+   * Ship hit shapes (game/hitShape.ts): circles placed along the hull in ShipArt, so shots, missiles
+   * and beams respect a ship's general shape. Ships without one use their round hit radius.
+   */
+  hitShape: {
+    /** Pixels added around every circle, so shots that graze the hull still count (0 = exactly as placed). */
+    padding: 0,
+  },
+
+  /**
    * Shots get a push from the moving ship that fires them: the part of its movement that points the same
    * way as the shot (flying sideways or backing away adds nothing). Their reach stays the same.
    */

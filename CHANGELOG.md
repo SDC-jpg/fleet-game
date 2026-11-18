@@ -4,6 +4,9 @@ Player-facing changes, newest first. When a new version goes live, the lines
 added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
+## 2026-11-18
+- Ships are now hit by their actual shape instead of a round area: shots, missiles and beams that pass between a ship's wings miss. Small ships (both yours and the enemy's) are noticeably harder to hit.
+
 ## 2026-11-17
 - Energy weapons (the purple enemies' guns, and energy guns on your ships) now fire a searing beam that stays on for almost a second: it reaches far across the screen, stops at the first ship, shield or force wall in its way and burns it with a glowing, sizzling cut point that follows as ships move. If the ship it burns is destroyed, the beam carries on to whatever is behind.
 - New default screen look: a stronger glow and darker corners, with the HUD and menus left clear.

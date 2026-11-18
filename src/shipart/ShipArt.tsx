@@ -26,7 +26,8 @@ import {
 } from '../game/artLayout';
 import { OBJECT_KINDS, SHIP_KIND, kindOf, tierOf, type ArtKind } from '../game/artKinds';
 import { layoutGunsOrDefault } from '../game/guns';
-import type { Gun } from '../game/artLayout';
+import type { Gun, HitCircle } from '../game/artLayout';
+import { CONFIG, SHIP_TYPES } from '../game/config';
 import { GunsPanel } from './GunsPanel';
 import { tierSprite } from '../game/render';
 import type { Team } from '../game/world';
@@ -35,6 +36,8 @@ import { NumberField } from './fields';
 import { VfxPanel } from './VfxPanel';
 import { EffectPanel } from './EffectPanel';
 import { ScreenEffectWindow } from './ScreenEffectWindow';
+import { HitShapePanel } from './HitShapePanel';
+import { fitShip, shipArtFingerprint } from './hitArt';
 import { screenEffect } from '../game/screenEffect';
 
 /** Editing and saving only work with the dev server (npm run dev). */
@@ -138,6 +141,7 @@ export function ShipArt() {
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   /** The selected gun (ships only). */
   const [selectedGun, setSelectedGun] = useState<number | null>(null);
+  const [selectedHit, setSelectedHit] = useState<number | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [history, setHistory] = useState<Snapshot[]>([]);
   /** Manifest entries changed here (effect speed, loop...), saved to manifest.json with Save. */
@@ -150,7 +154,7 @@ export function ShipArt() {
   const [effectBase, setEffectBase] = useState<string | null>(savedView.effectBase ?? null);
   const [effectTier, setEffectTier] = useState(savedView.effectTier ?? 1);
   /** Bumped when reloaded art has finished loading, so panels showing its size and frames update. */
-  const [, setArtVersion] = useState(0);
+  const [artVersion, setArtVersion] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState('');
   /** What the arrow keys move: the selected mount, or its VFX point. */
@@ -229,6 +233,16 @@ export function ShipArt() {
   const matchesFilter = (s: string) => !filter || s.toLowerCase().includes(filter.toLowerCase());
   const section = kind.section;
   const layout: ArtLayout = data?.[section][subject] ?? emptyLayout();
+  // The shown ship's outline now, and whether it changed since its hit shape was fitted.
+  const artPrint = useMemo(
+    () => (assets && section === 'ships' ? shipArtFingerprint(assets, subject) : null),
+    // artVersion: images reloaded
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [assets, section, subject, artVersion],
+  );
+  const artPrintRef = useRef(artPrint);
+  artPrintRef.current = artPrint;
+  const artChanged = !!layout.hitShape?.length && !!artPrint && layout.hitShapeArt !== artPrint;
   const mount = selected !== null ? layout.mounts[selected] : undefined;
   /** Images mounts can use (a folder of frames counts as one). */
   const parts = useMemo(() => partImages(files), [files]);
@@ -319,7 +333,7 @@ export function ShipArt() {
   const effect = effectBase && assets ? tierSprite(assets, effectBase, effectTier) : null;
 
   const previewSettings = () =>
-    data && { data, subject, kind, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, readOnly: READ_ONLY };
+    data && { data, subject, kind, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, readOnly: READ_ONLY };
 
   // Start the preview once everything has loaded.
   useEffect(() => {
@@ -341,17 +355,38 @@ export function ShipArt() {
         setSelected(i);
         setSelectedPoint(null);
         setSelectedGun(null);
+        setSelectedHit(null);
       },
       selectPoint: (id) => {
         setSelectedPoint(id);
         setSelected(null);
         setSelectedGun(null);
+        setSelectedHit(null);
       },
       selectGun: (i) => {
         setSelectedGun(i);
         setSelected(null);
         setSelectedPoint(null);
+        setSelectedHit(null);
       },
+      selectHit: (i) => {
+        setSelectedHit(i);
+        setSelected(null);
+        setSelectedPoint(null);
+        setSelectedGun(null);
+      },
+      moveHit: (i, x, y) =>
+        edit((l) => {
+          if (!l.hitShape?.[i]) return;
+          Object.assign(l.hitShape[i], { x, y });
+          l.hitShapeArt = artPrintRef.current ?? undefined;
+        }),
+      resizeHit: (i, r) =>
+        edit((l) => {
+          if (!l.hitShape?.[i]) return;
+          l.hitShape[i].r = r;
+          l.hitShapeArt = artPrintRef.current ?? undefined;
+        }),
       moveGun: (i, x, y) =>
         edit((l) => {
           // Moving a standard gun places a copy of the standard guns first.
@@ -390,7 +425,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, patch]);
+  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, patch]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -402,6 +437,7 @@ export function ShipArt() {
     setSelected(null);
     setSelectedPoint(null);
     setSelectedGun(null);
+    setSelectedHit(null);
   }, [subject]);
 
   /** Change the shown ship's guns (placing a copy of the standard guns first if it has none). */
@@ -413,6 +449,39 @@ export function ShipArt() {
         fn(l.guns);
       }),
     [change, section, subject],
+  );
+
+  /** Change the shown ship's hit shape circles (remembering which outline they were made for). */
+  const changeHit = useCallback(
+    (fn: (list: HitCircle[]) => void) =>
+      change((d) => {
+        const l = d[section][subject];
+        l.hitShape = (l.hitShape ?? []).map((h) => ({ ...h }));
+        fn(l.hitShape);
+        if (l.hitShape.length) l.hitShapeArt = artPrintRef.current ?? undefined;
+        else {
+          delete l.hitShape;
+          delete l.hitShapeArt;
+        }
+      }),
+    [change, section, subject],
+  );
+  /** Fit these ship images' hit shapes to their art (one undo step). */
+  const fitHit = useCallback(
+    (names: string[]) => {
+      if (!assets) return;
+      change((d) => {
+        for (const name of names) {
+          const fit = fitShip(assets, name);
+          if (!fit || !fit.circles.length) continue;
+          d.ships[name] ??= emptyLayout();
+          d.ships[name].hitShape = fit.circles;
+          d.ships[name].hitShapeArt = fit.art;
+        }
+      });
+      setSelectedHit(null);
+    },
+    [assets, change],
   );
 
   // Keyboard: arrows nudge (Shift = 5 px), Delete removes, Ctrl+Z undoes, Ctrl+S saves.
@@ -441,6 +510,20 @@ export function ShipArt() {
           const p = l.points[selectedPoint] ?? { x: 0, y: 0 };
           l.points[selectedPoint] = { x: p.x + d[0], y: p.y + d[1] };
         });
+        return;
+      }
+      if (selectedHit !== null && section === 'ships') {
+        if (d) {
+          e.preventDefault();
+          changeHit((list) => {
+            if (!list[selectedHit]) return;
+            list[selectedHit].x += d[0];
+            list[selectedHit].y += d[1];
+          });
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          changeHit((list) => list.splice(selectedHit, 1));
+          setSelectedHit(null);
+        }
         return;
       }
       if (selectedGun !== null && section === 'ships') {
@@ -476,7 +559,7 @@ export function ShipArt() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, selectedPoint, selectedGun, section, subject, nudge, change, changeGuns, undo, save]);
+  }, [selected, selectedPoint, selectedGun, selectedHit, section, subject, nudge, change, changeGuns, changeHit, undo, save]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -760,6 +843,15 @@ export function ShipArt() {
         <canvas ref={canvasRef} />
         <canvas ref={overlayRef} className="sa-overlay" />
         {!assets && <div className="shipart-message">Loading…</div>}
+        {artChanged && !READ_ONLY && (
+          <div className="sa-hit-prompt">
+            This ship's image changed since its hit shape was fitted. Autofit collision to the new art?
+            <button onClick={() => fitHit([subject])}>Autofit</button>
+            <button onClick={() => change((d) => (d[section][subject].hitShapeArt = artPrint ?? undefined))} title="Keep the circles as they are">
+              Keep shape
+            </button>
+          </div>
+        )}
         <div className="sa-hint">
           {effect
             ? 'Looping effects play on and on; play-once effects replay after a short pause'
@@ -852,6 +944,24 @@ export function ShipArt() {
               }}
               onChange={changeGuns}
               onReset={() => change((d) => delete d[section][subject].guns)}
+            />
+          )}
+          {section === 'ships' && (
+            <HitShapePanel
+              circles={layout.hitShape ?? []}
+              roundRadius={SHIP_TYPES.fighter.radius * CONFIG.tiers.sizePerTier ** (tierOf(subject) - 1)}
+              selected={selectedHit}
+              onSelect={(i) => {
+                setSelectedHit(i);
+                setSelected(null);
+                setSelectedPoint(null);
+                setSelectedGun(null);
+              }}
+              onChange={changeHit}
+              onFit={() => fitHit([subject])}
+              onClear={() => changeHit((list) => list.splice(0))}
+              onFitAll={() => fitHit(spritesOf(SHIP_KIND))}
+              shipCount={spritesOf(SHIP_KIND).length}
             />
           )}
 
