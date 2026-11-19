@@ -41,6 +41,12 @@
     "ship.enemy-explosive.t6": { "file": "ships/enemy-explosive-t6.png" },
     "ship.enemy-explosive.t7": { "file": "ships/enemy-explosive-t7.png" },
     "ship.enemy-explosive.t8": { "file": "ships/enemy-explosive-t8.png" },
+    "boss.leviathan.head": { "file": "bosses/leviathan/head.png", "anchorX": 46, "anchorY": 80 },
+    "boss.leviathan.head-side": { "file": "bosses/leviathan/head-side.png", "anchorX": 38, "anchorY": 80 },
+    "boss.leviathan.segment": { "file": "bosses/leviathan/segment.png" },
+    "boss.leviathan.segment-antepenultimate": { "file": "bosses/leviathan/segment-antepenultimate.png" },
+    "boss.leviathan.segment-penultimate": { "file": "bosses/leviathan/segment-penultimate.png" },
+    "boss.leviathan.tail": { "file": "bosses/leviathan/tail.png", "anchorX": 34, "anchorY": 35 },
 
     "projectile": { "file": "projectiles/bullet.png" },
     "projectile.t2": { "file": "projectiles/bullet-t2.png" },

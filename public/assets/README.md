@@ -300,6 +300,19 @@ Elites use the normal ship art and the normal skill art and sounds.
 Rank-up cards are coloured by rarity: Common white, Uncommon green, Rare gold,
 Epic purple (`RARITIES` in `src/game/config.ts`).
 
+## Leviathan (boss)
+
+The Leviathan is a head plus a chain of body pieces in `bosses/leviathan/`, all drawn
+**facing up** (the game turns them): `head.png` (top view, while flying straight),
+`head-side.png` (side view, while turning; drawn for right turns and mirrored for left
+turns, `CONFIG.leviathan.sideViewForRightTurns`), `segment.png` (repeated),
+`segment-antepenultimate.png`, `segment-penultimate.png` and `tail.png`. The head is drawn
+under everything and each piece toward the tail on top of the one before. Each piece
+turns around its pivot (`anchorX`/`anchorY` in the manifest; the image's centre if not
+set): both heads pivot on their round neck, so they line up when they swap, and the tail
+pivots near its top. How far apart the pieces sit, how many repeat and their hit circles
+are in `CONFIG.leviathan`.
+
 ## Tiers (bigger ships)
 
 16 ships of one tier merge into one ship of the next tier. Each tier has its

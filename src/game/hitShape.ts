@@ -9,6 +9,7 @@ import type { ArtLayoutsFile, HitCircle } from './artLayout';
 import { CONFIG } from './config';
 import { shipArtBase, tierName } from './guns';
 import type { Ship } from './world';
+import { leviathanCircles } from './leviathan';
 
 let layouts: ArtLayoutsFile | null = null;
 /** Per design and tier: its circles and the radius of a circle around them all (null = round). */
@@ -20,7 +21,7 @@ export function setHitLayouts(data: ArtLayoutsFile | null) {
   cache.clear();
 }
 
-type HitShip = Pick<Ship, 'type' | 'team' | 'hijackedFrom' | 'tier' | 'variant' | 'x' | 'y' | 'angle' | 'stats'>;
+type HitShip = Pick<Ship, 'type' | 'team' | 'hijackedFrom' | 'tier' | 'variant' | 'x' | 'y' | 'angle' | 'stats'> & Partial<Pick<Ship, 'leviathan'>>;
 
 function shapeOf(s: HitShip) {
   const base = shipArtBase(s);
@@ -36,6 +37,8 @@ function shapeOf(s: HitShip) {
 
 /** The ship's hit circles where they are now (world positions). */
 export function hitCircles(s: HitShip): HitCircle[] {
+  // A Leviathan: a circle on each piece of its body.
+  if (s.leviathan) return leviathanCircles(s as Ship);
   const shape = shapeOf(s);
   if (!shape) return [{ x: s.x, y: s.y, r: s.stats.radius }];
   const cos = Math.cos(s.angle);
@@ -45,6 +48,7 @@ export function hitCircles(s: HitShip): HitCircle[] {
 
 /** Does something at (x, y), `extra` in radius (a shot's own size), touch the ship? */
 export function pointHitsShip(s: HitShip, x: number, y: number, extra = 0): boolean {
+  if (s.leviathan) return hitCircles(s).some((c) => (x - c.x) ** 2 + (y - c.y) ** 2 <= (c.r + extra) ** 2);
   const shape = shapeOf(s);
   const dx = x - s.x;
   const dy = y - s.y;
@@ -64,10 +68,10 @@ export function pointHitsShip(s: HitShip, x: number, y: number, extra = 0): bool
  * it first touches the ship: 0 if it starts inside, null if it misses (or the ship is behind).
  */
 export function rayHitsShip(s: HitShip, x: number, y: number, dx: number, dy: number, extra = 0): number | null {
-  const shape = shapeOf(s);
+  const shape = s.leviathan ? null : shapeOf(s);
   const bound = (shape ? shape.bound : s.stats.radius) + extra;
   // Quick test against a circle around the whole shape.
-  if (rayCircle(x, y, dx, dy, s.x, s.y, bound) === null) return null;
+  if (!s.leviathan && rayCircle(x, y, dx, dy, s.x, s.y, bound) === null) return null;
   let best: number | null = null;
   for (const c of hitCircles(s)) {
     const t = rayCircle(x, y, dx, dy, c.x, c.y, c.r + extra);

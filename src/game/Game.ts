@@ -37,6 +37,7 @@ import {
   testDestroyFleet,
   testKillEnemies,
   testSpawnElite,
+  testSpawnLeviathan,
   testSpawnSwarm,
   testSpawnVariants,
   sendReinforcements,
@@ -131,6 +132,8 @@ export interface HudInfo {
   swarmAlert: boolean;
   /** Fleet HQ's reinforcements are coming (CONFIG.reinforcements). */
   reinforcementAlert: boolean;
+  /** A Leviathan (boss) is alive: its health (0–1). null = none. */
+  boss: number | null;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -841,6 +844,7 @@ export class Game {
     if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
     if (i.wasPressed('KeyH')) testSpawnSwarm(s, this.spawnDistance());
     if (i.wasPressed('KeyV')) testSpawnVariants(s, this.spawnDistance());
+    if (i.wasPressed('KeyB')) testSpawnLeviathan(s, this.spawnDistance());
     if (i.wasPressed('KeyR')) {
       const flagship = controlledShip(s);
       if (flagship) sendReinforcements(s, flagship, this.spawnDistance());
@@ -962,6 +966,7 @@ export class Game {
     for (const s of this.state.ships) {
       if (s.dead || s.absorbed || !near(s.x, s.y)) continue;
       if (drawnAsSymbol(this.state, s, symbolMax)) continue; // a HUD symbol: no thrusters
+      if (s.leviathan) continue; // a creature: no thrusters
       const { name: base, scale } = tierArt(this.assets, shipArtBase(s), s.tier, '', false);
       this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy, scale);
     }
@@ -1095,6 +1100,7 @@ export class Game {
       radar: !!ownedSkill(st, 'radar'),
       swarmAlert: st.time - st.swarmAlertTime < CONFIG.swarm.alertSeconds,
       reinforcementAlert: st.time - st.reinforcementAlertTime < CONFIG.reinforcements.alertSeconds,
+      boss: ((b) => (b ? b.hp / b.stats.maxHp : null))(st.ships.find((b) => b.leviathan && !b.dead)),
       stats: { ...st.stats },
       history: st.history,
       invincible: st.invincible,

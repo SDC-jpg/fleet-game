@@ -10,6 +10,7 @@ import { ownedSkill, pdcPositions } from './newSkills';
 import { fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile } from './artLayout';
 import { gunsOf, shipArtBase } from './guns';
 import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
+import { PIECE_SPRITES, SIDE_HEAD_SPRITE } from './leviathan';
 
 /**
  * The art name for a tier: "<base>.t3<suffix>" for tier 3, falling back to
@@ -454,6 +455,7 @@ export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, an
 /** Draws one ship, plus a small health bar under it if it's damaged. */
 function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number, symbol: boolean) {
   if (s.absorbed) return; // already inside the ship it's merging into
+  if (s.leviathan) return drawLeviathan(r, assets, s, time);
   // Commander view (and ships too small after detail steps): a HUD symbol by tier, fixed size on screen.
   if (symbol) {
     r.drawSprite(symbolSprite(assets, shipArtBase(s), s.tier), s.x, s.y, 0, time, 1, true);
@@ -501,6 +503,24 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
     const y = s.y + s.stats.radius + 4;
     r.fillRect(x, y, w, 1, '#000000');
     r.fillRect(x, y, Math.max(1, Math.round((w * s.hp) / maxHp)), 1, s.team === 'player' ? '#7fe07f' : '#ff6b5a');
+  }
+}
+
+/**
+ * A Leviathan: the head at the bottom, then each segment on top of the one before, so the tail
+ * is on top. Its art faces up (the game's art faces right), so every piece turns a quarter more.
+ * The side-view head shows while it turns (mirrored for the other direction).
+ */
+function drawLeviathan(r: PixelRenderer, assets: Assets, s: Ship, time: number) {
+  const body = s.leviathan!;
+  const up = Math.PI / 2;
+  for (const p of body.pieces) {
+    if (p.kind === 'head') {
+      const side = body.view !== 0;
+      const sprite = assets.get(side ? SIDE_HEAD_SPRITE : PIECE_SPRITES.head);
+      const mirror = side && (body.view === 1) !== CONFIG.leviathan.sideViewForRightTurns;
+      r.drawAttached(sprite, s.x, s.y, s.angle, 0, 0, up, time, 1, 1, mirror);
+    } else r.drawAttached(assets.get(PIECE_SPRITES[p.kind]), p.x, p.y, p.angle, 0, 0, up, time);
   }
 }
 

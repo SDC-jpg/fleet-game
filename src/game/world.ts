@@ -14,6 +14,7 @@ import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 import type { SkillObj } from './moreSkills';
+import { makeLeviathanBody, updateLeviathanAI, updateLeviathanBody, type LeviathanBody } from './leviathan';
 
 export type Team = 'player' | 'enemy';
 export type Thrust = 'idle' | 'move' | 'boost';
@@ -97,6 +98,8 @@ export interface Ship {
   shieldTime: number;
   /** Set for elite enemies: their skills, and the laser warning countdown. */
   elite: EliteInfo | null;
+  /** Set for a Leviathan (boss): its body, which follows the head (this ship). See leviathan.ts. */
+  leviathan: LeviathanBody | null;
   /** What dealt the hit that destroyed it (see DamageSource). */
   killedBy?: DamageSource;
   /** Enemies: came as part of a fleet formation (not a lone fighter). */
@@ -699,7 +702,7 @@ export function symbolTierMax(state: GameState) {
  * detail steps that it would be smaller than a tier-1 ship. Elites always stay ships.
  */
 export const drawnAsSymbol = (state: GameState, s: Ship, max = symbolTierMax(state)) =>
-  !s.elite && (s.tier <= max || s.tier - detailSteps(state) < 1);
+  !s.elite && !s.leviathan && (s.tier <= max || s.tier - detailSteps(state) < 1);
 
 /** How much smaller the world is drawn for the detail steps (1 = normal). */
 export const detailFactor = (state: GameState) => CONFIG.tiers.sizePerTier ** -detailSteps(state);
@@ -791,6 +794,7 @@ function addShip(
     shield: 0,
     shieldTime: 0,
     elite: null,
+    leviathan: null,
     quirk: {
       phaseX: Math.random() * Math.PI * 2,
       phaseY: Math.random() * Math.PI * 2,
@@ -979,6 +983,8 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
     s.y += s.vy * dtOf(s);
     for (let i = 0; i < s.gunTimers.length; i++) s.gunTimers[i] -= dtOf(s);
   }
+  // A Leviathan's body follows where its head went.
+  for (const s of state.ships) if (s.leviathan) updateLeviathanBody(s);
 
   updateEnergyBeams(state, dt, edt);
   updateBullets(state, dt, edt);
@@ -1242,6 +1248,7 @@ function chevronSpot(spot: { x: number; y: number }, past: LeaderSample) {
 }
 
 function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
+  if (ship.leviathan) return updateLeviathanAI(state, ship, dt);
   const t = typeOf(ship);
   const speed = t.maxSpeed * CONFIG.enemySpeedMultiplier;
   const target = findNearestEnemy(state, ship, Infinity);
@@ -1286,7 +1293,7 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
  */
 export function hijackShip(state: GameState, s: Ship, duration: number) {
   // Reinforcements on their way (immune) can't be taken over.
-  if (s.hijacked > 0 || s.merge || s.dead || s.immune > 0) return;
+  if (s.hijacked > 0 || s.merge || s.dead || s.immune > 0 || s.leviathan) return;
   const from = s.team;
   leaveFleet(state, s);
   // On its own, it flies and fights like a lone enemy fighter does (updateEnemyLeader).
@@ -1829,6 +1836,7 @@ export const eliteAlertTime = (state: GameState) =>
 
 /** An enemy's class, for the kill stats: "elite", "swarm", "fleet" or "lone". New kinds of enemies go here. */
 function enemyClass(s: Ship) {
+  if (s.leviathan) return 'leviathan';
   if (s.elite) return 'elite';
   if (s.fleet.swarm) return 'swarm';
   return s.inFleet ? 'fleet' : 'lone';
@@ -1847,7 +1855,11 @@ function removeDeadShips(state: GameState) {
     if (fb?.ship === s) state.finalBlow = null;
     // The ship you fly gets a bigger, unique explosion with flying debris.
     if (s.fleet === state.playerFleet && s.fleet.leader === s) flagshipExplosion(state, s);
-    else {
+    else if (s.leviathan) {
+      // A Leviathan bursts all along its body.
+      for (const p of s.leviathan.pieces) addEffect(state, 'vfx.explosion', p.x, p.y, Math.random() * Math.PI * 2, 3);
+      addSound(state, 'sfx.flagship-explosion', s, 1, 1, true);
+    } else {
       addEffect(state, 'vfx.explosion', s.x, s.y, Math.random() * Math.PI * 2, s.tier);
       addSound(state, 'sfx.explosion', s, s.tier);
     }
@@ -1868,11 +1880,11 @@ function removeDeadShips(state: GameState) {
       // XP by the enemy's tier (CONFIG.levels.xpByTier), less if it's smaller than the ship you fly (xpLowerTierFactor).
       // An elite gives more, but never more than CONFIG.elite.xpMaxLevels levels' worth.
       const yourTier = controlledShip(state)?.tier ?? 1;
-      gainXp(state, s.elite ? eliteXp(s.tier, yourTier, state.level) : killXp(s.tier, yourTier));
+      gainXp(state, s.elite || s.leviathan ? eliteXp(s.tier, yourTier, state.level) : killXp(s.tier, yourTier));
       // Levelled up: the cards wait until this kill's explosion has finished playing.
       if (state.pendingLevels > levels)
         state.cardWaitUntil = Math.max(state.cardWaitUntil, state.time + state.effectDuration('vfx.explosion', s.tier));
-      if (!s.elite) maybeDropItem(state, s);
+      if (!s.elite && !s.leviathan) maybeDropItem(state, s);
     } else {
       state.stats.losses++;
       state.stats.lossValue += tierValue(s.tier);
@@ -1882,7 +1894,11 @@ function removeDeadShips(state: GameState) {
     const firstKill = wasEnemy && state.stats.kills === 1 && CONFIG.firstKillWreck;
     let wreckChance = firstKill ? 1 : CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
     let wreckTier = s.tier;
-    if (s.elite) {
+    if (s.leviathan) {
+      // A Leviathan is a creature: no wreck, but an item with elite odds.
+      dropItem(state, s, rarityWeights('elite'));
+      wreckChance = 0;
+    } else if (s.elite) {
       // An elite always drops a wreck, a (better) item, or both.
       const drop = eliteDrop();
       if (drop !== 'wreck') dropItem(state, s, rarityWeights('elite'));
@@ -2476,6 +2492,33 @@ export function testDestroyFleet(state: GameState) {
 export function testSpawnElite(state: GameState, spawnDistance: number) {
   const center = controlledShip(state);
   if (center) spawnElite(state, center, spawnDistance);
+}
+
+/**
+ * A Leviathan (boss) coming in from a random side, `distance` away from `near`.
+ * Health like an elite's: it follows the wave's enemy fleet value (CONFIG.leviathan).
+ */
+function spawnLeviathan(state: GameState, near: Ship, distance: number) {
+  const L = CONFIG.leviathan;
+  const a = Math.random() * Math.PI * 2;
+  const fleet = newFleet('enemy');
+  const x = near.x + Math.cos(a) * (distance + L.hitRadius.head);
+  const y = near.y + Math.sin(a) * (distance + L.hitRadius.head);
+  const ship = addShip(state, 'enemy', 'fighter', L.tier, fleet, x, y, a + Math.PI);
+  const tier1 = statsFor('fighter', 'enemy', 1).maxHp;
+  ship.stats = { ...ship.stats, radius: L.hitRadius.head };
+  ship.stats.maxHp = Math.max(1, Math.round(tier1 * L.healthPerFleetValue * waveFleetValue(state.wave) * enemyHealthMultiplier(state.wave)));
+  ship.hp = ship.stats.maxHp;
+  ship.leviathan = makeLeviathanBody(x, y, ship.angle);
+  fleet.leader = ship;
+  state.enemyFleets.push(fleet);
+  addSound(state, 'sfx.alert', near, 1, 1, true);
+}
+
+/** Spawns a Leviathan right away (test key B). */
+export function testSpawnLeviathan(state: GameState, spawnDistance: number) {
+  const center = controlledShip(state);
+  if (center) spawnLeviathan(state, center, spawnDistance);
 }
 
 /** Destroys every enemy inside the given area (they can still leave wrecks). */
