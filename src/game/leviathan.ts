@@ -66,6 +66,8 @@ export interface LeviathanAttack {
   side: 1 | -1;
   /** The push on its head from firing (pixels per second, fading out). */
   recoil: number;
+  /** Where the beam burns a ship right now (on the beam's centre line, at each ship it touches), for the impact effects. */
+  hits: { x: number; y: number }[];
 }
 
 /** A fin's bones: where each one points now (world radians, root first; null = not placed yet), and its own sway timing. */
@@ -380,7 +382,7 @@ export function beamThickness(a: LeviathanAttack | null) {
 
 /** Start a beam (the game, and ShipArt's preview), looking to `side`; `charging` skips the aiming. */
 export function startBeam(body: LeviathanBody, side: 1 | -1, charging = false) {
-  body.attack = { phase: charging ? 'charge' : 'aim', t: 0, side, recoil: 0 };
+  body.attack = { phase: charging ? 'charge' : 'aim', t: 0, side, recoil: 0, hits: [] };
 }
 
 /**
@@ -446,7 +448,8 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
         addSound(state, 'sfx.leviathan-charge', o, 1, 1, true);
       }
     } else {
-      const sweep = (B.trackSpeed / Math.max(60, Math.hypot(flagship.x - o.x, flagship.y - o.y))) * dt;
+      const track = a.phase === 'charge' ? B.chargeTrackSpeed : B.fireTrackSpeed;
+      const sweep = (track / Math.max(60, Math.hypot(flagship.x - o.x, flagship.y - o.y))) * dt;
       want = ship.angle + clamp(err, -sweep, sweep);
       turnRate = 1000;
     }
@@ -463,6 +466,7 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
   if (step.event === 'fire') state.shake = { time: B.shakeTime, strength: B.shake };
   // Everything of the other side it touches burns (shields first).
   const thick = beamThickness(body.attack);
+  a.hits = [];
   if (thick > 0) {
     const f = beamOrigin(body, ship, a.side);
     const dx = Math.cos(f.angle);
@@ -470,7 +474,11 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
     for (const s of state.ships) {
       if (s.team === ship.team || s.dead || s.merge) continue;
       const hit = rayHitsShip(s, f.x, f.y, dx, dy, (B.width / 2) * thick);
-      if (hit !== null && hit <= state.beamReach) damageShip(state, s, s.stats.maxHp * B.damagePerSecond * dt, 'leviathan-beam');
+      if (hit === null || hit > state.beamReach) continue;
+      damageShip(state, s, s.stats.maxHp * B.damagePerSecond * dt, 'leviathan-beam');
+      // The impact shows where the beam's middle passes the ship.
+      const along = Math.max(hit, (s.x - f.x) * dx + (s.y - f.y) * dy);
+      a.hits.push({ x: f.x + dx * along, y: f.y + dy * along });
     }
   }
   return true;

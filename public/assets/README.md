@@ -326,7 +326,8 @@ to set where it attaches.
 charging, the head shows `head-side-mouth-open.png`, `charge-ball.png` grows and
 quivers at its mouth (sparks: `vfx.particle.charge`, a placeholder), and `boss.leviathan.beam-warning` marks
 where it will fire (for now the tier-6 laser warning art, recoloured red). Then the beam: `beam-start.png` (its
-rounded start, at the mouth) and `beam.png` (a segment repeated along it; each overlaps the next by 2 px).
+rounded start, at the mouth) and `beam.png` (a segment repeated along it; each overlaps the next by 2 px);
+`beam-impact.png` loops on every ship it burns (a placeholder: the laser impact in purple).
 They're your beam image shrunk to game pixels (your mockup was at zoom 3; the beam is 50 px thick). Where it comes
 out is the **mouth** point: ShipArt → Bosses → Leviathan → Pieces → a side head (Forward, Out, Beam angle: 0 = along the nose; a
 gold cross in the preview), and the toolbar's **Beam** button plays the attack once. Sounds:

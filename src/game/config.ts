@@ -570,8 +570,10 @@ export const CONFIG = {
       fireTime: 3,
       /** Its head's speed while aiming, charging and firing (it drifts slowly, pixels per second). */
       moveSpeed: 45,
-      /** How fast the beam sweeps toward your flagship, in pixels per second where your flagship is. Below a ship's top speed (150), so you can outrun it. */
-      trackSpeed: 90,
+      /** While charging, how fast its aim (the warning line) follows your flagship, in pixels per second where your flagship is. Faster than your ships (150), so the warning stays on you. */
+      chargeTrackSpeed: 220,
+      /** While firing, how fast the beam sweeps toward your flagship, in pixels per second where your flagship is. Just below a ship's top speed (150), so you can outrun it (boost makes it easier). */
+      fireTrackSpeed: 130,
       /** Width of the part that hurts (game pixels; the art is about 50 thick). */
       width: 44,
       /** Damage each second to every ship it touches, as a share of that ship's full health (0.5 = destroyed in 2 s; shields absorb it first). */

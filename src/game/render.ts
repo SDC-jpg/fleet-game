@@ -668,6 +668,9 @@ export function drawLeviathanBeam(r: PixelRenderer, assets: Assets, body: Leviat
   r.drawSprite(start, o.x + (dx * capW) / 2, o.y + (dy * capW) / 2, o.angle, time, 1, false, thick);
   // Its segments overlap a little, so no seams show between them at an angle; the first tucks under the start.
   drawBeam(r, assets.get('boss.leviathan.beam'), o.x + dx * (capW - thick), o.y + dy * (capW - thick), o.angle, reach, thick, time, 1, 2);
+  // A looping impact on every ship it burns (each a little out of step, so they don't pulse together).
+  const impact = assets.get('boss.leviathan.beam-impact');
+  a.hits.forEach((h, i) => r.drawSprite(impact, h.x, h.y, o.angle, time + i * 0.37, 1, false, Math.max(0.6, thick)));
 }
 
 /** The image a Leviathan piece shows now (the head: top or side view), and whether it's mirrored. */
