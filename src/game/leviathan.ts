@@ -270,28 +270,17 @@ export function updateFins(body: LeviathanBody, dt: number) {
 
 /**
  * Turn the head toward `want` (at most turnRate × dt) and fly that way, easing toward `speed`.
- * It never curves tighter than `minRadius` (the game's minTurnRadius): turning hard while slow
- * would leave a sharp corner in its path that every segment then whips around in turn.
  */
-export function swimLeviathan(
-  body: LeviathanBody,
-  head: { angle: number; vx: number; vy: number },
-  want: number,
-  speed: number,
-  turnRate: number,
-  dt: number,
-  minRadius = CONFIG.leviathan.minTurnRadius,
-) {
+export function swimLeviathan(body: LeviathanBody, head: { angle: number; vx: number; vy: number }, want: number, speed: number, turnRate: number, dt: number) {
   const C = CONFIG.leviathan;
   const before = head.angle;
+  head.angle = turnToward(head.angle, want, turnRate * dt);
   const now = Math.hypot(head.vx, head.vy);
-  const rate = minRadius > 0 ? Math.min(turnRate, Math.max(now, 1) / minRadius) : turnRate;
-  head.angle = turnToward(head.angle, want, rate * dt);
   const v = now + clamp(speed - now, -C.lungeSpeed * dt, C.lungeSpeed * dt);
   head.vx = Math.cos(head.angle) * v;
   head.vy = Math.sin(head.angle) * v;
-  const turned = dt > 0 ? wrapAngle(head.angle - before) / dt : 0;
-  body.turning += (turned - body.turning) * Math.min(1, dt * 12);
+  const rate = dt > 0 ? wrapAngle(head.angle - before) / dt : 0;
+  body.turning += (rate - body.turning) * Math.min(1, dt * 12);
 }
 
 /**
@@ -462,8 +451,7 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
       turnRate = 1000;
     }
   }
-  // It swings its nose round at cruising speed (a wide curve), and slows down once it charges.
-  swimLeviathan(body, ship, want, a.phase === 'aim' ? C.speed : B.moveSpeed, turnRate, dt);
+  swimLeviathan(body, ship, want, B.moveSpeed, turnRate, dt);
   if (a.phase === 'aim') {
     a.t += dt;
     stepView(body, (2 * a.side) as HeadView, dt);

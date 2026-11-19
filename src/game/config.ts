@@ -532,8 +532,6 @@ export const CONFIG = {
     speed: 140,
     /** How fast it can turn while cruising (radians per second); with the speed, this sets how tight it curves. */
     turnRate: 1.6,
-    /** It never curves tighter than this radius (game pixels), however slowly it swims: a sharp corner in its path would make every segment whip round in turn. Cruising makes about 90. */
-    minTurnRadius: 70,
     /** It circles its target at about this distance, then lunges. */
     circleDistance: 280,
     /** Seconds between lunges straight at its target. */
@@ -562,15 +560,15 @@ export const CONFIG = {
       every: 14,
       /** It only starts a beam while your flagship is within this distance of its head. */
       range: 1100,
-      /** Longest it spends turning its nose onto your flagship (and its head fully to the side) before it charges anyway (seconds; it swings round at cruising speed). */
-      aimTime: 2.5,
+      /** Longest it spends turning its nose onto your flagship (and its head fully to the side) before it charges anyway (seconds). */
+      aimTime: 1.5,
       /** It starts charging once its head is fully turned and your flagship is within this many degrees of where its nose (the beam) points. */
       aimTolerance: 15,
       /** Seconds of charging (the ball grows; the warning line shows). */
       chargeTime: 2,
       /** Seconds of firing. */
       fireTime: 3,
-      /** Its head's speed while charging and firing (it drifts slowly, pixels per second; it turns at most moveSpeed / minTurnRadius). */
+      /** Its head's speed while aiming, charging and firing (it drifts slowly, pixels per second). */
       moveSpeed: 45,
       /** How fast the beam sweeps toward your flagship, in pixels per second where your flagship is. Below a ship's top speed (150), so you can outrun it. */
       trackSpeed: 90,
