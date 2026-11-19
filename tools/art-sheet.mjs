@@ -6,6 +6,8 @@
 //   node tools/art-sheet.mjs apply             (npm run art-sheet:apply) -> lists what changed on the pages
 //   node tools/art-sheet.mjs apply --write     ...and writes those images into public/assets
 //   node tools/art-sheet.mjs scan              rebuilds tools/placeholders.json (which files are still placeholders)
+//   node tools/art-sheet.mjs make --set leviathan    one page with ALL of a set's art (your own too), in art-sheet/leviathan/
+//   node tools/art-sheet.mjs apply --set leviathan [--write]   ...and put it back the same way
 //
 // Pages: ui, projectiles, effects (VFX, thrusters, flames), backgrounds, and one page per ship
 // tier (enemy ships and their variants, wrecks, turrets). A page is at most 4096 px wide and
@@ -25,10 +27,21 @@ import { chromium } from 'playwright-core';
 import { ASSETS_DIR, hashOf, isPlaceholder, loadPlaceholders, savePlaceholders } from './placeholders.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
-const SHEET_DIR = join(ROOT, 'art-sheet');
-const MAP_FILE = join(SHEET_DIR, 'sheet.json');
 const [cmd = 'make', ...flags] = process.argv.slice(2);
 const has = (f) => flags.includes(f);
+
+/**
+ * Sets: every image of one thing on its own page, the artist's own art included (not just
+ * placeholders), in its own folder so it never touches the main pages. Files relative to public/assets.
+ */
+const SETS = {
+  // The Leviathan boss: its body, heads, fins, beam and charge effects.
+  leviathan: () => [...filesIn(ASSETS_DIR + 'bosses/leviathan'), 'vfx/particle-charge.png'],
+};
+const SET = has('--set') ? flags[flags.indexOf('--set') + 1] : null;
+if (SET && !SETS[SET]) throw new Error(`No set "${SET}". Sets: ${Object.keys(SETS).join(', ')}`);
+const SHEET_DIR = SET ? join(ROOT, 'art-sheet', SET) : join(ROOT, 'art-sheet');
+const MAP_FILE = join(SHEET_DIR, 'sheet.json');
 
 const PAGE_MAX = 4096;
 /**
@@ -110,14 +123,16 @@ async function make() {
   }
   const placeholders = loadPlaceholders();
   // The art the game uses: manifest images and every part (thrusters, flames, turrets).
-  const candidates = [...new Set([...Object.keys(frameOf), ...filesIn(ASSETS_DIR + 'parts')])].filter((f) => existsSync(ASSETS_DIR + f));
+  // (A set: just its own files, whoever made them.)
+  const candidates = (SET ? SETS[SET]() : [...new Set([...Object.keys(frameOf), ...filesIn(ASSETS_DIR + 'parts')])]).filter((f) => existsSync(ASSETS_DIR + f));
   const items = [];
   for (const file of candidates) {
-    if (!isPlaceholder(file, placeholders)) continue;
+    if (!SET && !isPlaceholder(file, placeholders)) continue;
     const { group, tier } = placeOf(file);
     let page;
     const maxTier = MAX_TIER[group] ?? DEFAULT_MAX_TIER;
-    if (group === 'ships') page = `ships-t${tier}`;
+    if (SET) page = SET;
+    else if (group === 'ships') page = `ships-t${tier}`;
     else if (tier > SHOWN_UP_TO) continue; // never shown in the game
     else if (tier > maxTier) {
       if (!has('--all-tiers')) continue;
@@ -140,7 +155,7 @@ async function make() {
     const label = (nameOf[file] ?? file).replace(/^ui\.|^vfx\./, '');
     const boxW = per * fw + (per - 1) * FRAME_GAP;
     const boxH = Math.ceil(frames.length / per) * (fh + FRAME_GAP) - FRAME_GAP;
-    items.push({ file, page, label, hash: placeholders[file], boxW, boxH, frames, slotW: Math.max(boxW, (label.length + 7) * 6 + 4) /* room for ' (team)' */, slotH: LABEL_H + boxH });
+    items.push({ file, page, label, hash: SET ? hashOf(readFileSync(ASSETS_DIR + file)) : placeholders[file], boxW, boxH, frames, slotW: Math.max(boxW, (label.length + 7) * 6 + 4) /* room for ' (team)' */, slotH: LABEL_H + boxH });
   }
   if (!items.length) {
     console.log('No placeholders left to put on a sheet (or run "scan" first).');
@@ -185,8 +200,9 @@ async function make() {
     }
   }
 
-  rmSync(SHEET_DIR, { recursive: true, force: true });
+  // Clear out the old pages (only this sheet's own files: sets live in their own folders inside).
   mkdirSync(SHEET_DIR, { recursive: true });
+  for (const name of readdirSync(SHEET_DIR)) if (name.endsWith('.png') || name === 'sheet.json') rmSync(join(SHEET_DIR, name));
   await withBrowser(async (p) => {
     for (const page of pages) {
       const png = await p.evaluate(drawPage, {
@@ -194,7 +210,7 @@ async function make() {
         items: page.items.map((it) => ({ data: b64(it.file), x: it.x, y: it.y, label: it.label, frames: it.frames })),
       });
       writeFileSync(join(SHEET_DIR, page.file), Buffer.from(png, 'base64'));
-      console.log(`page   art-sheet/${page.file}  ${page.w}×${page.h}  ${page.items.length} images`);
+      console.log(`page   ${relative(ROOT, join(SHEET_DIR, page.file))}  ${page.w}×${page.h}  ${page.items.length} images`);
     }
   });
   const map = {
@@ -203,7 +219,7 @@ async function make() {
     pages: pages.map((pg) => ({ file: pg.file, items: pg.items.map((it) => ({ file: it.file, hash: it.hash, x: it.x, y: it.y, frames: it.frames })) })),
   };
   writeFileSync(MAP_FILE, JSON.stringify(map, null, 1) + '\n');
-  console.log(`${items.length} placeholder images on ${pages.length} pages in art-sheet/`);
+  console.log(`${items.length} ${SET ? '' : 'placeholder '}images on ${pages.length} page${pages.length > 1 ? 's' : ''} in ${relative(ROOT, SHEET_DIR)}/`);
 }
 
 /** In the browser: draw one page (images at their spots, names, outlines). Returns PNG base64. */
@@ -298,7 +314,8 @@ async function apply() {
     delete placeholders[c.file]; // the artist's art now
   }
   savePlaceholders(placeholders);
-  addChangelogLine(changed.map((c) => c.file));
+  // (Sets can hold art players don't meet yet, like the Leviathan: write the changelog line by hand when it's player-facing.)
+  if (!SET) addChangelogLine(changed.map((c) => c.file));
   console.log(`${changed.length} images written; they won't be on the next sheet.`);
 }
 
@@ -396,4 +413,4 @@ function scan() {
 if (cmd === 'make') await make();
 else if (cmd === 'apply') await apply();
 else if (cmd === 'scan') scan();
-else console.log('Use: make [--all-tiers] | apply [--write] | scan');
+else console.log('Use: make [--all-tiers] [--set <name>] | apply [--write] [--set <name>] | scan');
