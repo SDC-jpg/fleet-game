@@ -8,7 +8,7 @@ import type { Assets } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { CONFIG } from '../game/config';
 import type { ArtLayoutsFile, LeviathanLayout } from '../game/artLayout';
-import { finPiece, followHead, leviathanLayout, makeLeviathanBody, relayLeviathan, swimLeviathan, updateFins, type LeviathanBody, type LeviathanPiece } from '../game/leviathan';
+import { finPiece, followHead, leviathanLayout, lookToward, makeLeviathanBody, relayLeviathan, swimLeviathan, updateFins, type LeviathanBody, type LeviathanPiece } from '../game/leviathan';
 import { drawLeviathan, finGeometry, leviathanPieceArt } from '../game/render';
 import { bossPieceKind, type BossPiece } from './LeviathanPanel';
 
@@ -99,8 +99,10 @@ export class LeviathanPreview {
       const want = Math.atan2(p.dy, p.dx);
       this.x = p.x;
       this.y = p.y;
-      // Turn exactly onto the path (so it never strays from it); this also picks the head's view.
+      // Turn exactly onto the path (so it never strays from it).
       swimLeviathan(this.body, this, want, speed, Math.PI * 4, dt);
+      // No flagship here: the head watches the middle of the figure eight instead.
+      lookToward(this.body, this, { x: 0, y: 0 }, dt);
       followHead(this.body, this.x, this.y, this.angle);
     }
     if (s.head !== 'auto') this.body.view = HELD_VIEW[s.head];

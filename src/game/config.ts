@@ -542,11 +542,13 @@ export const CONFIG = {
     lungeSpeed: 340,
     /** Turn rate during a lunge. */
     lungeTurnRate: 2.4,
-    /** It shows the half-side head while turning faster than this (radians per second; gentle turns, e.g. circling its target at about 0.5). */
-    halfSideViewTurn: 0.3,
-    /** It shows the full side-view head while turning faster than this (radians per second). */
-    sideViewTurn: 0.8,
-    /** Seconds a turn must last before the head starts to change view (either way), so gentle wiggles don't flicker. */
+    /** Its head watches your flagship: straight (top view) while the flagship is within this many degrees of straight ahead. */
+    frontViewAngle: 20,
+    /** Past frontViewAngle and up to this many degrees off straight ahead it shows the half-side head; further round (to its side or behind), the side head. */
+    sideViewAngle: 60,
+    /** Further round than this (degrees, i.e. behind it), the head keeps looking over the shoulder it already uses instead of flipping sides. */
+    behindAngle: 150,
+    /** Seconds the flagship must stay in another direction before the head starts to change view (either way), so it doesn't flicker. */
     sideViewHold: 0.15,
     /** Seconds the head shows the half-side view on its way between the top and side views (a quick in-between). */
     viewStepTime: 0.08,

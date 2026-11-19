@@ -10,7 +10,7 @@ import { clamp, turnToward, wrapAngle } from '../engine/math';
 import { CONFIG } from './config';
 import { DEFAULT_FIN_IMAGE, type ArtLayoutsFile, type HitCircle, type LeviathanBulge, type LeviathanFin, type LeviathanLayout, type LeviathanPieceKind } from './artLayout';
 import type { GameState, Ship } from './world';
-import { findNearestEnemy } from './world';
+import { controlledShip, findNearestEnemy } from './world';
 
 export type PieceKind = LeviathanPieceKind;
 
@@ -35,7 +35,7 @@ export interface LeviathanBody {
   trail: number[];
   /** How fast it's turning (radians per second, smoothed; + = clockwise on screen = right turn). */
   turning: number;
-  /** Which head shows: 0 = top view, 1 = half-side view turning right, 2 = side view turning right; negative = turning left. */
+  /** Which head shows: 0 = top view, 1 = half-side view looking right, 2 = side view looking right; negative = looking left (see lookToward). */
   view: HeadView;
   /** Seconds the turn has been pointing toward a different view (see sideViewHold). */
   viewTimer: number;
@@ -246,8 +246,7 @@ export function updateFins(body: LeviathanBody, dt: number) {
 }
 
 /**
- * Turn the head toward `want` (at most turnRate × dt) and fly that way, easing toward `speed`;
- * then pick the head's view from how fast it's turning (with a short hold so it doesn't flicker).
+ * Turn the head toward `want` (at most turnRate × dt) and fly that way, easing toward `speed`.
  */
 export function swimLeviathan(body: LeviathanBody, head: { angle: number; vx: number; vy: number }, want: number, speed: number, turnRate: number, dt: number) {
   const C = CONFIG.leviathan;
@@ -259,11 +258,22 @@ export function swimLeviathan(body: LeviathanBody, head: { angle: number; vx: nu
   head.vy = Math.sin(head.angle) * v;
   const rate = dt > 0 ? wrapAngle(head.angle - before) / dt : 0;
   body.turning += (rate - body.turning) * Math.min(1, dt * 12);
-  // Gentle turns show the half-side head, sharp ones the side head. The head moves one view at a
-  // time (top → half-side → side, and back), so a sharp turn passes through the half-side view.
-  const fast = Math.abs(body.turning);
-  const level = fast > C.sideViewTurn ? 2 : fast > C.halfSideViewTurn ? 1 : 0;
-  const wantView = (level * Math.sign(body.turning)) as HeadView;
+}
+
+/**
+ * The head keeps its eye on a point (the flagship in the game): straight (top view) while it's
+ * about in front, half turned while it's ahead but off to one side, fully turned (side view) while
+ * it's more to the side or behind. null = nothing to watch: straight. The head moves one view at
+ * a time (top → half-side → side, and back), with a short hold so it doesn't flicker.
+ */
+export function lookToward(body: LeviathanBody, head: { x: number; y: number; angle: number }, at: { x: number; y: number } | null, dt: number) {
+  const C = CONFIG.leviathan;
+  // How far off its heading the point is, in degrees (+ = to its right on screen).
+  const off = at ? (wrapAngle(Math.atan2(at.y - head.y, at.x - head.x) - head.angle) * 180) / Math.PI : 0;
+  const level = Math.abs(off) > C.sideViewAngle ? 2 : Math.abs(off) > C.frontViewAngle ? 1 : 0;
+  // Right behind it, the head keeps looking over the shoulder it already uses (no flipping side to side).
+  const side = level === 2 && Math.abs(off) > C.behindAngle && body.view !== 0 ? Math.sign(body.view) : Math.sign(off);
+  const wantView = (level * side) as HeadView;
   if (wantView === body.view) {
     body.viewTimer = 0;
     body.viewStepping = false;
@@ -308,6 +318,9 @@ export function updateLeviathanAI(state: GameState, ship: Ship, dt: number) {
     }
   }
   swimLeviathan(body, ship, want, speed, turnRate, dt);
+  // Its head keeps watching your flagship.
+  const flagship = controlledShip(state);
+  lookToward(body, ship, flagship && flagship.team !== ship.team && !flagship.dead ? flagship : null, dt);
   ship.thrust = 'move';
 }
 

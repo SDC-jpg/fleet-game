@@ -304,9 +304,10 @@ Epic purple (`RARITIES` in `src/game/config.ts`).
 
 The Leviathan is a head plus a chain of body pieces in `bosses/leviathan/`, all drawn
 **facing up** (the game turns them): `head.png` (top view, while flying straight),
-`head-halfside.png` (halfway to the side view: gentle turns, and briefly on the way to the
-side view), `head-side.png` (side view, while turning sharply; both turning heads are drawn for
-right turns and mirrored for left turns, `sideViewForRightTurns`), `segment.png` (repeated),
+`head-halfside.png` and `head-side.png` (its head watches your flagship: top view while the
+flagship is about straight ahead, half-side while it is ahead but off to one side, side view while
+it is to the side or behind; both turning heads are drawn looking right and mirrored to look left,
+`sideViewForRightTurns`), `segment.png` (repeated),
 `segment-antepenultimate.png`, `segment-penultimate.png` and `tail.png`. The head is drawn
 under everything and each piece toward the tail on top of the one before. Each piece
 turns around its pivot (`anchorX`/`anchorY` in the manifest; the image's centre if not
