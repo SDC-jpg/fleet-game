@@ -38,7 +38,7 @@ function shapeOf(s: HitShip) {
 /** The ship's hit circles where they are now (world positions). */
 export function hitCircles(s: HitShip): HitCircle[] {
   // A Leviathan: a circle on each piece of its body.
-  if (s.leviathan) return leviathanCircles(s as Ship);
+  if (s.leviathan) return leviathanCircles(s.leviathan);
   const shape = shapeOf(s);
   if (!shape) return [{ x: s.x, y: s.y, r: s.stats.radius }];
   const cos = Math.cos(s.angle);

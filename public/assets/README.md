@@ -310,8 +310,11 @@ turns, `CONFIG.leviathan.sideViewForRightTurns`), `segment.png` (repeated),
 under everything and each piece toward the tail on top of the one before. Each piece
 turns around its pivot (`anchorX`/`anchorY` in the manifest; the image's centre if not
 set): both heads pivot on their round neck, so they line up when they swap, and the tail
-pivots near its top. How far apart the pieces sit, how many repeat and their hit circles
-are in `CONFIG.leviathan`.
+pivots near its top. Set it all up in **ShipArt → Bosses → Leviathan**: it swims a figure
+eight (or **Lay straight** holds it still); pick a piece to drag its image around its pivot
+(saved as its anchor in the manifest) and size its hit circle; the panel has the number of
+repeating segments, the gaps between pieces (saved in `art.json`) and which way the side
+head is drawn.
 
 ## Tiers (bigger ships)
 

@@ -26,7 +26,7 @@ import {
 } from '../game/artLayout';
 import { OBJECT_KINDS, SHIP_KIND, kindOf, tierOf, type ArtKind } from '../game/artKinds';
 import { layoutGunsOrDefault } from '../game/guns';
-import type { Gun, HitCircle } from '../game/artLayout';
+import type { Gun, HitCircle, LeviathanLayout } from '../game/artLayout';
 import { CONFIG, SHIP_TYPES } from '../game/config';
 import { GunsPanel } from './GunsPanel';
 import { tierSprite } from '../game/render';
@@ -39,6 +39,9 @@ import { ScreenEffectWindow } from './ScreenEffectWindow';
 import { HitShapePanel } from './HitShapePanel';
 import { fitShip, shipArtFingerprint } from './hitArt';
 import { screenEffect } from '../game/screenEffect';
+import { leviathanLayout } from '../game/leviathan';
+import { LeviathanPanel, bossPieceSprite, type BossPiece } from './LeviathanPanel';
+import type { BossHead } from './bossPreview';
 
 /** Editing and saving only work with the dev server (npm run dev). */
 const READ_ONLY = !import.meta.env.DEV;
@@ -57,6 +60,7 @@ interface SavedView {
   effectTier: number;
   selected: number | null;
   open: Record<string, boolean>;
+  boss?: 'leviathan' | null;
 }
 const VIEW_SETTING = 'shipart.view';
 const savedView: Partial<SavedView> = (() => {
@@ -153,6 +157,11 @@ export function ShipArt() {
   /** The effect being shown (Effects section), by its base name, and which tier version. */
   const [effectBase, setEffectBase] = useState<string | null>(savedView.effectBase ?? null);
   const [effectTier, setEffectTier] = useState(savedView.effectTier ?? 1);
+  /** A boss being shown (Bosses section) instead of a ship, object or effect; its head view, picked piece, and "Lay straight" count. */
+  const [boss, setBoss] = useState<'leviathan' | null>(savedView.boss ?? null);
+  const [bossHead, setBossHead] = useState<BossHead>('auto');
+  const [bossPiece, setBossPiece] = useState<BossPiece | null>(null);
+  const [bossStraight, setBossStraight] = useState(0);
   /** Bumped when reloaded art has finished loading, so panels showing its size and frames update. */
   const [artVersion, setArtVersion] = useState(0);
   const [dirty, setDirty] = useState(false);
@@ -206,9 +215,9 @@ export function ShipArt() {
   // Remember the view (once the art has loaded, so a startup fallback isn't saved over it too early).
   useEffect(() => {
     if (!assets) return;
-    const view: SavedView = { subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open };
+    const view: SavedView = { subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open, boss };
     saveSetting(VIEW_SETTING, JSON.stringify(view));
-  }, [assets, subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open]);
+  }, [assets, subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open, boss]);
 
   // Mouse wheel over the preview: zoom in (up) or out (down), one step at a time.
   useEffect(() => {
@@ -252,13 +261,16 @@ export function ShipArt() {
   const baseFiles = files.filter((f) => f.startsWith(kind.baseFolder));
   const mountState = kind.states.find((s) => s.id === state)?.uses ?? state;
 
-  /** Change the data (saving an undo step first unless `noUndo`). The current subject always has a layout to change. */
+  /**
+   * Change the data (saving an undo step first unless `noUndo`). The current subject always has a layout
+   * to change, unless `noLayout` (boss edits, which don't touch the subject).
+   */
   const change = useCallback(
-    (fn: (d: ArtLayoutsFile) => void, noUndo = false) => {
+    (fn: (d: ArtLayoutsFile) => void, noUndo = false, noLayout = false) => {
       const current = dataRef.current;
       if (!current || READ_ONLY) return;
       const next = clone(current);
-      next[section][subject] ??= emptyLayout();
+      if (!noLayout) next[section][subject] ??= emptyLayout();
       fn(next);
       if (!noUndo) setHistory((h) => [...h.slice(-99), { data: current, patch: patchRef.current }]);
       setData(next);
@@ -285,6 +297,36 @@ export function ShipArt() {
     setPatch(next);
     setDirty(true);
   };
+  /** Change the Leviathan's body settings (art.json `bosses.leviathan`). */
+  const changeBoss = (fn: (l: Partial<LeviathanLayout>) => void, noUndo = false) =>
+    change((d) => fn(((d.bosses ??= {}).leviathan ??= {})), noUndo, true);
+
+  /**
+   * Move a boss piece's pivot: its image's anchor in the manifest (saved to manifest.json with Save).
+   * Shown at once (no reload of the image), so dragging is smooth.
+   */
+  const setPivot = useCallback(
+    (piece: BossPiece, x: number, y: number, noUndo = false) => {
+      const current = dataRef.current;
+      if (!assets || !current || READ_ONLY) return;
+      const name = bossPieceSprite(piece);
+      const entry = patchRef.current[name] ?? assets.entryOf(name);
+      if (!entry) return;
+      if (!noUndo) setHistory((h) => [...h.slice(-99), { data: current, patch: patchRef.current }]);
+      baselineRef.current[name] ??= assets.entryOf(name)!;
+      const sprite = assets.get(name);
+      sprite.anchorX = x;
+      sprite.anchorY = y;
+      const next = { ...patchRef.current, [name]: { ...entry, anchorX: x, anchorY: y } };
+      patchRef.current = next;
+      setPatch(next);
+      setDirty(true);
+    },
+    [assets],
+  );
+  const setPivotRef = useRef(setPivot);
+  setPivotRef.current = setPivot;
+
   const changeMount = (fn: (m: Mount) => void, noUndo = false) =>
     selected !== null && change((d) => fn(d[section][subject].mounts[selected]), noUndo);
 
@@ -333,7 +375,31 @@ export function ShipArt() {
   const effect = effectBase && assets ? tierSprite(assets, effectBase, effectTier) : null;
 
   const previewSettings = () =>
-    data && { data, subject, kind, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, readOnly: READ_ONLY };
+    data && {
+      data,
+      subject,
+      kind,
+      state,
+      effect,
+      zoom,
+      detail,
+      spin,
+      fly,
+      team,
+      guides,
+      stars,
+      crt,
+      rotation,
+      selected,
+      selectedPoint,
+      selectedGun,
+      selectedHit,
+      boss: effect ? null : boss,
+      bossHead,
+      bossPiece,
+      bossStraight,
+      readOnly: READ_ONLY,
+    };
 
   // Start the preview once everything has loaded.
   useEffect(() => {
@@ -411,6 +477,20 @@ export function ShipArt() {
           l.points[id] = { x, y };
         }),
       hover: setHover,
+      selectBossPiece: setBossPiece,
+      // Drags save one undo step at their start (dragStart), not one per mouse move.
+      moveBossPivot: (p, x, y) => setPivotRef.current(p, x, y, true),
+      resizeBossHit: (p, r) => {
+        const kind = p === 'head-side' ? 'head' : p;
+        setData((d) => {
+          if (!d) return d;
+          const next = clone(d);
+          const l = ((next.bosses ??= {}).leviathan ??= {});
+          l.hitRadius = { ...leviathanLayout(d).hitRadius, [kind]: r };
+          return next;
+        });
+        setDirty(true);
+      },
     });
     return () => {
       previewRef.current?.destroy();
@@ -425,7 +505,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, patch]);
+  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossStraight, patch]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -499,7 +579,7 @@ export function ShipArt() {
         save();
         return;
       }
-      if (READ_ONLY) return;
+      if (READ_ONLY || boss) return;
       const step = e.shiftKey ? 5 : 1;
       const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
       if (d && selectedPoint) {
@@ -559,7 +639,7 @@ export function ShipArt() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selected, selectedPoint, selectedGun, selectedHit, section, subject, nudge, change, changeGuns, changeHit, undo, save]);
+  }, [selected, selectedPoint, selectedGun, selectedHit, section, subject, nudge, change, changeGuns, changeHit, undo, save, boss]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -628,13 +708,16 @@ export function ShipArt() {
   const pickSubject = (s: string) => {
     setSubject(s);
     setEffectBase(null);
+    setBoss(null);
   };
+  /** The boss shown (not while an effect is). */
+  const shownBoss = effect ? null : boss;
   const stateLabel = (s: string) => kind.states.find((k) => k.id === s)?.label ?? label(s);
 
   /** One list of sprites in the rollout menu. */
   const subjectList = (list: string[]) =>
     list.filter(matchesFilter).map((s) => (
-      <button key={s} className={'sa-ship' + (!effect && subject === s ? ' on' : '')} onClick={() => pickSubject(s)}>
+      <button key={s} className={'sa-ship' + (!effect && !shownBoss && subject === s ? ' on' : '')} onClick={() => pickSubject(s)}>
         {shortName(s)}
       </button>
     ));
@@ -644,7 +727,32 @@ export function ShipArt() {
       <header className="sa-top">
         <h1>ShipArt</h1>
         <div className="sa-group">
-          {effect
+          {shownBoss ? (
+            <>
+              Head
+              {(
+                [
+                  ['auto', 'Auto', 'As the turns pick it'],
+                  ['top', 'Top', 'Always the top view'],
+                  ['right', 'Side →', 'Always the side view, as for a right turn'],
+                  ['left', 'Side ←', 'Always the side view, as for a left turn'],
+                ] as [BossHead, string, string][]
+              ).map(([id, text, tip]) => (
+                <button key={id} className={bossHead === id ? 'on' : ''} onClick={() => setBossHead(id)} title={tip}>
+                  {text}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  setBossStraight((n) => n + 1);
+                  setFly(false);
+                }}
+                title="Stretch it out straight, facing right, and hold it still (Fly swims again)"
+              >
+                Lay straight
+              </button>
+            </>
+          ) : effect
             ? effectTiers.map((n, i) => (
                 <button key={n} className={effect === n ? 'on' : ''} onClick={() => setEffectTier(i + 1)} title={n}>
                   Tier {i + 1}
@@ -792,6 +900,7 @@ export function ShipArt() {
                 onClick={() => {
                   setEffectBase(e);
                   setEffectTier(1);
+                  setBoss(null);
                 }}
               >
                 {e.replace(/^vfx\./, '')}
@@ -800,7 +909,28 @@ export function ShipArt() {
           </div>
         )}
 
-        {data && !effect && (
+        <button className="sa-rollout" onClick={() => setOpen({ ...open, bosses: !open.bosses })}>
+          {open.bosses ? '▾' : '▸'} Bosses
+        </button>
+        {open.bosses && (
+          <div className="sa-rollout-body">
+            {'leviathan'.includes(filter.toLowerCase()) && (
+              <button
+                className={'sa-ship' + (shownBoss === 'leviathan' ? ' on' : '')}
+                onClick={() => {
+                  setBoss('leviathan');
+                  setEffectBase(null);
+                  // It's big: at 1× the whole figure eight fits.
+                  setZoom(1);
+                }}
+              >
+                Leviathan
+              </button>
+            )}
+          </div>
+        )}
+
+        {data && !effect && !shownBoss && (
           <fieldset disabled={READ_ONLY}>
             <h2>Base image</h2>
             {kind.mountStates.map((s) => (
@@ -853,7 +983,9 @@ export function ShipArt() {
           </div>
         )}
         <div className="sa-hint">
-          {effect
+          {shownBoss
+            ? 'Click a piece to pick it · Drag its image to move it around its pivot (the cross on its path) · Drag the gold square to size its hit circle · Fly off or Lay straight to hold it still'
+            : effect
             ? 'Looping effects play on and on; play-once effects replay after a short pause'
             : `${hover ? `x ${hover.x}, y ${hover.y} · ` : ''}Drag a mount, its pink VFX point, a yellow point or an orange gun · Arrows nudge (Shift = 5 px) · Delete removes`}
         </div>
@@ -876,7 +1008,7 @@ export function ShipArt() {
           }
         />
       )}
-      {assets && data && !effect && (
+      {assets && data && !effect && !shownBoss && (
         <VfxPanel
           assets={assets}
           data={data}
@@ -897,7 +1029,24 @@ export function ShipArt() {
 
       <aside className="sa-right">
         {effect && <div className="sa-note sa-effect-note">Effects have no mounts. Their flipbook and image are in the purple panel.</div>}
-        <fieldset disabled={READ_ONLY} hidden={!!effect}>
+        {shownBoss && assets && data && (
+          <fieldset disabled={READ_ONLY}>
+            <LeviathanPanel
+              assets={assets}
+              layout={leviathanLayout(data)}
+              selected={bossPiece}
+              onSelect={setBossPiece}
+              onChange={(fn) => changeBoss(fn)}
+              onPivot={(p, x, y) => setPivot(p, x, y)}
+              onReset={() =>
+                change((d) => {
+                  if (d.bosses) d.bosses.leviathan = {};
+                }, false, true)
+              }
+            />
+          </fieldset>
+        )}
+        <fieldset disabled={READ_ONLY} hidden={!!effect || !!shownBoss}>
           {kind.points.length > 0 && (
             <>
               <h2>Points</h2>

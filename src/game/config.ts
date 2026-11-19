@@ -523,19 +523,11 @@ export const CONFIG = {
 
   /**
    * Leviathan (boss, first version: only flies and can be shot; no attacks or spawn rules yet, test
-   * key B). A head and a chain of body segments that follow exactly where the head flew. Art:
-   * boss.leviathan.* (head, head-side, segment, segment-antepenultimate, segment-penultimate,
-   * tail), drawn facing up. One shared health pool: hitting any segment hurts it.
+   * key B). A head and a chain of body segments that follow exactly where the head flew. One shared
+   * health pool: hitting any segment hurts it. How its body is put together (segments, gaps, hit
+   * circles, pivots) is art, set in ShipArt (Bosses → Leviathan); these are how it behaves.
    */
   leviathan: {
-    /** How many repeating segments between the head and the last three pieces. */
-    segments: 16,
-    /** Distance along its path from the head's pivot (its neck) to the first segment's centre. */
-    headGap: 22,
-    /** Distance along its path between one segment's centre and the next. */
-    spacing: 15,
-    /** Distance from the penultimate segment's centre to the tail's pivot (near the tail's top). */
-    tailGap: 18,
     /** Cruising speed (pixels per second; a tier-1 ship flies 150). */
     speed: 140,
     /** How fast it can turn while cruising (radians per second); with the speed, this sets how tight it curves. */
@@ -554,10 +546,6 @@ export const CONFIG = {
     sideViewTurn: 0.5,
     /** Seconds a turn must last before the head switches view (either way), so gentle wiggles don't flicker. */
     sideViewHold: 0.15,
-    /** true = the side-view art (as drawn) is for right turns and is mirrored for left turns; false = the other way round. */
-    sideViewForRightTurns: true,
-    /** Hit circle radius of each piece, centred on its pivot (pixels; separate from the art's size). */
-    hitRadius: { head: 34, segment: 32, antepenultimate: 30, penultimate: 26, tail: 22 },
     /** Health = this × the wave's enemy fleet value × a tier-1 enemy's health (like elites, which use 8). */
     healthPerFleetValue: 30,
     /** Tier it counts as (XP for destroying it and its damage later). */

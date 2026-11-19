@@ -14,7 +14,7 @@ import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 import type { SkillObj } from './moreSkills';
-import { makeLeviathanBody, updateLeviathanAI, updateLeviathanBody, type LeviathanBody } from './leviathan';
+import { currentLeviathanLayout, followHead, makeLeviathanBody, updateLeviathanAI, type LeviathanBody } from './leviathan';
 
 export type Team = 'player' | 'enemy';
 export type Thrust = 'idle' | 'move' | 'boost';
@@ -984,7 +984,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
     for (let i = 0; i < s.gunTimers.length; i++) s.gunTimers[i] -= dtOf(s);
   }
   // A Leviathan's body follows where its head went.
-  for (const s of state.ships) if (s.leviathan) updateLeviathanBody(s);
+  for (const s of state.ships) if (s.leviathan) followHead(s.leviathan, s.x, s.y, s.angle);
 
   updateEnergyBeams(state, dt, edt);
   updateBullets(state, dt, edt);
@@ -2500,13 +2500,14 @@ export function testSpawnElite(state: GameState, spawnDistance: number) {
  */
 function spawnLeviathan(state: GameState, near: Ship, distance: number) {
   const L = CONFIG.leviathan;
+  const headRadius = currentLeviathanLayout().hitRadius.head;
   const a = Math.random() * Math.PI * 2;
   const fleet = newFleet('enemy');
-  const x = near.x + Math.cos(a) * (distance + L.hitRadius.head);
-  const y = near.y + Math.sin(a) * (distance + L.hitRadius.head);
+  const x = near.x + Math.cos(a) * (distance + headRadius);
+  const y = near.y + Math.sin(a) * (distance + headRadius);
   const ship = addShip(state, 'enemy', 'fighter', L.tier, fleet, x, y, a + Math.PI);
   const tier1 = statsFor('fighter', 'enemy', 1).maxHp;
-  ship.stats = { ...ship.stats, radius: L.hitRadius.head };
+  ship.stats = { ...ship.stats, radius: headRadius };
   ship.stats.maxHp = Math.max(1, Math.round(tier1 * L.healthPerFleetValue * waveFleetValue(state.wave) * enemyHealthMultiplier(state.wave)));
   ship.hp = ship.stats.maxHp;
   ship.leviathan = makeLeviathanBody(x, y, ship.angle);

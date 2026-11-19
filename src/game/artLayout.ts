@@ -142,6 +142,31 @@ export interface ArtLayoutsFile {
   particleDefaults: Record<string, Record<string, Partial<ParticleSettings>>>;
   /** Animation settings by image file. */
   images: Record<string, ImageSettings>;
+  /** Bosses' body layouts, edited in ShipArt (Bosses section). Missing settings use the defaults in leviathan.ts. */
+  bosses?: { leviathan?: Partial<LeviathanLayout> };
+}
+
+/** A Leviathan's body pieces, head to tail. */
+export type LeviathanPieceKind = 'head' | 'segment' | 'antepenultimate' | 'penultimate' | 'tail';
+
+/**
+ * How a Leviathan's body is put together (art.json `bosses.leviathan`, ShipArt → Bosses).
+ * Each piece's pivot (the point it turns around, which sits on the path) is its image's
+ * anchor in the manifest.
+ */
+export interface LeviathanLayout {
+  /** How many repeating segments between the head and the last three pieces. */
+  segments: number;
+  /** Distance along its path from the head's pivot to the first segment's pivot. */
+  headGap: number;
+  /** Distance along its path between one segment's pivot and the next. */
+  spacing: number;
+  /** Distance from the penultimate segment's pivot to the tail's. */
+  tailGap: number;
+  /** true = the side-view head (as drawn) is for right turns, mirrored for left turns; false = the other way round. */
+  sideViewForRightTurns: boolean;
+  /** Hit circle radius of each piece, centred on its pivot. */
+  hitRadius: Record<LeviathanPieceKind, number>;
 }
 
 export const emptyLayouts = (): ArtLayoutsFile => ({ ships: {}, objects: {}, particleDefaults: {}, images: {} });
@@ -250,6 +275,7 @@ export async function loadArtLayouts(assets: Assets): Promise<ArtLayoutsFile> {
         objects: json.objects ?? {},
         particleDefaults: json.particleDefaults ?? {},
         images: json.images ?? {},
+        ...(json.bosses ? { bosses: json.bosses } : {}),
       };
     }
   } catch (e) {
