@@ -434,6 +434,8 @@ function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets, ex
 export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: number, length: number, width: number, time: number, alpha = 1, overlap = 0) {
   // `overlap`: art pixels each segment overlaps the next (no seams between solid segments when turned).
   const step = (seg.frames[0].w - overlap) * width;
+  // Nearly no width (a beam fading out): nothing to draw, and a near-zero step would mean millions of segments.
+  if (!(step >= 0.5)) return;
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
   // Only the part on screen (beams can reach far past it).
@@ -660,7 +662,7 @@ export function drawLeviathanBeam(r: PixelRenderer, assets: Assets, body: Leviat
     return;
   }
   const thick = beamThickness(a) * (1 + 0.03 * Math.sin(time * 60));
-  if (thick <= 0) return;
+  if (thick < 0.05) return;
   const start = assets.get('boss.leviathan.beam-start');
   const capW = start.frames[0].w * thick;
   r.drawSprite(start, o.x + (dx * capW) / 2, o.y + (dy * capW) / 2, o.angle, time, 1, false, thick);
