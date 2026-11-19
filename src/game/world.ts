@@ -301,6 +301,8 @@ export interface RunStats {
   killsBySource: Record<string, { kills: number; value: number }>;
   /** Times each of your skills was used. */
   skillUses: Record<string, number>;
+  /** Damage dealt to enemies by source (same names as killsBySource; health actually taken, after shields). For the bot tests' weapon comparison. */
+  damageBySource: Record<string, number>;
 }
 
 /** What dealt a hit (for the kills-by-weapon stats): "gun", "merge", "hijack", or a skill id. */
@@ -319,6 +321,7 @@ export const emptyStats = (from: Partial<RunStats> = {}): RunStats => ({
   killsByClass: { ...from.killsByClass },
   killsBySource: Object.fromEntries(Object.entries(from.killsBySource ?? {}).map(([k, v]) => [k, { ...v }])),
   skillUses: { ...from.skillUses },
+  damageBySource: { ...from.damageBySource },
 });
 
 /** Fleet value at one moment (one point per wave, for the end-of-run graph). */
@@ -1683,6 +1686,8 @@ export function damageShip(state: GameState, s: Ship, amount: number, source: Da
     s.shield -= absorbed;
     amount -= absorbed;
   }
+  // Damage dealt to enemies, by what dealt it (weapon comparison stats).
+  if (s.team === 'enemy' && amount > 0) state.stats.damageBySource[source] = (state.stats.damageBySource[source] ?? 0) + Math.min(amount, Math.max(0, s.hp));
   if (!(s.team === 'player' && state.invincible)) s.hp -= amount;
   if (s.hp <= 0) {
     s.dead = true;

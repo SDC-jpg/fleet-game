@@ -26,3 +26,7 @@ screenshots
 
 # Art sheets (tools/art-sheet.mjs): working files for painting placeholders
 art-sheet
+
+# Bot test runs (tools/bots/run.mjs): results and the bundled worker
+bot-results
+tools/bots/.build
