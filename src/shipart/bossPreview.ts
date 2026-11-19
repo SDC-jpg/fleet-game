@@ -106,7 +106,7 @@ export class LeviathanPreview {
       this.x = p.x;
       this.y = p.y;
       // Turn exactly onto the path (so it never strays from it).
-      swimLeviathan(this.body, this, want, speed, Math.PI * 4, dt);
+      swimLeviathan(this.body, this, want, speed, Math.PI * 4, dt, 0);
       // No flagship here: the head watches the middle of the figure eight instead.
       if (!this.body.attack) lookToward(this.body, this, { x: 0, y: 0 }, dt);
       followHead(this.body, this.x, this.y, this.angle);
