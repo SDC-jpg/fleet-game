@@ -26,7 +26,7 @@ import {
 } from '../game/artLayout';
 import { OBJECT_KINDS, SHIP_KIND, kindOf, tierOf, type ArtKind } from '../game/artKinds';
 import { layoutGunsOrDefault } from '../game/guns';
-import type { Gun, HitCircle, LeviathanLayout } from '../game/artLayout';
+import type { Gun, HitCircle, LeviathanFin, LeviathanLayout } from '../game/artLayout';
 import { CONFIG, SHIP_TYPES } from '../game/config';
 import { GunsPanel } from './GunsPanel';
 import { tierSprite } from '../game/render';
@@ -163,6 +163,8 @@ export function ShipArt() {
   const [bossPiece, setBossPiece] = useState<BossPiece | null>(null);
   /** Which one of the body's pieces was clicked in the preview (counted from the head), for bulges. */
   const [bossIndex, setBossIndex] = useState<number | null>(null);
+  /** The picked fin (its number in the Leviathan's fin list), or null. */
+  const [bossFin, setBossFin] = useState<number | null>(null);
   const [bossStraight, setBossStraight] = useState(0);
   /** Bumped when reloaded art has finished loading, so panels showing its size and frames update. */
   const [artVersion, setArtVersion] = useState(0);
@@ -400,9 +402,25 @@ export function ShipArt() {
       bossHead,
       bossPiece,
       bossIndex,
+      bossFin,
       bossStraight,
       readOnly: READ_ONLY,
     };
+
+  /** Change one Leviathan fin without an undo step (preview drags save one when they start). */
+  const editFinNoUndo = (i: number, fn: (f: LeviathanFin) => void) => {
+    setData((d) => {
+      if (!d) return d;
+      const next = clone(d);
+      const l = ((next.bosses ??= {}).leviathan ??= {});
+      const list = leviathanLayout(d).fins.map((f) => ({ ...f }));
+      if (!list[i]) return d;
+      fn(list[i]);
+      l.fins = list;
+      return next;
+    });
+    setDirty(true);
+  };
 
   // Start the preview once everything has loaded.
   useEffect(() => {
@@ -484,6 +502,13 @@ export function ShipArt() {
         setBossPiece(p);
         setBossIndex(i);
       },
+      selectFin: (i) => {
+        setBossFin(i);
+        if (i !== null) setBossPiece(null);
+      },
+      // Drags save one undo step at their start (dragStart), not one per mouse move.
+      moveFin: (i, x, y) => editFinNoUndo(i, (f) => Object.assign(f, { x, y })),
+      aimFin: (i, angle, scale) => editFinNoUndo(i, (f) => Object.assign(f, { angle, scale })),
       // Drags save one undo step at their start (dragStart), not one per mouse move.
       moveBossPivot: (p, x, y) => setPivotRef.current(p, x, y, true),
       resizeBossHit: (p, r) => {
@@ -511,7 +536,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossStraight, patch]);
+  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossFin, bossStraight, patch]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -1042,9 +1067,16 @@ export function ShipArt() {
               layout={leviathanLayout(data)}
               selected={bossPiece}
               pickedIndex={bossIndex}
+              selectedFin={bossFin}
+              onSelectFin={(i) => {
+                setBossFin(i);
+                if (i !== null) setBossPiece(null);
+              }}
+              finFiles={files.filter((f) => f.startsWith('bosses/') && /fin[^/]*\.png$/i.test(f))}
               onSelect={(p) => {
                 setBossPiece(p);
                 setBossIndex(null);
+                if (p) setBossFin(null);
               }}
               onChange={(fn) => changeBoss(fn)}
               onPivot={(p, x, y) => setPivot(p, x, y)}

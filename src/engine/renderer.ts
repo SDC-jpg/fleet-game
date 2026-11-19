@@ -352,6 +352,27 @@ export class PixelRenderer {
   }
 
   /**
+   * Draw a vertical slice of a sprite (its columns u0 to u1) at (x, y) turned to `angle`, with the
+   * slice's point (ax, ay) (in the slice's own pixels) there. `flipY` mirrors it top–bottom around
+   * that point. Used for bending images (Leviathan fins: one slice per bone). Always drawn as in Grid.
+   */
+  drawSlice(sprite: Sprite, time: number, u0: number, u1: number, ax: number, ay: number, x: number, y: number, angle: number, scale = 1, flipY = false, alpha = 1) {
+    const f = frameAt(sprite, time);
+    const w = Math.min(f.w, u1) - Math.max(0, u0);
+    if (w <= 0) return;
+    const ctx = this.ctx;
+    const ws = this.worldScale;
+    ctx.globalAlpha = alpha;
+    ctx.setTransform(1, 0, 0, 1, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
+    if (angle !== 0) ctx.rotate(angle);
+    const k = ws * scale;
+    ctx.scale(k, flipY ? -k : k);
+    ctx.drawImage(f.image, f.sx + Math.max(0, u0), f.sy, w, f.h, -ax, -ay, w, f.h);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+
+  /**
    * Fill the whole view with a repeating tile. `parallax` < 1 makes it move
    * slower than the camera, so it feels far away.
    */

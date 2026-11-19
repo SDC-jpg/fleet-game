@@ -546,6 +546,16 @@ export const CONFIG = {
     sideViewTurn: 0.5,
     /** Seconds a turn must last before the head switches view (either way), so gentle wiggles don't flicker. */
     sideViewHold: 0.15,
+    /** Joints in each fin (where it bends); the fin image is cut into one more slice than this. */
+    finJoints: 2,
+    /** How quickly a fin's first joint catches up with its root when the body turns (higher = stiffer). */
+    finStiffness: 9,
+    /** The same at the fin's tip (lower = it trails and flows more). */
+    finTipStiffness: 4,
+    /** How far fins sway by themselves at their tips (degrees), so they look alive when swimming straight. */
+    finSway: 7,
+    /** Sways per second. */
+    finSwaySpeed: 0.6,
     /** Health = this × the wave's enemy fleet value × a tier-1 enemy's health (like elites, which use 8). */
     healthPerFleetValue: 30,
     /** Tier it counts as (XP for destroying it and its damage later). */

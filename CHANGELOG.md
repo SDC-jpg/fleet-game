@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-18
+- The Leviathan (test key B) now has fins that flow and trail behind it as it swims.
 - First look at the Leviathan, a giant space serpent boss whose body curls and follows its head, which turns sideways and opens its jaws as it turns. For now it only appears with the test key B, circles you and lunges, and can be shot anywhere along its body (one health bar at the top of the screen); it doesn't attack yet.
 - Purple (energy) and orange (explosive) enemy squadrons are bigger: when one comes, half of the wave is that kind (was a third).
 - Ships are now hit by their actual shape instead of a round area: shots, missiles and beams that pass between a ship's wings miss. Small ships (both yours and the enemy's) are noticeably harder to hit.

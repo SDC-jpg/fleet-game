@@ -7,10 +7,10 @@ import { SHIP_TYPES, CONFIG } from './config';
 import { BEAM_SHOW_TIME, laserLength } from './skills';
 import type { Particles } from './particles';
 import { ownedSkill, pdcPositions } from './newSkills';
-import { fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile } from './artLayout';
+import { DEFAULT_FIN_IMAGE, fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile } from './artLayout';
 import { gunsOf, shipArtBase } from './guns';
 import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
-import { PIECE_SPRITES, SIDE_HEAD_SPRITE, type LeviathanBody, type PieceKind } from './leviathan';
+import { PIECE_SPRITES, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
 
 /**
  * The art name for a tier: "<base>.t3<suffix>" for tier 3, falling back to
@@ -512,11 +512,59 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
  * The side-view head shows while it turns (mirrored for the other direction).
  */
 export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanBody, x: number, y: number, angle: number, time: number) {
+  // Fins by piece: drawn just under or over their piece, so they keep its place in the layering.
+  const fins = new Map<LeviathanPiece, number[]>();
+  body.layout.fins.forEach((fin, i) => {
+    const p = finPiece(body, fin);
+    fins.set(p, [...(fins.get(p) ?? []), i]);
+  });
   for (const p of body.pieces) {
+    const own = fins.get(p) ?? [];
+    for (const i of own) if (!body.layout.fins[i].front) drawFin(r, assets, body, i, time);
     const { sprite, mirror } = leviathanPieceArt(assets, body, p.kind);
     if (p.kind === 'head') r.drawAttached(sprite, x, y, angle, 0, 0, Math.PI / 2, time, 1, p.scale, mirror);
     else r.drawAttached(sprite, p.x, p.y, p.angle, 0, 0, Math.PI / 2, time, 1, p.scale);
+    for (const i of own) if (body.layout.fins[i].front) drawFin(r, assets, body, i, time);
   }
+}
+
+/**
+ * A fin's shape now: its image, root point (in the image), size, and its bones (each one's start
+ * in the world, the way it points, and which columns of the image it carries). null = no image.
+ */
+export function finGeometry(assets: Assets, body: LeviathanBody, i: number) {
+  const fin = body.layout.fins[i];
+  const file = fin.image ?? DEFAULT_FIN_IMAGE;
+  const name = fileSprite(file);
+  if (!assets.has(name)) return null;
+  const sprite = assets.get(name);
+  const { w, h } = sprite.frames[0];
+  const root = body.layout.finImages[file] ?? { x: 0, y: h / 2 };
+  const at = finRoot(body, fin);
+  const angles = body.fins[i]?.angles ?? [at.angle];
+  const n = angles.length;
+  // The image from its root to its right edge is shared out between the bones.
+  const step = Math.max(1, w - root.x) / n;
+  const bones: { x: number; y: number; angle: number; u0: number; u1: number; start: number }[] = [];
+  let x = at.x;
+  let y = at.y;
+  for (let k = 0; k < n; k++) {
+    const start = root.x + k * step;
+    // The first bone also carries anything left of the root; each later one starts a pixel early, so no seam shows.
+    const u0 = k === 0 ? 0 : Math.floor(start) - 1;
+    const u1 = k === n - 1 ? w : Math.ceil(root.x + (k + 1) * step);
+    bones.push({ x, y, angle: angles[k], u0, u1, start });
+    x += Math.cos(angles[k]) * step * at.scale;
+    y += Math.sin(angles[k]) * step * at.scale;
+  }
+  return { sprite, root, scale: at.scale, flip: fin.flip, bones, tip: { x, y }, rest: at, length: (w - root.x) * at.scale };
+}
+
+/** A fin, bending at its joints: one slice of its image per bone. */
+function drawFin(r: PixelRenderer, assets: Assets, body: LeviathanBody, i: number, time: number) {
+  const g = finGeometry(assets, body, i);
+  if (!g) return;
+  for (const b of g.bones) r.drawSlice(g.sprite, time, b.u0, b.u1, b.start - b.u0, g.root.y, b.x, b.y, b.angle, g.scale, g.flip);
 }
 
 /** The image a Leviathan piece shows now (the head: top or side view), and whether it's mirrored. */

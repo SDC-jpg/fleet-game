@@ -8,7 +8,7 @@
 
 import { clamp, turnToward, wrapAngle } from '../engine/math';
 import { CONFIG } from './config';
-import type { ArtLayoutsFile, HitCircle, LeviathanBulge, LeviathanLayout, LeviathanPieceKind } from './artLayout';
+import { DEFAULT_FIN_IMAGE, type ArtLayoutsFile, type HitCircle, type LeviathanBulge, type LeviathanFin, type LeviathanLayout, type LeviathanPieceKind } from './artLayout';
 import type { GameState, Ship } from './world';
 import { findNearestEnemy } from './world';
 
@@ -44,7 +44,23 @@ export interface LeviathanBody {
   lunging: number;
   /** Which way it circles its target (1 or −1). */
   circleDir: number;
+  /** Each fin's joints (same order as layout.fins). */
+  fins: FinState[];
+  /** Seconds since it appeared (for the fins' sway). */
+  time: number;
 }
+
+/** A fin's bones: where each one points now (world radians, root first; null = not placed yet), and its own sway timing. */
+export interface FinState {
+  angles: number[] | null;
+  phase: number;
+}
+
+/** A pair of fins, one on each side (the left one mirrored). */
+const finPair = (piece: number, x: number, y: number, angle: number, scale: number): LeviathanFin[] => [
+  { piece, x, y, angle, scale, flip: false, front: false },
+  { piece, x, y: -y, angle: -angle, scale, flip: true, front: false },
+];
 
 /** The art for each piece (manifest names; each image's anchor is the piece's pivot). */
 export const PIECE_SPRITES: Record<PieceKind, string> = {
@@ -65,6 +81,9 @@ export const LEVIATHAN_DEFAULTS: LeviathanLayout = {
   sideViewForRightTurns: true,
   hitRadius: { head: 34, segment: 32, antepenultimate: 30, penultimate: 26, tail: 22 },
   bulges: [],
+  // Until fins are placed in ShipArt, defaultFins puts a first pass on the body (see leviathanLayout).
+  fins: [],
+  finImages: { [DEFAULT_FIN_IMAGE]: { x: 11, y: 15 } },
 };
 
 /**
@@ -96,10 +115,36 @@ export function bulgeScales(bulges: LeviathanBulge[], count: number): number[] {
   return scales.map((s) => Math.max(0.05, s));
 }
 
+/**
+ * A first pass of fins (after the user's mockup), for a body with this many segments: swept-back
+ * pairs a little behind the head, and a spray on the last three pieces. Sizes are small since a
+ * fin also grows with its piece's bulge. Used until fins are placed in ShipArt.
+ */
+export function defaultFins(segments: number): LeviathanFin[] {
+  const n = Math.max(0, Math.round(segments));
+  const tail = n + 3;
+  const front = (share: number) => Math.max(1, Math.min(n, Math.round(n * share)));
+  return [
+    ...finPair(front(0.12), -4, 28, 145, 0.8),
+    ...finPair(front(0.24), 0, 28, 150, 0.85),
+    ...finPair(front(0.36), 0, 26, 155, 0.75),
+    ...finPair(tail - 2, 0, 24, 150, 0.7),
+    ...finPair(tail - 1, 0, 22, 158, 0.85),
+    ...finPair(tail, -24, 14, 168, 0.9),
+  ];
+}
+
 /** The layout in this art.json data, with the defaults filled in. */
 export function leviathanLayout(data: ArtLayoutsFile | null | undefined): LeviathanLayout {
   const own = data?.bosses?.leviathan ?? {};
-  return { ...LEVIATHAN_DEFAULTS, ...own, hitRadius: { ...LEVIATHAN_DEFAULTS.hitRadius, ...own.hitRadius }, bulges: own.bulges ?? [] };
+  return {
+    ...LEVIATHAN_DEFAULTS,
+    ...own,
+    hitRadius: { ...LEVIATHAN_DEFAULTS.hitRadius, ...own.hitRadius },
+    bulges: own.bulges ?? [],
+    fins: own.fins ?? defaultFins(own.segments ?? LEVIATHAN_DEFAULTS.segments),
+    finImages: { ...LEVIATHAN_DEFAULTS.finImages, ...own.finImages },
+  };
 }
 
 /** The layout the game uses (Game.ts sets it once art.json is loaded). */
@@ -134,6 +179,8 @@ export function makeLeviathanBody(x: number, y: number, angle: number, L = gameL
     lungeIn: CONFIG.leviathan.lungeEvery,
     lunging: 0,
     circleDir: Math.random() < 0.5 ? 1 : -1,
+    fins: L.fins.map(newFinState),
+    time: 0,
   };
   placePieces(body, x, y, angle);
   return body;
@@ -143,7 +190,50 @@ export function makeLeviathanBody(x: number, y: number, angle: number, L = gameL
 export function relayLeviathan(body: LeviathanBody, L: LeviathanLayout, x: number, y: number, angle: number) {
   body.layout = L;
   body.pieces = makePieces(L);
+  // Fins keep their joints (so they don't snap) where there's still a fin.
+  body.fins = L.fins.map((_, i) => body.fins[i] ?? newFinState());
   placePieces(body, x, y, angle);
+}
+
+const newFinState = (): FinState => ({ angles: null, phase: Math.random() * Math.PI * 2 });
+
+/** The piece a fin is on (its number kept within the body). */
+export const finPiece = (body: LeviathanBody, fin: LeviathanFin) => body.pieces[clamp(Math.round(fin.piece), 0, body.pieces.length - 1)];
+
+/** Where a fin's root is in the world, and the way it points at rest (world radians). */
+export function finRoot(body: LeviathanBody, fin: LeviathanFin) {
+  const p = finPiece(body, fin);
+  const c = Math.cos(p.angle);
+  const s = Math.sin(p.angle);
+  const x = fin.x * p.scale;
+  const y = fin.y * p.scale;
+  return { x: p.x + x * c - y * s, y: p.y + x * s + y * c, angle: p.angle + (fin.angle * Math.PI) / 180, scale: fin.scale * p.scale };
+}
+
+/**
+ * Move the fins' joints: the root bone is fixed to its piece; each next bone turns toward the one
+ * before it, more slowly toward the tip, so the fin trails behind the body's turns, with a gentle
+ * sway that grows toward the tip.
+ */
+export function updateFins(body: LeviathanBody, dt: number) {
+  const C = CONFIG.leviathan;
+  body.time += dt;
+  const n = Math.max(1, Math.round(C.finJoints) + 1);
+  body.layout.fins.forEach((fin, i) => {
+    const st = body.fins[i];
+    if (!st) return;
+    const base = finRoot(body, fin).angle;
+    if (!st.angles || st.angles.length !== n) st.angles = Array<number>(n).fill(base);
+    const a = st.angles;
+    a[0] = base;
+    for (let k = 1; k < n; k++) {
+      const along = k / (n - 1);
+      const sway = ((C.finSway * Math.PI) / 180) * along * Math.sin(body.time * Math.PI * 2 * C.finSwaySpeed + st.phase - k * 0.9);
+      const target = a[k - 1] + sway;
+      const stiffness = C.finStiffness + (C.finTipStiffness - C.finStiffness) * along;
+      a[k] += wrapAngle(target - a[k]) * (1 - Math.exp(-dt * stiffness));
+    }
+  });
 }
 
 /**

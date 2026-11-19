@@ -316,6 +316,10 @@ eight (or **Lay straight** holds it still); pick a piece to drag its image aroun
 repeating segments, the gaps between pieces (saved in `art.json`) and which way the side
 head is drawn. **Bulges** make one piece bigger or smaller, fading over its neighbours
 (falloff) along a curve.
+**Fins** (`fin.png`, or any image in `bosses/` with "fin" in its name, any size, pointing
+right from its root) sit on a piece, in front of or behind it, and bend as the creature swims;
+add, move, turn, size, mirror and swap them in the Fins section, and click the fin image there
+to set where it attaches.
 
 ## Tiers (bigger ships)
 

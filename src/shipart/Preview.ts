@@ -10,7 +10,7 @@ import type { Assets } from '../engine/assets';
 import { PixelRenderer, type RotationMode } from '../engine/renderer';
 import { CONFIG, SHIP_TYPES } from '../game/config';
 import { Particles } from '../game/particles';
-import { drawBeam, drawLayoutArt, setDetailSteps, tierSprite } from '../game/render';
+import { drawBeam, drawLayoutArt, finGeometry, setDetailSteps, tierSprite } from '../game/render';
 import { fileSprite, shipPointToWorld, worldToShipPoint, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
 import { tierOf, type ArtKind } from '../game/artKinds';
 import { layoutGunsOrDefault } from '../game/guns';
@@ -53,13 +53,15 @@ export interface PreviewSettings {
   bossPiece: BossPiece | null;
   /** Which one of the body's pieces was picked (counted from the head; for bulges), or null. */
   bossIndex: number | null;
+  /** The picked fin (its number in the layout's list), or null. */
+  bossFin: number | null;
   bossStraight: number;
   readOnly: boolean;
 }
 
 /** What the mouse is dragging. */
 type Drag = {
-  kind: 'mount' | 'vfx' | 'point' | 'gun' | 'hit' | 'hitSize' | 'bossPivot' | 'bossHit';
+  kind: 'mount' | 'vfx' | 'point' | 'gun' | 'hit' | 'hitSize' | 'bossPivot' | 'bossHit' | 'finMove' | 'finTip';
   index: number;
   point?: string;
   grabX: number;
@@ -96,6 +98,10 @@ export interface PreviewEvents {
   selectBossPiece: (p: BossPiece | null, index: number | null) => void;
   moveBossPivot: (p: BossPiece, x: number, y: number) => void;
   resizeBossHit: (p: BossPiece, r: number) => void;
+  /** A fin was clicked (null = none), or dragged: moved to (x, y) on its piece, or turned / sized from its tip. */
+  selectFin: (i: number | null) => void;
+  moveFin: (i: number, x: number, y: number) => void;
+  aimFin: (i: number, angle: number, scale: number) => void;
 }
 
 /** Missile Sequence preview timing (seconds): fire up, reach top speed, burst, start over. */
@@ -300,7 +306,8 @@ export class Preview {
   private frameBoss(dt: number) {
     const st = this.settings;
     const r = this.renderer;
-    if (!this.drag) this.boss.update(dt, { data: st.data, fly: st.fly, head: st.bossHead, piece: st.bossPiece, straight: st.bossStraight });
+    // While a handle is dragged it holds still (but still shows the edit).
+    this.boss.update(dt, { data: st.data, fly: st.fly && !this.drag, head: st.bossHead, piece: st.bossPiece, straight: st.bossStraight });
     r.camX = r.camY = 0;
     r.setZoom(st.zoom, true);
     r.detailStep = CONFIG.tiers.sizePerTier;
@@ -390,7 +397,7 @@ export class Preview {
     if (!st.guides) return;
     if (st.boss) {
       const scale = this.renderer.worldToScreen(1, 0).x - this.renderer.worldToScreen(0, 0).x;
-      this.boss.drawGuides(ctx, this.assets, (x, y) => this.renderer.worldToScreen(x, y), scale, st.bossPiece, st.bossIndex);
+      this.boss.drawGuides(ctx, this.assets, (x, y) => this.renderer.worldToScreen(x, y), scale, st.bossPiece, st.bossIndex, st.bossFin);
       return;
     }
     const layout = st.effect ? undefined : this.layout;
@@ -625,6 +632,21 @@ export class Preview {
     if (!st.guides) return this.events.selectBossPiece(null, null);
     const scale = this.renderer.worldToScreen(1, 0).x - this.renderer.worldToScreen(0, 0).x;
     const near = 6 / Math.max(scale, 0.01);
+    // Fins first: the picked fin's tip and root handles, then any fin's joints.
+    if (st.bossFin !== null) {
+      const h = this.boss.finHandles(this.assets, st.bossFin);
+      if (h && Math.hypot(w.x - h.tip.x, w.y - h.tip.y) <= near) {
+        if (!st.readOnly) this.startDrag({ kind: 'finTip', index: st.bossFin, grabX: 0, grabY: 0 });
+        return;
+      }
+    }
+    const fin = this.boss.finAt(this.assets, w.x, w.y, near, st.bossFin);
+    if (fin !== null) {
+      this.events.selectFin(fin);
+      const h = this.boss.finHandles(this.assets, fin)!;
+      if (!st.readOnly) this.startDrag({ kind: 'finMove', index: fin, grabX: w.x - h.root.x, grabY: w.y - h.root.y });
+      return;
+    }
     const shown = this.boss.shownPiece(st.bossPiece, st.bossIndex);
     if (shown && st.bossPiece) {
       const h = this.boss.hitEdge(shown);
@@ -634,6 +656,7 @@ export class Preview {
       }
     }
     const p = this.boss.pieceAt(this.assets, w.x, w.y);
+    this.events.selectFin(null);
     if (!p) return this.events.selectBossPiece(null, null);
     const id = this.boss.pieceId(p);
     this.events.selectBossPiece(id, this.boss.body.pieces.indexOf(p));
@@ -655,6 +678,25 @@ export class Preview {
     this.events.hover(inside ? { x: Math.round(p.x), y: Math.round(p.y) } : null);
     if (!this.drag) return;
     const d = this.drag;
+    if (d.kind === 'finMove' || d.kind === 'finTip') {
+      const w = this.worldPoint(e);
+      if (d.kind === 'finMove') {
+        const at = this.boss.toPieceFrame(d.index, w.x - d.grabX, w.y - d.grabY);
+        this.events.moveFin(d.index, Math.round(at.x), Math.round(at.y));
+      } else {
+        const g = finGeometry(this.assets, this.boss.body, d.index);
+        if (!g) return;
+        const at = this.boss.toPieceFrame(d.index, w.x, w.y);
+        const root = this.boss.finHandles(this.assets, d.index)!.root;
+        // The way from its root to the mouse, in the piece's frame (0 = forward); its size from how far.
+        let angle = Math.round(((Math.atan2(w.y - root.y, w.x - root.x) - at.angle) * 180) / Math.PI);
+        angle = ((((angle + 180) % 360) + 360) % 360) - 180;
+        const full = (g.length / g.scale) * at.scale;
+        const scale = Math.max(0.1, Math.round((Math.hypot(w.x - root.x, w.y - root.y) / full) * 20) / 20);
+        this.events.aimFin(d.index, angle, scale);
+      }
+      return;
+    }
     if (d.kind === 'bossPivot' || d.kind === 'bossHit') {
       const w = this.worldPoint(e);
       const piece = this.boss.body.pieces[d.index];

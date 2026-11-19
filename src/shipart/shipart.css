@@ -357,3 +357,13 @@
   stroke: #c58bff;
   stroke-width: 1.5;
 }
+
+/* A fin image with its attachment point (Leviathan → Fins); click to move the point. */
+.sa-fin-root {
+  display: block;
+  max-width: 100%;
+  margin: 4px 0;
+  cursor: crosshair;
+  image-rendering: pixelated;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}

@@ -8,8 +8,8 @@ import type { Assets } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { CONFIG } from '../game/config';
 import type { ArtLayoutsFile, LeviathanLayout } from '../game/artLayout';
-import { followHead, leviathanLayout, makeLeviathanBody, relayLeviathan, swimLeviathan, type LeviathanBody, type LeviathanPiece } from '../game/leviathan';
-import { drawLeviathan, leviathanPieceArt } from '../game/render';
+import { finPiece, followHead, leviathanLayout, makeLeviathanBody, relayLeviathan, swimLeviathan, updateFins, type LeviathanBody, type LeviathanPiece } from '../game/leviathan';
+import { drawLeviathan, finGeometry, leviathanPieceArt } from '../game/render';
 import { bossPieceKind, type BossPiece } from './LeviathanPanel';
 
 /** Which head the preview shows: as the turns pick it, or held on one view. */
@@ -22,6 +22,14 @@ export interface BossSettings {
   piece: BossPiece | null;
   /** Bumped by "Lay straight". */
   straight: number;
+}
+
+/** Distance from (x, y) to the line from a to b. */
+function distToSegment(x: number, y: number, a: { x: number; y: number }, b: { x: number; y: number }) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(x - a.x - t * dx, y - a.y - t * dy);
 }
 
 /** Half the width of the figure eight it swims (pixels). */
@@ -95,6 +103,38 @@ export class LeviathanPreview {
       followHead(this.body, this.x, this.y, this.angle);
     }
     if (s.head !== 'auto') this.body.view = s.head === 'top' ? 0 : s.head === 'right' ? 1 : -1;
+    // Fins move even while it holds still (they settle, and show edits at once).
+    updateFins(this.body, dt);
+  }
+
+  /** The fin whose joints pass within `near` of this world point, or null (the picked one first). */
+  finAt(assets: Assets, x: number, y: number, near: number, picked: number | null): number | null {
+    const order = this.body.layout.fins.map((_, i) => i).reverse();
+    if (picked !== null) order.unshift(picked);
+    for (const i of order) {
+      const g = finGeometry(assets, this.body, i);
+      if (!g) continue;
+      const pts = [...g.bones.map((b) => ({ x: b.x, y: b.y })), g.tip];
+      for (let k = 0; k + 1 < pts.length; k++) if (distToSegment(x, y, pts[k], pts[k + 1]) <= near) return i;
+    }
+    return null;
+  }
+
+  /** A fin's handles: its root (drag to move it) and its tip at rest (drag to turn and size it). */
+  finHandles(assets: Assets, i: number) {
+    const g = finGeometry(assets, this.body, i);
+    if (!g) return null;
+    return { root: { x: g.rest.x, y: g.rest.y }, tip: { x: g.rest.x + Math.cos(g.rest.angle) * g.length, y: g.rest.y + Math.sin(g.rest.angle) * g.length } };
+  }
+
+  /** A world point in a fin's piece's own frame (x forward, y to its right; before its bulge). */
+  toPieceFrame(i: number, x: number, y: number) {
+    const p = finPiece(this.body, this.body.layout.fins[i]);
+    const dx = x - p.x;
+    const dy = y - p.y;
+    const c = Math.cos(p.angle);
+    const s = Math.sin(p.angle);
+    return { x: (dx * c + dy * s) / p.scale, y: (-dx * s + dy * c) / p.scale, angle: p.angle, scale: p.scale };
   }
 
   /** Head to tail along the path. */
@@ -186,7 +226,52 @@ export class LeviathanPreview {
     return { x: x + Math.cos(angle + Math.PI / 2) * r, y: y + Math.sin(angle + Math.PI / 2) * r };
   }
 
-  drawGuides(ctx: CanvasRenderingContext2D, assets: Assets, toScreen: (x: number, y: number) => { x: number; y: number }, scale: number, piece: BossPiece | null, index: number | null) {
+  /** Each fin's joints as a green chain (like the mockup); the picked one gold, with its root and tip handles. */
+  private drawFinGuides(ctx: CanvasRenderingContext2D, assets: Assets, toScreen: (x: number, y: number) => { x: number; y: number }, picked: number | null) {
+    this.body.layout.fins.forEach((_, i) => {
+      const g = finGeometry(assets, this.body, i);
+      if (!g) return;
+      const on = i === picked;
+      const pts = [...g.bones.map((b) => toScreen(b.x, b.y)), toScreen(g.tip.x, g.tip.y)];
+      ctx.strokeStyle = on ? '#ffd34a' : 'rgba(95,224,138,0.7)';
+      ctx.lineWidth = on ? 2 : 1;
+      ctx.beginPath();
+      pts.forEach((q, k) => (k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+      ctx.stroke();
+      pts.slice(0, -1).forEach((q, k) => {
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, k === 0 ? 4 : 3, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+      if (!on) return;
+      const h = this.finHandles(assets, i)!;
+      const t = toScreen(h.tip.x, h.tip.y);
+      const r0 = toScreen(h.root.x, h.root.y);
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(r0.x, r0.y);
+      ctx.lineTo(t.x, t.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ffd34a';
+      ctx.fillRect(t.x - 3, t.y - 3, 6, 6);
+      ctx.beginPath();
+      ctx.arc(r0.x, r0.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  drawGuides(
+    ctx: CanvasRenderingContext2D,
+    assets: Assets,
+    toScreen: (x: number, y: number) => { x: number; y: number },
+    scale: number,
+    piece: BossPiece | null,
+    index: number | null,
+    fin: number | null,
+  ) {
+    this.drawFinGuides(ctx, assets, toScreen, fin);
     const R = this.body.layout.hitRadius;
     // Only one of the repeating segments is outlined (they all share the picked image): the one clicked.
     const first = this.shownPiece(piece, index);

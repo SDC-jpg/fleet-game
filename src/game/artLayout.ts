@@ -169,6 +169,35 @@ export interface LeviathanLayout {
   hitRadius: Record<LeviathanPieceKind, number>;
   /** Pieces drawn bigger or smaller (and their hit circles), fading out over their neighbours. */
   bulges: LeviathanBulge[];
+  /** Fins on the body's pieces (just for looks: no collision). */
+  fins: LeviathanFin[];
+  /** Where each fin image attaches (its root, in the image's pixels from the top left), by file. Missing = the middle of its left edge. */
+  finImages: Record<string, { x: number; y: number }>;
+}
+
+/** The fin image used when a fin doesn't name one. */
+export const DEFAULT_FIN_IMAGE = 'bosses/leviathan/fin.png';
+
+/**
+ * A fin on a Leviathan's piece. Its image points right (from its root toward its tip) and bends at
+ * its joints, trailing behind the body's movement (CONFIG.leviathan fin settings).
+ */
+export interface LeviathanFin {
+  /** Which piece it's on: 0 = the head, 1 = the first segment... (counted from the head). */
+  piece: number;
+  /** Where its root sits on the piece: x forward, y toward the creature's right side (pixels from the piece's pivot). */
+  x: number;
+  y: number;
+  /** Which way it points, in degrees: 0 = forward, 90 = out to the right, 180 = backward, −90 = out to the left. */
+  angle: number;
+  /** Its size: 1 = the image's own size. */
+  scale: number;
+  /** Mirrored across its length (its top and bottom edges swap). */
+  flip: boolean;
+  /** Drawn over its piece (otherwise under it). Either way it keeps its piece's place in the layering. */
+  front: boolean;
+  /** Its image (a file in the art folder); none = DEFAULT_FIN_IMAGE. */
+  image?: string;
 }
 
 /** A bulge on one piece of a Leviathan's body. */
@@ -245,6 +274,9 @@ export function layoutFiles(data: ArtLayoutsFile): string[] {
     for (const m of layout.mounts) for (const f of Object.values(m.images)) if (f) files.add(f);
     for (const g of layout.guns ?? []) if (g.image) files.add(g.image);
   }
+  // The Leviathan's fin images.
+  files.add(DEFAULT_FIN_IMAGE);
+  for (const f of data.bosses?.leviathan?.fins ?? []) if (f.image) files.add(f.image);
   return [...files];
 }
 

@@ -14,7 +14,7 @@ import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 import type { SkillObj } from './moreSkills';
-import { currentLeviathanLayout, followHead, makeLeviathanBody, updateLeviathanAI, type LeviathanBody } from './leviathan';
+import { currentLeviathanLayout, followHead, makeLeviathanBody, updateFins, updateLeviathanAI, type LeviathanBody } from './leviathan';
 
 export type Team = 'player' | 'enemy';
 export type Thrust = 'idle' | 'move' | 'boost';
@@ -984,7 +984,11 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
     for (let i = 0; i < s.gunTimers.length; i++) s.gunTimers[i] -= dtOf(s);
   }
   // A Leviathan's body follows where its head went.
-  for (const s of state.ships) if (s.leviathan) followHead(s.leviathan, s.x, s.y, s.angle);
+  for (const s of state.ships)
+    if (s.leviathan) {
+      followHead(s.leviathan, s.x, s.y, s.angle);
+      updateFins(s.leviathan, dtOf(s));
+    }
 
   updateEnergyBeams(state, dt, edt);
   updateBullets(state, dt, edt);
