@@ -35,10 +35,12 @@ export interface LeviathanBody {
   trail: number[];
   /** How fast it's turning (radians per second, smoothed; + = clockwise on screen = right turn). */
   turning: number;
-  /** Which head shows: 0 = top view, 1 = side view turning right, −1 = turning left. */
-  view: -1 | 0 | 1;
+  /** Which head shows: 0 = top view, 1 = half-side view turning right, 2 = side view turning right; negative = turning left. */
+  view: HeadView;
   /** Seconds the turn has been pointing toward a different view (see sideViewHold). */
   viewTimer: number;
+  /** The head is partway through a change of view (top → half-side → side), so the next step comes sooner (viewStepTime). */
+  viewStepping: boolean;
   /** Seconds until the next lunge, and seconds left of the current one. */
   lungeIn: number;
   lunging: number;
@@ -71,6 +73,10 @@ export const PIECE_SPRITES: Record<PieceKind, string> = {
   tail: 'boss.leviathan.tail',
 };
 export const SIDE_HEAD_SPRITE = 'boss.leviathan.head-side';
+/** The head halfway between the top and side views (gentle turns, and on the way to the side view). */
+export const HALF_SIDE_HEAD_SPRITE = 'boss.leviathan.head-halfside';
+
+export type HeadView = -2 | -1 | 0 | 1 | 2;
 
 /** Used for anything art.json doesn't set. */
 export const LEVIATHAN_DEFAULTS: LeviathanLayout = {
@@ -178,6 +184,7 @@ export function makeLeviathanBody(x: number, y: number, angle: number, L = gameL
     turning: 0,
     view: 0,
     viewTimer: 0,
+    viewStepping: false,
     lungeIn: CONFIG.leviathan.lungeEvery,
     lunging: 0,
     circleDir: Math.random() < 0.5 ? 1 : -1,
@@ -252,11 +259,18 @@ export function swimLeviathan(body: LeviathanBody, head: { angle: number; vx: nu
   head.vy = Math.sin(head.angle) * v;
   const rate = dt > 0 ? wrapAngle(head.angle - before) / dt : 0;
   body.turning += (rate - body.turning) * Math.min(1, dt * 12);
-  const wantView = Math.abs(body.turning) > C.sideViewTurn ? (body.turning > 0 ? 1 : -1) : 0;
-  if (wantView === body.view) body.viewTimer = 0;
-  else if ((body.viewTimer += dt) >= C.sideViewHold) {
-    body.view = wantView;
+  // Gentle turns show the half-side head, sharp ones the side head. The head moves one view at a
+  // time (top → half-side → side, and back), so a sharp turn passes through the half-side view.
+  const fast = Math.abs(body.turning);
+  const level = fast > C.sideViewTurn ? 2 : fast > C.halfSideViewTurn ? 1 : 0;
+  const wantView = (level * Math.sign(body.turning)) as HeadView;
+  if (wantView === body.view) {
     body.viewTimer = 0;
+    body.viewStepping = false;
+  } else if ((body.viewTimer += dt) >= (body.viewStepping ? C.viewStepTime : C.sideViewHold)) {
+    body.view = (body.view + Math.sign(wantView - body.view)) as HeadView;
+    body.viewTimer = 0;
+    body.viewStepping = body.view !== wantView;
   }
 }
 

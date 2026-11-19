@@ -40,7 +40,7 @@ import { HitShapePanel } from './HitShapePanel';
 import { fitShip, shipArtFingerprint } from './hitArt';
 import { screenEffect } from '../game/screenEffect';
 import { leviathanLayout } from '../game/leviathan';
-import { LeviathanPanel, bossPieceSprite, type BossPiece } from './LeviathanPanel';
+import { LeviathanPanel, bossPieceKind, bossPieceSprite, type BossPiece } from './LeviathanPanel';
 import type { BossHead } from './bossPreview';
 
 /** Editing and saving only work with the dev server (npm run dev). */
@@ -512,7 +512,7 @@ export function ShipArt() {
       // Drags save one undo step at their start (dragStart), not one per mouse move.
       moveBossPivot: (p, x, y) => setPivotRef.current(p, x, y, true),
       resizeBossHit: (p, r) => {
-        const kind = p === 'head-side' ? 'head' : p;
+        const kind = bossPieceKind(p);
         setData((d) => {
           if (!d) return d;
           const next = clone(d);
@@ -765,6 +765,8 @@ export function ShipArt() {
                 [
                   ['auto', 'Auto', 'As the turns pick it'],
                   ['top', 'Top', 'Always the top view'],
+                  ['half-right', 'Half →', 'Always the half-side view, as for a gentle right turn'],
+                  ['half-left', 'Half ←', 'Always the half-side view, as for a gentle left turn'],
                   ['right', 'Side →', 'Always the side view, as for a right turn'],
                   ['left', 'Side ←', 'Always the side view, as for a left turn'],
                 ] as [BossHead, string, string][]

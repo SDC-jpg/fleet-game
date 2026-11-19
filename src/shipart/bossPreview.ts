@@ -13,7 +13,8 @@ import { drawLeviathan, finGeometry, leviathanPieceArt } from '../game/render';
 import { bossPieceKind, type BossPiece } from './LeviathanPanel';
 
 /** Which head the preview shows: as the turns pick it, or held on one view. */
-export type BossHead = 'auto' | 'top' | 'right' | 'left';
+export type BossHead = 'auto' | 'top' | 'half-right' | 'half-left' | 'right' | 'left';
+const HELD_VIEW: Record<Exclude<BossHead, 'auto'>, LeviathanBody['view']> = { top: 0, 'half-right': 1, 'half-left': -1, right: 2, left: -2 };
 
 export interface BossSettings {
   data: ArtLayoutsFile;
@@ -102,7 +103,7 @@ export class LeviathanPreview {
       swimLeviathan(this.body, this, want, speed, Math.PI * 4, dt);
       followHead(this.body, this.x, this.y, this.angle);
     }
-    if (s.head !== 'auto') this.body.view = s.head === 'top' ? 0 : s.head === 'right' ? 1 : -1;
+    if (s.head !== 'auto') this.body.view = HELD_VIEW[s.head];
     // Fins move even while it holds still (they settle, and show edits at once).
     updateFins(this.body, dt);
   }
@@ -153,7 +154,8 @@ export class LeviathanPreview {
 
   /** Which piece a pick in the panel means for this body piece (the head: the view showing). */
   pieceId(p: LeviathanPiece): BossPiece {
-    return p.kind === 'head' && this.body.view !== 0 ? 'head-side' : p.kind;
+    if (p.kind !== 'head' || this.body.view === 0) return p.kind;
+    return Math.abs(this.body.view) === 1 ? 'head-halfside' : 'head-side';
   }
 
   /** An image pixel (u, v) of a piece, in the world. */

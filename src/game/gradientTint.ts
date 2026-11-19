@@ -3,54 +3,51 @@
 // place along the gradient), so drawing costs nothing extra. The gradient runs down the image
 // (art faces up: its top row is the front), and `rowT` says where each row falls along the body.
 
-import type { Frame, Sprite } from "../engine/assets";
-import type { BlendMode, BossGradient, GradientStop } from "./artLayout";
+import type { Frame, Sprite } from '../engine/assets';
+import type { BlendMode, BossGradient, GradientStop } from './artLayout';
 
 /** The blend modes offered, in menu order, with their names as in Photoshop. */
 export const BLEND_MODES: { id: BlendMode; label: string }[] = [
-  { id: "multiply", label: "Multiply" },
-  { id: "screen", label: "Screen" },
-  { id: "color-dodge", label: "Color Dodge" },
-  { id: "linear-dodge", label: "Linear Dodge (Add)" },
-  { id: "soft-light", label: "Soft Light" },
-  { id: "hard-light", label: "Hard Light" },
-  { id: "hue", label: "Hue" },
-  { id: "color", label: "Color" },
+  { id: 'multiply', label: 'Multiply' },
+  { id: 'screen', label: 'Screen' },
+  { id: 'color-dodge', label: 'Color Dodge' },
+  { id: 'linear-dodge', label: 'Linear Dodge (Add)' },
+  { id: 'soft-light', label: 'Soft Light' },
+  { id: 'hard-light', label: 'Hard Light' },
+  { id: 'hue', label: 'Hue' },
+  { id: 'color', label: 'Color' },
 ];
 
 /** A new gradient: white at the head to black at the tail. */
 export const newGradient = (): BossGradient => ({
-  mode: "multiply",
+  mode: 'multiply',
   opacity: 1,
   start: 0,
   end: 1,
   stops: [
-    { at: 0, color: "#ffffff", opacity: 1 },
-    { at: 1, color: "#000000", opacity: 1 },
+    { at: 0, color: '#ffffff', opacity: 1 },
+    { at: 1, color: '#000000', opacity: 1 },
   ],
 });
 
 type RGB = [number, number, number];
 
 export function hexToRgb(hex: string): RGB {
-  const n = parseInt(hex.replace("#", "").padEnd(6, "0").slice(0, 6), 16) || 0;
+  const n = parseInt(hex.replace('#', '').padEnd(6, '0').slice(0, 6), 16) || 0;
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 export const rgbToHex = ([r, g, b]: RGB) =>
-  "#" +
+  '#' +
   [r, g, b]
     .map((v) =>
       Math.round(Math.max(0, Math.min(1, v)) * 255)
         .toString(16)
-        .padStart(2, "0"),
+        .padStart(2, '0'),
     )
-    .join("");
+    .join('');
 
 /** The gradient's colour and strength at `t` (0 = its first stop's end... in its own 0–1), between the two stops around it. */
-export function sampleStops(
-  stops: GradientStop[],
-  t: number,
-): { rgb: RGB; opacity: number } {
+export function sampleStops(stops: GradientStop[], t: number): { rgb: RGB; opacity: number } {
   const s = [...stops].sort((a, b) => a.at - b.at);
   if (s.length === 0) return { rgb: [1, 1, 1], opacity: 0 };
   if (t <= s[0].at) return { rgb: hexToRgb(s[0].color), opacity: s[0].opacity };
@@ -95,37 +92,28 @@ function setSat(c: RGB, s: number): RGB {
   return c.map((v) => ((v - n) * s) / (x - n)) as RGB;
 }
 const softLight = (b: number, s: number) =>
-  s <= 0.5
-    ? b - (1 - 2 * s) * b * (1 - b)
-    : b +
-      (2 * s - 1) *
-        ((b <= 0.25 ? ((16 * b - 12) * b + 4) * b : Math.sqrt(b)) - b);
+  s <= 0.5 ? b - (1 - 2 * s) * b * (1 - b) : b + (2 * s - 1) * ((b <= 0.25 ? ((16 * b - 12) * b + 4) * b : Math.sqrt(b)) - b);
 const multiply = (b: number, s: number) => b * s;
 const screen = (b: number, s: number) => b + s - b * s;
 
 export function blend(mode: BlendMode, b: RGB, s: RGB): RGB {
-  const each = (f: (b: number, s: number) => number) =>
-    [f(b[0], s[0]), f(b[1], s[1]), f(b[2], s[2])] as RGB;
+  const each = (f: (b: number, s: number) => number) => [f(b[0], s[0]), f(b[1], s[1]), f(b[2], s[2])] as RGB;
   switch (mode) {
-    case "multiply":
+    case 'multiply':
       return each(multiply);
-    case "screen":
+    case 'screen':
       return each(screen);
-    case "color-dodge":
-      return each((b, s) =>
-        b <= 0 ? 0 : s >= 1 ? 1 : Math.min(1, b / (1 - s)),
-      );
-    case "linear-dodge":
+    case 'color-dodge':
+      return each((b, s) => (b <= 0 ? 0 : s >= 1 ? 1 : Math.min(1, b / (1 - s))));
+    case 'linear-dodge':
       return each((b, s) => Math.min(1, b + s));
-    case "soft-light":
+    case 'soft-light':
       return each(softLight);
-    case "hard-light":
-      return each((b, s) =>
-        s <= 0.5 ? multiply(b, 2 * s) : screen(b, 2 * s - 1),
-      );
-    case "hue":
+    case 'hard-light':
+      return each((b, s) => (s <= 0.5 ? multiply(b, 2 * s) : screen(b, 2 * s - 1)));
+    case 'hue':
       return setLum(setSat(s, sat(b)), lum(b));
-    case "color":
+    case 'color':
       return setLum(s, lum(b));
   }
 }
@@ -137,14 +125,13 @@ export interface RowT {
 }
 
 /** The gradients that actually show (not hidden, some opacity, at least one stop). */
-export const shownGradients = (list: BossGradient[]) =>
-  list.filter((g) => !g.hidden && g.opacity > 0 && g.stops.length > 0);
+export const shownGradients = (list: BossGradient[]) => list.filter((g) => !g.hidden && g.opacity > 0 && g.stops.length > 0);
 
 function tintFrame(f: Frame, gradients: BossGradient[], at: RowT): Frame {
-  const c = document.createElement("canvas");
+  const c = document.createElement('canvas');
   c.width = f.w;
   c.height = f.h;
-  const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
   ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, 0, 0, f.w, f.h);
   const img = ctx.getImageData(0, 0, f.w, f.h);
   const d = img.data;
@@ -153,10 +140,7 @@ function tintFrame(f: Frame, gradients: BossGradient[], at: RowT): Frame {
     // Each gradient's colour for this row (the same all the way across).
     const rows = gradients.map((g) => {
       const span = g.end - g.start;
-      const { rgb, opacity } = sampleStops(
-        g.stops,
-        span !== 0 ? (t - g.start) / span : 0,
-      );
+      const { rgb, opacity } = sampleStops(g.stops, span !== 0 ? (t - g.start) / span : 0);
       return {
         mode: g.mode,
         rgb,
@@ -170,11 +154,7 @@ function tintFrame(f: Frame, gradients: BossGradient[], at: RowT): Frame {
       for (const r of rows) {
         if (r.k <= 0) continue;
         const m = blend(r.mode, c, r.rgb);
-        c = [
-          c[0] + (m[0] - c[0]) * r.k,
-          c[1] + (m[1] - c[1]) * r.k,
-          c[2] + (m[2] - c[2]) * r.k,
-        ];
+        c = [c[0] + (m[0] - c[0]) * r.k, c[1] + (m[1] - c[1]) * r.k, c[2] + (m[2] - c[2]) * r.k];
       }
       d[i] = Math.round(Math.max(0, Math.min(1, c[0])) * 255);
       d[i + 1] = Math.round(Math.max(0, Math.min(1, c[1])) * 255);
@@ -186,25 +166,16 @@ function tintFrame(f: Frame, gradients: BossGradient[], at: RowT): Frame {
 }
 
 /** Tinted copies made so far, per source sprite: for one set of gradients (`sig`), by place along the body. */
-const copies = new WeakMap<
-  Sprite,
-  { sig: string; byPlace: Map<string, Sprite> }
->();
+const copies = new WeakMap<Sprite, { sig: string; byPlace: Map<string, Sprite> }>();
 
 /**
  * `sprite` with these gradients laid over it, its rows falling at `at` along the body.
  * `sig` identifies the gradients (e.g. their JSON); when it changes, older copies are dropped.
  */
-export function tintedSprite(
-  sprite: Sprite,
-  gradients: BossGradient[],
-  sig: string,
-  at: RowT,
-): Sprite {
+export function tintedSprite(sprite: Sprite, gradients: BossGradient[], sig: string, at: RowT): Sprite {
   if (gradients.length === 0) return sprite;
   let entry = copies.get(sprite);
-  if (!entry || entry.sig !== sig)
-    copies.set(sprite, (entry = { sig, byPlace: new Map() }));
+  if (!entry || entry.sig !== sig) copies.set(sprite, (entry = { sig, byPlace: new Map() }));
   const key = `${at.a.toFixed(4)}|${at.b.toFixed(6)}`;
   let out = entry.byPlace.get(key);
   if (!out) {

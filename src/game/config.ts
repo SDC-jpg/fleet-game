@@ -542,10 +542,14 @@ export const CONFIG = {
     lungeSpeed: 340,
     /** Turn rate during a lunge. */
     lungeTurnRate: 2.4,
-    /** It shows the side-view head while turning faster than this (radians per second). */
-    sideViewTurn: 0.5,
-    /** Seconds a turn must last before the head switches view (either way), so gentle wiggles don't flicker. */
+    /** It shows the half-side head while turning faster than this (radians per second; gentle turns, e.g. circling its target at about 0.5). */
+    halfSideViewTurn: 0.3,
+    /** It shows the full side-view head while turning faster than this (radians per second). */
+    sideViewTurn: 0.8,
+    /** Seconds a turn must last before the head starts to change view (either way), so gentle wiggles don't flicker. */
     sideViewHold: 0.15,
+    /** Seconds the head shows the half-side view on its way between the top and side views (a quick in-between). */
+    viewStepTime: 0.08,
     /** Joints in each fin (where it bends); the fin image is cut into one more slice than this. */
     finJoints: 2,
     /** How quickly a fin's first joint catches up with its root when the body turns (higher = stiffer). */

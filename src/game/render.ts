@@ -10,7 +10,7 @@ import { ownedSkill, pdcPositions } from './newSkills';
 import { DEFAULT_FIN_IMAGE, fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile, type BossGradient } from './artLayout';
 import { gunsOf, shipArtBase } from './guns';
 import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
-import { PIECE_SPRITES, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
+import { HALF_SIDE_HEAD_SPRITE, PIECE_SPRITES, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
@@ -633,7 +633,9 @@ function solidRows(f: Frame) {
 /** The image a Leviathan piece shows now (the head: top or side view), and whether it's mirrored. */
 export function leviathanPieceArt(assets: Assets, body: LeviathanBody, kind: PieceKind) {
   if (kind !== 'head' || body.view === 0) return { sprite: assets.get(PIECE_SPRITES[kind]), mirror: false };
-  return { sprite: assets.get(SIDE_HEAD_SPRITE), mirror: (body.view === 1) !== body.layout.sideViewForRightTurns };
+  // Both turning heads are drawn for one direction and mirrored for the other.
+  const sprite = Math.abs(body.view) === 1 && assets.has(HALF_SIDE_HEAD_SPRITE) ? HALF_SIDE_HEAD_SPRITE : SIDE_HEAD_SPRITE;
+  return { sprite: assets.get(sprite), mirror: body.view > 0 !== body.layout.sideViewForRightTurns };
 }
 
 /**
