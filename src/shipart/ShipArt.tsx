@@ -1078,8 +1078,10 @@ export function ShipArt() {
                 setBossIndex(null);
                 if (p) setBossFin(null);
               }}
-              onChange={(fn) => changeBoss(fn)}
+              onChange={(fn, noUndo) => changeBoss(fn, noUndo)}
               onPivot={(p, x, y) => setPivot(p, x, y)}
+              open={open}
+              onOpen={(key, on) => setOpen((o) => ({ ...o, [key]: on }))}
               onReset={() =>
                 change((d) => {
                   if (d.bosses) d.bosses.leviathan = {};

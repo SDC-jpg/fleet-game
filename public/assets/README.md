@@ -320,6 +320,13 @@ head is drawn. **Bulges** make one piece bigger or smaller, fading over its neig
 right from its root) sit on a piece, in front of or behind it, and bend as the creature swims;
 add, move, turn, size, mirror and swap them in the Fins section, and click the fin image there
 to set where it attaches.
+**Gradients** colour the body from head to tail, like a Photoshop gradient overlay: colour stops
+on a bar (click to add, drag to move, drag down off the bar to remove; each with its own colour,
+opacity and location), a blend mode (Multiply, Screen, Color Dodge, Linear Dodge (Add), Soft
+Light, Hard Light, Hue, Color) and an opacity. 0% is the tip of the head and 100% the end of the
+tail; **Starts at / Ends at** can move the gradient's ends past either. Several stack, top first,
+each mixing into the result of the ones above. Fins take the colour where they attach.
+The panel's sections (Body, Bulges, Fins, Gradients, Pieces) fold away by their titles.
 
 ## Tiers (bigger ships)
 

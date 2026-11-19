@@ -173,6 +173,35 @@ export interface LeviathanLayout {
   fins: LeviathanFin[];
   /** Where each fin image attaches (its root, in the image's pixels from the top left), by file. Missing = the middle of its left edge. */
   finImages: Record<string, { x: number; y: number }>;
+  /** Colour gradients along the body, head to tail, applied in order (each on top of the ones before), like stacked layer styles. */
+  gradients: BossGradient[];
+}
+
+/** How a gradient mixes with the art under it (like Photoshop blend modes). */
+export type BlendMode = 'multiply' | 'screen' | 'color-dodge' | 'linear-dodge' | 'soft-light' | 'hard-light' | 'hue' | 'color';
+
+/** One colour stop of a gradient. */
+export interface GradientStop {
+  /** Where it sits along the gradient: 0 = its start, 1 = its end. */
+  at: number;
+  /** Its colour, "#rrggbb". */
+  color: string;
+  /** How strongly it shows, 0–1 (0 = this part of the gradient leaves the art as it is). */
+  opacity: number;
+}
+
+/** A colour gradient laid along a boss from head to tail. */
+export interface BossGradient {
+  mode: BlendMode;
+  /** How strongly the whole gradient shows, 0–1. */
+  opacity: number;
+  /** Where its start and end fall along the body: 0 = the tip of the head, 1 = the end of the tail (can go past either end). Before its start and after its end it keeps its first / last colour. */
+  start: number;
+  end: number;
+  /** At least two, any order (sorted when used). */
+  stops: GradientStop[];
+  /** Switched off (kept, but not drawn). */
+  hidden?: boolean;
 }
 
 /** The fin image used when a fin doesn't name one. */

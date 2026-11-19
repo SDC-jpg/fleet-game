@@ -84,6 +84,7 @@ export const LEVIATHAN_DEFAULTS: LeviathanLayout = {
   // Until fins are placed in ShipArt, defaultFins puts a first pass on the body (see leviathanLayout).
   fins: [],
   finImages: { [DEFAULT_FIN_IMAGE]: { x: 11, y: 15 } },
+  gradients: [],
 };
 
 /**
@@ -144,6 +145,7 @@ export function leviathanLayout(data: ArtLayoutsFile | null | undefined): Leviat
     bulges: own.bulges ?? [],
     fins: own.fins ?? defaultFins(own.segments ?? LEVIATHAN_DEFAULTS.segments),
     finImages: { ...LEVIATHAN_DEFAULTS.finImages, ...own.finImages },
+    gradients: own.gradients ?? [],
   };
 }
 

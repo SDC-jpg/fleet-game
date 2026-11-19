@@ -1,16 +1,17 @@
 // Draws the game state. Every picture comes from the asset manifest by name.
 
-import type { Assets, Sprite } from '../engine/assets';
+import type { Assets, Frame, Sprite } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { clamp } from '../engine/math';
 import { SHIP_TYPES, CONFIG } from './config';
 import { BEAM_SHOW_TIME, laserLength } from './skills';
 import type { Particles } from './particles';
 import { ownedSkill, pdcPositions } from './newSkills';
-import { DEFAULT_FIN_IMAGE, fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile } from './artLayout';
+import { DEFAULT_FIN_IMAGE, fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile, type BossGradient } from './artLayout';
 import { gunsOf, shipArtBase } from './guns';
 import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
 import { PIECE_SPRITES, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
+import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
  * The art name for a tier: "<base>.t3<suffix>" for tier 3, falling back to
@@ -512,6 +513,7 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
  * The side-view head shows while it turns (mirrored for the other direction).
  */
 export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanBody, x: number, y: number, angle: number, time: number) {
+  const tint = bodyTint(assets, body);
   // Fins by piece: drawn just under or over their piece, so they keep its place in the layering.
   const fins = new Map<LeviathanPiece, number[]>();
   body.layout.fins.forEach((fin, i) => {
@@ -520,11 +522,14 @@ export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanB
   });
   for (const p of body.pieces) {
     const own = fins.get(p) ?? [];
-    for (const i of own) if (!body.layout.fins[i].front) drawFin(r, assets, body, i, time);
-    const { sprite, mirror } = leviathanPieceArt(assets, body, p.kind);
+    for (const i of own) if (!body.layout.fins[i].front) drawFin(r, assets, body, i, time, tint);
+    const art = leviathanPieceArt(assets, body, p.kind);
+    const { mirror } = art;
+    // Gradients (ShipArt → Bosses): each image row gets the colour of where it falls along the body.
+    const sprite = tint ? tintedSprite(art.sprite, tint.gradients, tint.sig, tint.rows(p.behind, p.scale, art.sprite.anchorY)) : art.sprite;
     if (p.kind === 'head') r.drawAttached(sprite, x, y, angle, 0, 0, Math.PI / 2, time, 1, p.scale, mirror);
     else r.drawAttached(sprite, p.x, p.y, p.angle, 0, 0, Math.PI / 2, time, 1, p.scale);
-    for (const i of own) if (body.layout.fins[i].front) drawFin(r, assets, body, i, time);
+    for (const i of own) if (body.layout.fins[i].front) drawFin(r, assets, body, i, time, tint);
   }
 }
 
@@ -561,10 +566,68 @@ export function finGeometry(assets: Assets, body: LeviathanBody, i: number) {
 }
 
 /** A fin, bending at its joints: one slice of its image per bone. */
-function drawFin(r: PixelRenderer, assets: Assets, body: LeviathanBody, i: number, time: number) {
+function drawFin(r: PixelRenderer, assets: Assets, body: LeviathanBody, i: number, time: number, tint: BodyTint | null) {
   const g = finGeometry(assets, body, i);
   if (!g) return;
-  for (const b of g.bones) r.drawSlice(g.sprite, time, b.u0, b.u1, b.start - b.u0, g.root.y, b.x, b.y, b.angle, g.scale, g.flip);
+  // A fin takes the gradient colour of where its root sits along the body (one colour all over).
+  let sprite = g.sprite;
+  if (tint) {
+    const fin = body.layout.fins[i];
+    const p = finPiece(body, fin);
+    sprite = tintedSprite(sprite, tint.gradients, tint.sig, { a: tint.rows(p.behind - fin.x * p.scale, 0, 0).a, b: 0 });
+  }
+  for (const b of g.bones) r.drawSlice(sprite, time, b.u0, b.u1, b.start - b.u0, g.root.y, b.x, b.y, b.angle, g.scale, g.flip);
+}
+
+/** A Leviathan's gradients for this frame, and where an image row falls along its body. */
+interface BodyTint {
+  gradients: BossGradient[];
+  sig: string;
+  /** For a piece `behind` the head at size `scale` whose pivot is row `anchorY`: t = a + b × row. */
+  rows: (behind: number, scale: number, anchorY: number) => RowT;
+}
+
+/** Its shown gradients, or null when there are none. The body runs from the tip of the head (top view) to the end of the tail. */
+function bodyTint(assets: Assets, body: LeviathanBody): BodyTint | null {
+  const gradients = shownGradients(body.layout.gradients);
+  if (gradients.length === 0) return null;
+  const head = body.pieces[0];
+  const tail = body.pieces[body.pieces.length - 1];
+  const hs = assets.get(PIECE_SPRITES.head);
+  const ts = assets.get(PIECE_SPRITES.tail);
+  const front = head.behind + (solidRows(hs.frames[0]).top - hs.anchorY) * head.scale;
+  const back = tail.behind + (solidRows(ts.frames[0]).bottom + 1 - ts.anchorY) * tail.scale;
+  const len = Math.max(1, back - front);
+  return {
+    gradients,
+    sig: JSON.stringify(gradients),
+    rows: (behind, scale, anchorY) => ({ a: (behind - anchorY * scale - front) / len, b: scale / len }),
+  };
+}
+
+/** The first and last rows of an image with anything drawn in them (kept per image). */
+const solidCache = new WeakMap<Frame, { top: number; bottom: number }>();
+function solidRows(f: Frame) {
+  let found = solidCache.get(f);
+  if (found) return found;
+  const c = document.createElement('canvas');
+  c.width = f.w;
+  c.height = f.h;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(f.image, f.sx, f.sy, f.w, f.h, 0, 0, f.w, f.h);
+  const d = ctx.getImageData(0, 0, f.w, f.h).data;
+  let top = f.h;
+  let bottom = -1;
+  for (let y = 0; y < f.h; y++)
+    for (let x = 0; x < f.w; x++)
+      if (d[(y * f.w + x) * 4 + 3] > 0) {
+        top = Math.min(top, y);
+        bottom = y;
+        break;
+      }
+  found = bottom < 0 ? { top: 0, bottom: f.h - 1 } : { top, bottom };
+  solidCache.set(f, found);
+  return found;
 }
 
 /** The image a Leviathan piece shows now (the head: top or side view), and whether it's mirrored. */
