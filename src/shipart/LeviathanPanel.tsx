@@ -5,7 +5,7 @@
 import type { Assets } from '../engine/assets';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { DEFAULT_FIN_IMAGE, fileSprite, type LeviathanBulge, type LeviathanFin, type LeviathanLayout, type LeviathanPieceKind } from '../game/artLayout';
-import { HALF_SIDE_HEAD_SPRITE, LEVIATHAN_DEFAULTS, PIECE_SPRITES, SIDE_HEAD_SPRITE, falloffWeight } from '../game/leviathan';
+import { HALF_SIDE_HEAD_SPRITE, LEVIATHAN_DEFAULTS, MOUTH_OPEN_HEAD_SPRITE, PIECE_SPRITES, SIDE_HEAD_SPRITE, falloffWeight } from '../game/leviathan';
 import { NumberField, SliderField } from './fields';
 import { GradientList } from './GradientPanel';
 
@@ -28,12 +28,13 @@ function Section({ title, count, open, onToggle, children }: { title: string; co
 }
 
 /** A piece you can pick: the five body pieces plus the half-side and side-view heads (their own images and pivots). */
-export type BossPiece = LeviathanPieceKind | 'head-halfside' | 'head-side';
+export type BossPiece = LeviathanPieceKind | 'head-halfside' | 'head-side' | 'head-side-mouth-open';
 
 export const BOSS_PIECES: { id: BossPiece; label: string }[] = [
   { id: 'head', label: 'Head (top view)' },
   { id: 'head-halfside', label: 'Head (half side)' },
   { id: 'head-side', label: 'Head (side view)' },
+  { id: 'head-side-mouth-open', label: 'Head (side, mouth open)' },
   { id: 'segment', label: 'Repeating segment' },
   { id: 'antepenultimate', label: 'Antepenultimate segment' },
   { id: 'penultimate', label: 'Penultimate segment' },
@@ -41,7 +42,8 @@ export const BOSS_PIECES: { id: BossPiece; label: string }[] = [
 ];
 
 /** The image of a piece (manifest name). */
-export const bossPieceSprite = (p: BossPiece) => (p === 'head-side' ? SIDE_HEAD_SPRITE : p === 'head-halfside' ? HALF_SIDE_HEAD_SPRITE : PIECE_SPRITES[p]);
+export const bossPieceSprite = (p: BossPiece) =>
+  p === 'head-side' ? SIDE_HEAD_SPRITE : p === 'head-halfside' ? HALF_SIDE_HEAD_SPRITE : p === 'head-side-mouth-open' ? MOUTH_OPEN_HEAD_SPRITE : PIECE_SPRITES[p];
 /** How many pieces the body has (head to tail). */
 export const pieceCount = (L: LeviathanLayout) => Math.max(0, Math.round(L.segments)) + 4;
 
@@ -122,7 +124,7 @@ function FinRootPicker({ assets, file, root, onPick }: { assets: Assets; file: s
 export const mirrorFin = (f: LeviathanFin): LeviathanFin => ({ ...f, y: -f.y, angle: -f.angle, flip: !f.flip });
 
 /** Which hit circle a piece uses (all the heads share one). */
-export const bossPieceKind = (p: BossPiece): LeviathanPieceKind => (p === 'head-side' || p === 'head-halfside' ? 'head' : p);
+export const bossPieceKind = (p: BossPiece): LeviathanPieceKind => (p.startsWith('head') ? 'head' : (p as LeviathanPieceKind));
 
 export function LeviathanPanel({
   assets,
@@ -448,6 +450,22 @@ export function LeviathanPanel({
               onChange={(v) => onChange((l) => (l.hitRadius = { ...layout.hitRadius, ...l.hitRadius, [kind]: Math.max(1, v) }))}
             />
           </div>
+          {(selected === 'head-side' || selected === 'head-side-mouth-open') && (
+            <>
+              <div className="sa-sub">Mouth (where the beam comes out)</div>
+              <div className="sa-row">
+                <NumberField label="Forward" value={layout.mouth.x} onChange={(v) => onChange((l) => (l.mouth = { ...layout.mouth, x: v }))} />
+                <NumberField label="Out" value={layout.mouth.y} onChange={(v) => onChange((l) => (l.mouth = { ...layout.mouth, y: v }))} />
+              </div>
+              <div className="sa-row">
+                <NumberField label="Beam angle" value={layout.mouth.angle} step={5} onChange={(v) => onChange((l) => (l.mouth = { ...layout.mouth, angle: v }))} />
+              </div>
+              <div className="sa-note">
+                Pixels from the head's pivot: forward, and out toward the side it looks. Beam angle: 0 = straight out to the side, + = turned
+                toward the front. The gold cross in the preview shows it while a side head shows; Beam (toolbar) charges and fires once.
+              </div>
+            </>
+          )}
         </div>
       )}
       </Section>

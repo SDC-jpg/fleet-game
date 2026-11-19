@@ -10,7 +10,7 @@ import { ownedSkill, pdcPositions } from './newSkills';
 import { DEFAULT_FIN_IMAGE, fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile, type BossGradient } from './artLayout';
 import { gunsOf, shipArtBase } from './guns';
 import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
-import { HALF_SIDE_HEAD_SPRITE, PIECE_SPRITES, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
+import { HALF_SIDE_HEAD_SPRITE, MOUTH_OPEN_HEAD_SPRITE, PIECE_SPRITES, beamOrigin, beamThickness, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
@@ -62,6 +62,8 @@ function teamSprite(assets: Assets, name: string, team: Team | null) {
 export interface ArtExtras {
   layouts: ArtLayoutsFile;
   particles: Particles;
+  /** Particles drawn over the ships (the Leviathan's charge sparks). */
+  topParticles?: Particles;
   /** Commander view options and background shifts (see CONFIG.commander); missing = all off. */
   view?: ViewOptions;
 }
@@ -190,6 +192,10 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1, false, scale);
     drawShip(r, assets, extras.layouts, flagship, state.time, false);
   }
+
+  // The Leviathan's charged beam (warning line, charge ball, beam), over the ships, and the sparks rushing into the ball.
+  for (const s of state.ships) if (s.leviathan?.attack && !s.dead) drawLeviathanBeam(r, assets, s.leviathan, s, state.beamReach, state.time);
+  extras.topParticles?.draw(r, assets);
 
   // Shield bubbles over shielded ships (fading in their last second), and over reinforcements while they can't be hurt.
   for (const s of state.ships) {
@@ -425,8 +431,9 @@ function drawSkillObjects(state: GameState, r: PixelRenderer, assets: Assets, ex
 }
 
 /** A beam: one short segment image repeated along its length, scaled by `width`. */
-export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: number, length: number, width: number, time: number, alpha = 1) {
-  const step = seg.frames[0].w * width;
+export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, angle: number, length: number, width: number, time: number, alpha = 1, overlap = 0) {
+  // `overlap`: art pixels each segment overlaps the next (no seams between solid segments when turned).
+  const step = (seg.frames[0].w - overlap) * width;
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
   // Only the part on screen (beams can reach far past it).
@@ -630,12 +637,45 @@ function solidRows(f: Frame) {
   return found;
 }
 
+/**
+ * The Leviathan's charged beam (CONFIG.leviathan.beam), drawn over it: while charging, a warning line
+ * where it will fire and the charge ball growing and quivering at its mouth; then the beam itself (its
+ * rounded start at the mouth, then its segment repeated), thicker as it fires and thinning out at the end.
+ */
+export function drawLeviathanBeam(r: PixelRenderer, assets: Assets, body: LeviathanBody, head: { x: number; y: number; angle: number }, reach: number, time: number) {
+  const a = body.attack;
+  if (!a || a.phase === 'aim') return;
+  const B = CONFIG.leviathan.beam;
+  const o = beamOrigin(body, head, a.side);
+  const dx = Math.cos(o.angle);
+  const dy = Math.sin(o.angle);
+  if (a.phase === 'charge') {
+    const k = clamp(a.t / B.chargeTime, 0, 1);
+    drawBeam(r, teamSprite(assets, 'boss.leviathan.beam-warning', 'enemy'), o.x, o.y, o.angle, reach, 1, time, 0.25 + 0.55 * k);
+    // The ball grows (fast at first), shaking more and more, with a quick wobble in size.
+    const q = B.ballQuiver * k;
+    const grow = B.ballStart + (1 - B.ballStart) * (1 - (1 - k) ** 2);
+    const size = grow * (1 + 0.07 * Math.sin(time * 47) * k);
+    r.drawSprite(assets.get('boss.leviathan.charge-ball'), o.x + (Math.random() * 2 - 1) * q, o.y + (Math.random() * 2 - 1) * q, 0, time, 1, false, size);
+    return;
+  }
+  const thick = beamThickness(a) * (1 + 0.03 * Math.sin(time * 60));
+  if (thick <= 0) return;
+  const start = assets.get('boss.leviathan.beam-start');
+  const capW = start.frames[0].w * thick;
+  r.drawSprite(start, o.x + (dx * capW) / 2, o.y + (dy * capW) / 2, o.angle, time, 1, false, thick);
+  // Its segments overlap a little, so no seams show between them at an angle; the first tucks under the start.
+  drawBeam(r, assets.get('boss.leviathan.beam'), o.x + dx * (capW - thick), o.y + dy * (capW - thick), o.angle, reach, thick, time, 1, 2);
+}
+
 /** The image a Leviathan piece shows now (the head: top or side view), and whether it's mirrored. */
 export function leviathanPieceArt(assets: Assets, body: LeviathanBody, kind: PieceKind) {
   if (kind !== 'head' || body.view === 0) return { sprite: assets.get(PIECE_SPRITES[kind]), mirror: false };
   // Both turning heads are drawn for one direction and mirrored for the other.
   const sprite = Math.abs(body.view) === 1 && assets.has(HALF_SIDE_HEAD_SPRITE) ? HALF_SIDE_HEAD_SPRITE : SIDE_HEAD_SPRITE;
-  return { sprite: assets.get(sprite), mirror: body.view > 0 !== body.layout.sideViewForRightTurns };
+  // Mouth open while it charges and fires its beam.
+  const open = Math.abs(body.view) === 2 && body.attack && body.attack.phase !== 'aim' && assets.has(MOUTH_OPEN_HEAD_SPRITE);
+  return { sprite: assets.get(open ? MOUTH_OPEN_HEAD_SPRITE : sprite), mirror: body.view > 0 !== body.layout.sideViewForRightTurns };
 }
 
 /**

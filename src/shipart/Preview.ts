@@ -56,6 +56,8 @@ export interface PreviewSettings {
   /** The picked fin (its number in the layout's list), or null. */
   bossFin: number | null;
   bossStraight: number;
+  /** Bumped by the Beam button. */
+  bossBeam: number;
   readOnly: boolean;
 }
 
@@ -307,7 +309,7 @@ export class Preview {
     const st = this.settings;
     const r = this.renderer;
     // While a handle is dragged it holds still (but still shows the edit).
-    this.boss.update(dt, { data: st.data, fly: st.fly && !this.drag, head: st.bossHead, piece: st.bossPiece, straight: st.bossStraight });
+    this.boss.update(dt, { data: st.data, fly: st.fly && !this.drag, head: st.bossHead, piece: st.bossPiece, straight: st.bossStraight, beam: st.bossBeam });
     r.camX = r.camY = 0;
     r.setZoom(st.zoom, true);
     r.detailStep = CONFIG.tiers.sizePerTier;

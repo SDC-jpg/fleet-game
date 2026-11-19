@@ -8,8 +8,9 @@ import type { Assets } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { CONFIG } from '../game/config';
 import type { ArtLayoutsFile, LeviathanLayout } from '../game/artLayout';
-import { finPiece, followHead, leviathanLayout, lookToward, makeLeviathanBody, relayLeviathan, swimLeviathan, updateFins, type LeviathanBody, type LeviathanPiece } from '../game/leviathan';
-import { drawLeviathan, finGeometry, leviathanPieceArt } from '../game/render';
+import { finPiece, advanceBeam, beamOrigin, followHead, leviathanLayout, lookToward, startBeam, makeLeviathanBody, relayLeviathan, swimLeviathan, updateFins, type LeviathanBody, type LeviathanPiece } from '../game/leviathan';
+import { drawLeviathan, drawLeviathanBeam, finGeometry, leviathanPieceArt } from '../game/render';
+import { Particles } from '../game/particles';
 import { bossPieceKind, type BossPiece } from './LeviathanPanel';
 
 /** Which head the preview shows: as the turns pick it, or held on one view. */
@@ -23,6 +24,8 @@ export interface BossSettings {
   piece: BossPiece | null;
   /** Bumped by "Lay straight". */
   straight: number;
+  /** Bumped by "Beam": charge and fire the beam once. */
+  beam: number;
 }
 
 /** Distance from (x, y) to the line from a to b. */
@@ -48,6 +51,9 @@ export class LeviathanPreview {
   private t = 0;
   private layoutKey = '';
   private straight = -1;
+  private beamCount = 0;
+  /** The beam's charge sparks. */
+  private sparks = new Particles();
 
   constructor() {
     this.body = makeLeviathanBody(0, 0, 0);
@@ -102,10 +108,24 @@ export class LeviathanPreview {
       // Turn exactly onto the path (so it never strays from it).
       swimLeviathan(this.body, this, want, speed, Math.PI * 4, dt);
       // No flagship here: the head watches the middle of the figure eight instead.
-      lookToward(this.body, this, { x: 0, y: 0 }, dt);
+      if (!this.body.attack) lookToward(this.body, this, { x: 0, y: 0 }, dt);
       followHead(this.body, this.x, this.y, this.angle);
     }
-    if (s.head !== 'auto') this.body.view = HELD_VIEW[s.head];
+    // "Beam": charge and fire once, to the side the held head looks (right unless a left view is held).
+    if (s.beam !== this.beamCount) {
+      this.beamCount = s.beam;
+      startBeam(this.body, s.head === 'left' || s.head === 'half-left' ? -1 : 1, true);
+    }
+    if (this.body.attack) {
+      advanceBeam(this.body, this, dt);
+      const a = this.body.attack;
+      if (a?.phase === 'charge') {
+        const B = CONFIG.leviathan.beam;
+        const o = beamOrigin(this.body, this, a.side);
+        this.sparks.emitInward('vfx.particle.charge', o.x, o.y, B.sparkRadius, B.sparksPerSecond, B.sparkLife, dt);
+      }
+    } else if (s.head !== 'auto') this.body.view = HELD_VIEW[s.head];
+    this.sparks.update(dt);
     // Fins move even while it holds still (they settle, and show edits at once).
     updateFins(this.body, dt);
   }
@@ -147,6 +167,8 @@ export class LeviathanPreview {
 
   draw(r: PixelRenderer, assets: Assets, time: number) {
     drawLeviathan(r, assets, this.body, this.x, this.y, this.angle, time);
+    drawLeviathanBeam(r, assets, this.body, this, 2000, time);
+    this.sparks.draw(r, assets);
   }
 
   /** Where a piece is and how it's turned (the head: where it flies). */
@@ -157,7 +179,8 @@ export class LeviathanPreview {
   /** Which piece a pick in the panel means for this body piece (the head: the view showing). */
   pieceId(p: LeviathanPiece): BossPiece {
     if (p.kind !== 'head' || this.body.view === 0) return p.kind;
-    return Math.abs(this.body.view) === 1 ? 'head-halfside' : 'head-side';
+    if (Math.abs(this.body.view) === 1) return 'head-halfside';
+    return this.body.attack && this.body.attack.phase !== 'aim' ? 'head-side-mouth-open' : 'head-side';
   }
 
   /** An image pixel (u, v) of a piece, in the world. */
@@ -276,6 +299,26 @@ export class LeviathanPreview {
     fin: number | null,
   ) {
     this.drawFinGuides(ctx, assets, toScreen, fin);
+    // The mouth (where the beam comes out) while a side head shows: a gold cross, and the beam's direction.
+    if (Math.abs(this.body.view) === 2) {
+      const o = beamOrigin(this.body, this, Math.sign(this.body.view));
+      const c = toScreen(o.x, o.y);
+      const e = toScreen(o.x + Math.cos(o.angle) * 40, o.y + Math.sin(o.angle) * 40);
+      ctx.strokeStyle = '#ffd34a';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(c.x - 6, c.y);
+      ctx.lineTo(c.x + 6, c.y);
+      ctx.moveTo(c.x, c.y - 6);
+      ctx.lineTo(c.x, c.y + 6);
+      ctx.stroke();
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.lineTo(e.x, e.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
     const R = this.body.layout.hitRadius;
     // Only one of the repeating segments is outlined (they all share the picked image): the one clicked.
     const first = this.shownPiece(piece, index);

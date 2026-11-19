@@ -166,6 +166,8 @@ export function ShipArt() {
   /** The picked fin (its number in the Leviathan's fin list), or null. */
   const [bossFin, setBossFin] = useState<number | null>(null);
   const [bossStraight, setBossStraight] = useState(0);
+  /** Bumped by the Beam button (charge and fire once). */
+  const [bossBeam, setBossBeam] = useState(0);
   /** Bumped when reloaded art has finished loading, so panels showing its size and frames update. */
   const [artVersion, setArtVersion] = useState(0);
   const [dirty, setDirty] = useState(false);
@@ -404,6 +406,7 @@ export function ShipArt() {
       bossIndex,
       bossFin,
       bossStraight,
+      bossBeam,
       readOnly: READ_ONLY,
     };
 
@@ -536,7 +539,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossFin, bossStraight, patch]);
+  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossFin, bossStraight, bossBeam, patch]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -783,6 +786,9 @@ export function ShipArt() {
                 title="Stretch it out straight, facing right, and hold it still (Fly swims again)"
               >
                 Lay straight
+              </button>
+              <button onClick={() => setBossBeam((n) => n + 1)} title="Charge and fire its beam once (to the right, or to the left while a left head view is held)">
+                Beam
               </button>
             </>
           ) : effect

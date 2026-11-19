@@ -552,6 +552,55 @@ export const CONFIG = {
     sideViewHold: 0.15,
     /** Seconds the head shows the half-side view on its way between the top and side views (a quick in-between). */
     viewStepTime: 0.08,
+    /** Its charged beam: it turns its head fully to the side toward your flagship, opens its mouth and charges (a ball grows, sparks rush in, a warning line shows where it will fire), then fires a huge beam for a few seconds that slowly follows your flagship. */
+    beam: {
+      /** Seconds after it appears before its first beam. */
+      firstDelay: 5,
+      /** Seconds between the end of one beam and the start of the next. */
+      every: 14,
+      /** It only starts a beam while your flagship is within this distance of its head. */
+      range: 1100,
+      /** Longest it spends turning to get your flagship to its side before it charges anyway (seconds). */
+      aimTime: 1.5,
+      /** It starts charging once your flagship is within this many degrees of where its mouth points. */
+      aimTolerance: 15,
+      /** Seconds of charging (the ball grows; the warning line shows). */
+      chargeTime: 2,
+      /** Seconds of firing. */
+      fireTime: 3,
+      /** Its head's speed while aiming, charging and firing (it drifts slowly, pixels per second). */
+      moveSpeed: 45,
+      /** How fast the beam sweeps toward your flagship, in pixels per second where your flagship is. Below a ship's top speed (150), so you can outrun it. */
+      trackSpeed: 90,
+      /** Width of the part that hurts (game pixels; the art is about 50 thick). */
+      width: 44,
+      /** Damage each second to every ship it touches, as a share of that ship's full health (0.5 = destroyed in 2 s; shields absorb it first). */
+      damagePerSecond: 0.5,
+      /** Push on its head when the beam fires (pixels per second, fading out). */
+      recoil: 160,
+      /** How quickly the recoil push fades (per second). */
+      recoilFade: 5,
+      /** Screen shake when it fires: seconds. */
+      shakeTime: 0.35,
+      /** Screen shake when it fires: strength in screen pixels. */
+      shake: 6,
+      /** The beam is this much thicker the moment it fires, settling to normal over `burstTime`. */
+      burstScale: 1.35,
+      /** Seconds the beam takes to settle from `burstScale` to its normal thickness. */
+      burstTime: 0.25,
+      /** Seconds it takes to thin out and vanish at the end. */
+      fadeTime: 0.25,
+      /** The charge ball's size when charging starts (1 = its image's size, reached when fully charged). */
+      ballStart: 0.15,
+      /** How far the ball shakes about while charging (game pixels, growing with the charge). */
+      ballQuiver: 1.5,
+      /** Sparks rushing into the charge ball while charging, per second. */
+      sparksPerSecond: 70,
+      /** How far from the ball the sparks start (game pixels; anywhere in that circle). */
+      sparkRadius: 60,
+      /** Seconds each spark takes to reach the ball. */
+      sparkLife: 0.35,
+    },
     /** Joints in each fin (where it bends); the fin image is cut into one more slice than this. */
     finJoints: 2,
     /** How quickly a fin's first joint catches up with its root when the body turns (higher = stiffer). */

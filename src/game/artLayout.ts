@@ -175,6 +175,12 @@ export interface LeviathanLayout {
   finImages: Record<string, { x: number; y: number }>;
   /** Colour gradients along the body, head to tail, applied in order (each on top of the ones before), like stacked layer styles. */
   gradients: BossGradient[];
+  /**
+   * Where its beam comes out (CONFIG.leviathan.beam), from the head's pivot with the side-view head showing:
+   * x forward, y out toward the side it looks (pixels); angle = which way the beam points, in degrees
+   * from straight out to the side (+ = turned toward the front).
+   */
+  mouth: { x: number; y: number; angle: number };
 }
 
 /** How a gradient mixes with the art under it (like Photoshop blend modes). */

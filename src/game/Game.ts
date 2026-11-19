@@ -13,7 +13,7 @@ import { clamp, wrapAngle } from '../engine/math';
 import { renderGame, setDetailSteps, tierArt, tierSprite, type ViewOptions } from './render';
 import { setGunLayouts, shipArtBase } from './guns';
 import { setHitLayouts } from './hitShape';
-import { setLeviathanLayout } from './leviathan';
+import { beamOrigin, setLeviathanLayout } from './leviathan';
 import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { applyCard, cancelReplace, describeCard, gainXp, pickCard, replacedBy, testGiveAllSkills, type CardInfo } from './progress';
@@ -270,6 +270,8 @@ export class Game {
   private layouts: ArtLayoutsFile;
   /** Thruster particles (visual only). */
   private particles = new Particles();
+  /** Particles drawn over the ships (the Leviathan's charge sparks). */
+  private topParticles = new Particles();
   /** Where each ship and shot was one step ago, for drawing them smoothly between steps. */
   private previous = new Map<object, { x: number; y: number; angle: number }>();
   /** While paused the picture doesn't change, so it's only drawn again when needed. */
@@ -453,6 +455,7 @@ export class Game {
 
   restart() {
     this.particles.clear();
+    this.topParticles.clear();
     this.slowmo = 0;
     this.runs = null;
     this.state = this.newState();
@@ -692,6 +695,9 @@ export class Game {
       ? this.state.energyBeams.filter((b) => b.hit && b.hit.x > v.x && b.hit.x < v.x + v.w && b.hit.y > v.y && b.hit.y < v.y + v.h).length
       : 0;
     this.sounds.setLoop('sfx.laser-sear', Math.min(1, searing * CONFIG.audio.searLevelPerBeam), 1);
+    // The Leviathan's beam roars while it fires.
+    const beam = playing && this.state.ships.some((s) => !s.dead && s.leviathan?.attack?.phase === 'fire');
+    this.sounds.setLoop('sfx.leviathan-beam', beam ? 1 : 0, 1);
   }
 
   private update(dt: number) {
@@ -847,6 +853,7 @@ export class Game {
     if (i.wasPressed('KeyH')) testSpawnSwarm(s, this.spawnDistance());
     if (i.wasPressed('KeyV')) testSpawnVariants(s, this.spawnDistance());
     if (i.wasPressed('KeyB')) testSpawnLeviathan(s, this.spawnDistance());
+    if (i.wasPressed('KeyN')) for (const l of s.ships) if (l.leviathan && !l.leviathan.attack) l.leviathan.beamIn = 0;
     if (i.wasPressed('KeyR')) {
       const flagship = controlledShip(s);
       if (flagship) sendReinforcements(s, flagship, this.spawnDistance());
@@ -961,6 +968,7 @@ export class Game {
   /** Move particles, and add new ones from the thrusters of ships on (or near) the screen. */
   private updateParticles(dt: number) {
     this.particles.update(dt);
+    this.topParticles.update(dt);
     const v = this.renderer.view;
     const margin = 100;
     const near = (x: number, y: number) => x > v.x - margin && x < v.x + v.w + margin && y > v.y - margin && y < v.y + v.h + margin;
@@ -968,7 +976,16 @@ export class Game {
     for (const s of this.state.ships) {
       if (s.dead || s.absorbed || !near(s.x, s.y)) continue;
       if (drawnAsSymbol(this.state, s, symbolMax)) continue; // a HUD symbol: no thrusters
-      if (s.leviathan) continue; // a creature: no thrusters
+      if (s.leviathan) {
+        // A creature: no thrusters. Charging its beam: sparks rush into the ball at its mouth.
+        const a = s.leviathan.attack;
+        if (a?.phase === 'charge') {
+          const B = CONFIG.leviathan.beam;
+          const o = beamOrigin(s.leviathan, s, a.side);
+          this.topParticles.emitInward('vfx.particle.charge', o.x, o.y, B.sparkRadius, B.sparksPerSecond, B.sparkLife, dt);
+        }
+        continue;
+      }
       const { name: base, scale } = tierArt(this.assets, shipArtBase(s), s.tier, '', false);
       this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy, scale);
     }
@@ -1026,7 +1043,7 @@ export class Game {
         r.camY += sy;
         r.begin(frozen ? 0 : frameDt);
         if (!frozen) this.updateParticles(frameDt * this.timeScale);
-        renderGame(this.state, r, this.assets, { layouts: this.layouts, particles: this.particles, view: this.viewOptions(frozen ? 0 : frameDt) });
+        renderGame(this.state, r, this.assets, { layouts: this.layouts, particles: this.particles, topParticles: this.topParticles, view: this.viewOptions(frozen ? 0 : frameDt) });
         // While the cursor is locked the real one is hidden: draw the game's own.
         if (this.input.locked) {
           const p = r.screenToWorld(this.input.mouseX, this.input.mouseY);

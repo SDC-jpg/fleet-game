@@ -249,6 +249,38 @@ function laserSear() {
   });
 }
 
+/** Leviathan charging its beam (2 s): a deep hum rising and tightening, wobbling faster, with a hiss swelling in. */
+function leviathanCharge() {
+  const r = rng(91);
+  const lp = lowpass();
+  const hum = oscillator('saw');
+  const hum2 = oscillator('saw');
+  return render(2.0, (t, k) => {
+    const wobble = 1 + 0.04 * Math.sin(t * 2 * Math.PI * sweep(4, 22, k));
+    const f = sweep(55, 330, k * k) * wobble;
+    const tone = lp(hum(f) + hum2(f * 1.01), sweep(300, 3500, k)) * 0.5;
+    const hiss = lp(r() * 2 - 1, sweep(800, 6000, k)) * k * k * 0.35;
+    return (tone + hiss) * Math.min(1, t * 4) * (0.3 + 0.7 * k);
+  });
+}
+
+/** Leviathan's beam (loop): a deep roar with a crackling hiss and a slow throb. */
+function leviathanBeam() {
+  const r = rng(92);
+  const lp = lowpass();
+  const hp = lowpass();
+  const roar = oscillator('square');
+  const sub = oscillator('sine');
+  return renderLoop(1, (t) => {
+    const noise = r() * 2 - 1;
+    const rumble = lp(noise, 500) * 1.6;
+    const hiss = (noise - hp(noise, 2500)) * 0.25;
+    const crackle = r() < 0.015 ? (r() * 2 - 1) * 1.5 : 0;
+    const tone = lp(roar(70 + 6 * Math.sin(t * 2 * Math.PI * 7)), 900) * 0.3 + sub(42) * 0.4;
+    return (rumble + hiss + crackle + tone) * (0.8 + 0.2 * Math.sin(t * 2 * Math.PI * 4));
+  });
+}
+
 /** Dash: a quick "fwoosh" of noise that opens up, plus a rising zip. */
 function dash() {
   const r = rng(21);
@@ -599,6 +631,8 @@ const FILES = {
   'pdc.wav': pdc,
   'engine-move.wav': engineMove,
   'laser-sear.wav': laserSear,
+  'leviathan-charge.wav': leviathanCharge,
+  'leviathan-beam.wav': leviathanBeam,
   // The user's choice (2026-11-16): boosting uses the same hum, a little louder (manifest volume).
   'engine-boost.wav': engineMove,
   'time-dilation.wav': timeDilation,

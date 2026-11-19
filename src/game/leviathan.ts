@@ -10,7 +10,8 @@ import { clamp, turnToward, wrapAngle } from '../engine/math';
 import { CONFIG } from './config';
 import { DEFAULT_FIN_IMAGE, type ArtLayoutsFile, type HitCircle, type LeviathanBulge, type LeviathanFin, type LeviathanLayout, type LeviathanPieceKind } from './artLayout';
 import type { GameState, Ship } from './world';
-import { controlledShip, findNearestEnemy } from './world';
+import { addSound, controlledShip, damageShip, findNearestEnemy } from './world';
+import { rayHitsShip } from './hitShape';
 
 export type PieceKind = LeviathanPieceKind;
 
@@ -50,6 +51,21 @@ export interface LeviathanBody {
   fins: FinState[];
   /** Seconds since it appeared (for the fins' sway). */
   time: number;
+  /** Its charged beam in progress, or null; and seconds until it may start the next one. */
+  attack: LeviathanAttack | null;
+  beamIn: number;
+}
+
+/** The charged beam in progress (CONFIG.leviathan.beam). */
+export interface LeviathanAttack {
+  /** Turning to get your flagship to its side, charging (mouth open, ball growing), or firing. */
+  phase: 'aim' | 'charge' | 'fire';
+  /** Seconds in this phase. */
+  t: number;
+  /** Which side its head looks and the beam goes: 1 = its right, −1 = its left. */
+  side: 1 | -1;
+  /** The push on its head from firing (pixels per second, fading out). */
+  recoil: number;
 }
 
 /** A fin's bones: where each one points now (world radians, root first; null = not placed yet), and its own sway timing. */
@@ -75,6 +91,8 @@ export const PIECE_SPRITES: Record<PieceKind, string> = {
 export const SIDE_HEAD_SPRITE = 'boss.leviathan.head-side';
 /** The head halfway between the top and side views (gentle turns, and on the way to the side view). */
 export const HALF_SIDE_HEAD_SPRITE = 'boss.leviathan.head-halfside';
+/** The side head with its mouth open (charging and firing its beam). */
+export const MOUTH_OPEN_HEAD_SPRITE = 'boss.leviathan.head-side-mouth-open';
 
 export type HeadView = -2 | -1 | 0 | 1 | 2;
 
@@ -91,6 +109,8 @@ export const LEVIATHAN_DEFAULTS: LeviathanLayout = {
   fins: [],
   finImages: { [DEFAULT_FIN_IMAGE]: { x: 11, y: 15 } },
   gradients: [],
+  // Between the fangs of the open-mouth side head (pixel 125, 88 with its pivot at 80, 140).
+  mouth: { x: 52, y: 45, angle: 0 },
 };
 
 /**
@@ -152,6 +172,7 @@ export function leviathanLayout(data: ArtLayoutsFile | null | undefined): Leviat
     fins: own.fins ?? defaultFins(own.segments ?? LEVIATHAN_DEFAULTS.segments),
     finImages: { ...LEVIATHAN_DEFAULTS.finImages, ...own.finImages },
     gradients: own.gradients ?? [],
+    mouth: { ...LEVIATHAN_DEFAULTS.mouth, ...own.mouth },
   };
 }
 
@@ -186,6 +207,8 @@ export function makeLeviathanBody(x: number, y: number, angle: number, L = gameL
     viewTimer: 0,
     viewStepping: false,
     lungeIn: CONFIG.leviathan.lungeEvery,
+    attack: null,
+    beamIn: CONFIG.leviathan.beam.firstDelay,
     lunging: 0,
     circleDir: Math.random() < 0.5 ? 1 : -1,
     fins: L.fins.map(newFinState),
@@ -273,7 +296,12 @@ export function lookToward(body: LeviathanBody, head: { x: number; y: number; an
   const level = Math.abs(off) > C.sideViewAngle ? 2 : Math.abs(off) > C.frontViewAngle ? 1 : 0;
   // Right behind it, the head keeps looking over the shoulder it already uses (no flipping side to side).
   const side = level === 2 && Math.abs(off) > C.behindAngle && body.view !== 0 ? Math.sign(body.view) : Math.sign(off);
-  const wantView = (level * side) as HeadView;
+  stepView(body, (level * side) as HeadView, dt);
+}
+
+/** Move the head's view one step at a time toward `wantView` (the first step after a short hold, the next ones quickly). */
+function stepView(body: LeviathanBody, wantView: HeadView, dt: number) {
+  const C = CONFIG.leviathan;
   if (wantView === body.view) {
     body.viewTimer = 0;
     body.viewStepping = false;
@@ -292,6 +320,11 @@ export function updateLeviathanAI(state: GameState, ship: Ship, dt: number) {
   const C = CONFIG.leviathan;
   const body = ship.leviathan!;
   if (ship.frozen > 0) return;
+  const flagship = controlledShip(state);
+  const watched = flagship && flagship.team !== ship.team && !flagship.dead ? flagship : null;
+  ship.thrust = 'move';
+  // Its charged beam takes over while it lasts.
+  if (updateBeamAttack(state, ship, body, watched, dt)) return;
   const target = findNearestEnemy(state, ship, Infinity);
   let want = ship.angle;
   let speed = C.speed;
@@ -319,9 +352,125 @@ export function updateLeviathanAI(state: GameState, ship: Ship, dt: number) {
   }
   swimLeviathan(body, ship, want, speed, turnRate, dt);
   // Its head keeps watching your flagship.
-  const flagship = controlledShip(state);
-  lookToward(body, ship, flagship && flagship.team !== ship.team && !flagship.dead ? flagship : null, dt);
-  ship.thrust = 'move';
+  lookToward(body, ship, watched, dt);
+}
+
+// ---------- The charged beam (CONFIG.leviathan.beam) ----------
+
+/** Where its mouth is and which way the beam points, for its head at (x, y) facing `angle`, looking to `side`. */
+export function beamOrigin(body: LeviathanBody, head: { x: number; y: number; angle: number }, side: number) {
+  const m = body.layout.mouth;
+  const k = body.pieces[0]?.scale ?? 1;
+  const out = head.angle + (side * Math.PI) / 2;
+  return {
+    x: head.x + (Math.cos(head.angle) * m.x + Math.cos(out) * m.y) * k,
+    y: head.y + (Math.sin(head.angle) * m.x + Math.sin(out) * m.y) * k,
+    angle: head.angle + side * (Math.PI / 2 - (m.angle * Math.PI) / 180),
+  };
+}
+
+/** How thick the beam is now (1 = normal): thicker the moment it fires, thinning out at the end; 0 when not firing. */
+export function beamThickness(a: LeviathanAttack | null) {
+  if (!a || a.phase !== 'fire') return 0;
+  const B = CONFIG.leviathan.beam;
+  if (a.t < B.burstTime) return B.burstScale + (1 - B.burstScale) * (a.t / B.burstTime);
+  if (a.t > B.fireTime - B.fadeTime) return Math.max(0, (B.fireTime - a.t) / B.fadeTime);
+  return 1;
+}
+
+/** Start a beam (the game, and ShipArt's preview), looking to `side`; `charging` skips the aiming. */
+export function startBeam(body: LeviathanBody, side: 1 | -1, charging = false) {
+  body.attack = { phase: charging ? 'charge' : 'aim', t: 0, side, recoil: 0 };
+}
+
+/**
+ * Its timing, shared with ShipArt: the head turns fully to the side, charges, fires (with a push on the
+ * head), then stops. Returns what just happened ('charge', 'fire', 'end') for sounds and screen shake,
+ * and how far the recoil moved its head this step. Aiming ends in the game (when it's lined up).
+ */
+export function advanceBeam(body: LeviathanBody, head: { angle: number }, dt: number) {
+  const B = CONFIG.leviathan.beam;
+  const a = body.attack;
+  if (!a) return { event: null, dx: 0, dy: 0 };
+  a.t += dt;
+  stepView(body, (2 * a.side) as HeadView, dt);
+  let event: 'fire' | 'end' | null = null;
+  if (a.phase === 'charge' && a.t >= B.chargeTime) {
+    a.phase = 'fire';
+    a.t = 0;
+    a.recoil = B.recoil;
+    event = 'fire';
+  } else if (a.phase === 'fire' && a.t >= B.fireTime) {
+    body.attack = null;
+    body.beamIn = B.every;
+    return { event: 'end' as const, dx: 0, dy: 0 };
+  }
+  // Recoil pushes the head back against the beam.
+  const back = head.angle + a.side * (Math.PI / 2 - (body.layout.mouth.angle * Math.PI) / 180) + Math.PI;
+  const push = a.recoil * dt;
+  a.recoil *= Math.exp(-B.recoilFade * dt);
+  return { event, dx: Math.cos(back) * push, dy: Math.sin(back) * push };
+}
+
+/** The beam in the game: start it when it's due, aim, follow your flagship slowly, and hurt what it touches. Returns true while it's on. */
+function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, flagship: Ship | null, dt: number) {
+  const C = CONFIG.leviathan;
+  const B = C.beam;
+  if (!body.attack) {
+    body.beamIn -= dt;
+    if (body.beamIn > 0 || !flagship || Math.hypot(flagship.x - ship.x, flagship.y - ship.y) > B.range) return false;
+    // Look toward the side your flagship is on.
+    startBeam(body, wrapAngle(Math.atan2(flagship.y - ship.y, flagship.x - ship.x) - ship.angle) >= 0 ? 1 : -1);
+  }
+  const a = body.attack!;
+  // Your flagship is gone while it's still turning: give up (it tries again later).
+  if (!flagship && a.phase === 'aim') {
+    body.attack = null;
+    body.beamIn = B.every;
+    return false;
+  }
+  // Turn the whole head so its mouth points at your flagship: freely while aiming, then only slowly (outrunnable).
+  const o = beamOrigin(body, ship, a.side);
+  let want = ship.angle;
+  let turnRate = C.turnRate;
+  if (flagship) {
+    const err = wrapAngle(Math.atan2(flagship.y - o.y, flagship.x - o.x) - o.angle);
+    if (a.phase === 'aim') {
+      want = ship.angle + err;
+      if ((Math.abs(err) < (B.aimTolerance * Math.PI) / 180 && a.t > 0.3) || a.t >= B.aimTime) {
+        a.phase = 'charge';
+        a.t = 0;
+        addSound(state, 'sfx.leviathan-charge', o, 1, 1, true);
+      }
+    } else {
+      const sweep = (B.trackSpeed / Math.max(60, Math.hypot(flagship.x - o.x, flagship.y - o.y))) * dt;
+      want = ship.angle + clamp(err, -sweep, sweep);
+      turnRate = 1000;
+    }
+  }
+  swimLeviathan(body, ship, want, B.moveSpeed, turnRate, dt);
+  if (a.phase === 'aim') {
+    a.t += dt;
+    stepView(body, (2 * a.side) as HeadView, dt);
+    return true;
+  }
+  const step = advanceBeam(body, ship, dt);
+  ship.x += step.dx;
+  ship.y += step.dy;
+  if (step.event === 'fire') state.shake = { time: B.shakeTime, strength: B.shake };
+  // Everything of the other side it touches burns (shields first).
+  const thick = beamThickness(body.attack);
+  if (thick > 0) {
+    const f = beamOrigin(body, ship, a.side);
+    const dx = Math.cos(f.angle);
+    const dy = Math.sin(f.angle);
+    for (const s of state.ships) {
+      if (s.team === ship.team || s.dead || s.merge) continue;
+      const hit = rayHitsShip(s, f.x, f.y, dx, dy, (B.width / 2) * thick);
+      if (hit !== null && hit <= state.beamReach) damageShip(state, s, s.stats.maxHp * B.damagePerSecond * dt, 'leviathan-beam');
+    }
+  }
+  return true;
 }
 
 /** After the head moved to (x, y): remember its path, and put every piece on it. */

@@ -69,7 +69,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div>
               Test keys: = / - add/remove ship · ] add 16 ships · T add a next-tier ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
-              screen · X end run · L level up · J all skills · I drop 3 matching items · Y drop the next Merge Module · E spawn elite · H spawn swarm · V variants · B Leviathan · R reinforcements · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · F formation ({hud.formationMode === 'fill' ? 'Fill' : 'Original'}) · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
+              screen · X end run · L level up · J all skills · I drop 3 matching items · Y drop the next Merge Module · E spawn elite · H spawn swarm · V variants · B Leviathan · N its beam now · R reinforcements · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · F formation ({hud.formationMode === 'fill' ? 'Fill' : 'Original'}) · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
             </div>
           )}
         </div>

@@ -57,6 +57,22 @@ export class Particles {
   }
 
   /**
+   * About perSecond × dt particles born at random points within `radius` of (x, y), each flying straight
+   * in to the centre, arriving as its life ends (a charging effect: sparks rushing into a ball).
+   */
+  emitInward(sprite: string, x: number, y: number, radius: number, perSecond: number, life: number, dt: number) {
+    const n = perSecond * dt;
+    const count = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0);
+    for (let i = 0; i < count && this.list.length < CONFIG.particles.max; i++) {
+      const a = Math.random() * Math.PI * 2;
+      // sqrt spreads them evenly over the circle's area (not bunched in the middle).
+      const d = radius * Math.sqrt(Math.random());
+      const l = life * randRange(0.8, 1.2);
+      this.list.push({ sprite, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, vx: (-Math.cos(a) * d) / l, vy: (-Math.sin(a) * d) / l, age: 0, life: l, drag: 0 });
+    }
+  }
+
+  /**
    * Particles from a ship's or object's mounts: every mount that gives off
    * particles in this state does so from its VFX point, out the back of the mount.
    * (vx, vy) is how fast the ship or object is moving (spreads the particles along its path).
