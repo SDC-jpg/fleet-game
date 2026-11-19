@@ -479,11 +479,17 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
 /** After the head moved to (x, y): remember its path, and put every piece on it. */
 export function followHead(body: LeviathanBody, x: number, y: number, angle: number) {
   const t = body.trail;
+  // Pushed backward (the beam's recoil): take back the end of the path instead of adding a reversed bit,
+  // so the body slides back along it like a train reversing (a kink would ripple down every segment).
+  const fx = Math.cos(angle);
+  const fy = Math.sin(angle);
+  while (t.length > 4 && (t[t.length - 2] - x) * fx + (t[t.length - 1] - y) * fy > 0) t.length -= 2;
   // A new point every couple of pixels.
   if (Math.hypot(x - t[t.length - 2], y - t[t.length - 1]) >= 2) t.push(x, y);
   placePieces(body, x, y, angle);
   // Forget the path behind the tail.
-  const need = body.pieces[body.pieces.length - 1].behind + 20;
+  // (A spare stretch, so a push backward still finds path behind the tail.)
+  const need = body.pieces[body.pieces.length - 1].behind + 80;
   let length = Math.hypot(x - t[t.length - 2], y - t[t.length - 1]);
   for (let i = t.length - 4; i >= 0; i -= 2) {
     length += Math.hypot(t[i + 2] - t[i], t[i + 3] - t[i + 1]);
