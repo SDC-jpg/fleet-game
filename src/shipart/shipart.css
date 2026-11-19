@@ -311,3 +311,49 @@
   border: 1px solid #5fe08a;
   white-space: nowrap;
 }
+
+/* Sliders (Leviathan bulges). */
+.sa-slider {
+  display: grid;
+  grid-template-columns: 56px 1fr 64px;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+.sa-slider input {
+  width: 100%;
+}
+.sa-slider-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sa-bulge {
+  border: 1px solid rgba(197, 139, 255, 0.35);
+  padding: 6px 8px;
+  margin: 6px 0;
+}
+.sa-bulge-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.sa-bulge-head b {
+  color: #c58bff;
+}
+.sa-bulge-head button {
+  margin-left: auto;
+}
+.sa-falloff-graph {
+  display: block;
+  margin: 4px 0 2px 62px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.sa-falloff-graph line {
+  stroke: rgba(255, 255, 255, 0.15);
+}
+.sa-falloff-graph polyline {
+  fill: none;
+  stroke: #c58bff;
+  stroke-width: 1.5;
+}

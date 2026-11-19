@@ -51,6 +51,8 @@ export interface PreviewSettings {
   boss: 'leviathan' | null;
   bossHead: BossHead;
   bossPiece: BossPiece | null;
+  /** Which one of the body's pieces was picked (counted from the head; for bulges), or null. */
+  bossIndex: number | null;
   bossStraight: number;
   readOnly: boolean;
 }
@@ -91,7 +93,7 @@ export interface PreviewEvents {
   /** Mouse position on the subject, in its pixels (null = off the canvas). */
   hover: (p: { x: number; y: number } | null) => void;
   /** Boss: a piece was clicked (null = empty space), its pivot moved (its image's anchor), or its hit circle resized. */
-  selectBossPiece: (p: BossPiece | null) => void;
+  selectBossPiece: (p: BossPiece | null, index: number | null) => void;
   moveBossPivot: (p: BossPiece, x: number, y: number) => void;
   resizeBossHit: (p: BossPiece, r: number) => void;
 }
@@ -388,7 +390,7 @@ export class Preview {
     if (!st.guides) return;
     if (st.boss) {
       const scale = this.renderer.worldToScreen(1, 0).x - this.renderer.worldToScreen(0, 0).x;
-      this.boss.drawGuides(ctx, this.assets, (x, y) => this.renderer.worldToScreen(x, y), scale, st.bossPiece);
+      this.boss.drawGuides(ctx, this.assets, (x, y) => this.renderer.worldToScreen(x, y), scale, st.bossPiece, st.bossIndex);
       return;
     }
     const layout = st.effect ? undefined : this.layout;
@@ -620,10 +622,10 @@ export class Preview {
   private onDownBoss(e: MouseEvent) {
     const st = this.settings;
     const w = this.worldPoint(e);
-    if (!st.guides) return this.events.selectBossPiece(null);
+    if (!st.guides) return this.events.selectBossPiece(null, null);
     const scale = this.renderer.worldToScreen(1, 0).x - this.renderer.worldToScreen(0, 0).x;
     const near = 6 / Math.max(scale, 0.01);
-    const shown = this.boss.shownPiece(st.bossPiece);
+    const shown = this.boss.shownPiece(st.bossPiece, st.bossIndex);
     if (shown && st.bossPiece) {
       const h = this.boss.hitEdge(shown);
       if (Math.hypot(w.x - h.x, w.y - h.y) <= near) {
@@ -632,9 +634,9 @@ export class Preview {
       }
     }
     const p = this.boss.pieceAt(this.assets, w.x, w.y);
-    if (!p) return this.events.selectBossPiece(null);
+    if (!p) return this.events.selectBossPiece(null, null);
     const id = this.boss.pieceId(p);
-    this.events.selectBossPiece(id);
+    this.events.selectBossPiece(id, this.boss.body.pieces.indexOf(p));
     if (!st.readOnly) {
       const art = this.assets.get(bossPieceSprite(id));
       this.startDrag({ kind: 'bossPivot', index: this.boss.body.pieces.indexOf(p), piece: id, grabX: w.x, grabY: w.y, anchorX: art.anchorX, anchorY: art.anchorY });
@@ -658,8 +660,9 @@ export class Preview {
       const piece = this.boss.body.pieces[d.index];
       if (!piece) return;
       if (d.kind === 'bossHit') {
+        // The circle's radius before this piece's bulge.
         const c = this.boss.pose(piece);
-        this.events.resizeBossHit(d.piece!, Math.max(1, Math.round(Math.hypot(w.x - c.x, w.y - c.y) * 2) / 2));
+        this.events.resizeBossHit(d.piece!, Math.max(1, Math.round((Math.hypot(w.x - c.x, w.y - c.y) / piece.scale) * 2) / 2));
       } else {
         // The image follows the mouse; its pivot stays on the path, so the anchor moves the other way.
         const m = this.boss.worldToImageDelta(this.assets, piece, w.x - d.grabX, w.y - d.grabY);

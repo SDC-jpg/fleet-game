@@ -167,6 +167,20 @@ export interface LeviathanLayout {
   sideViewForRightTurns: boolean;
   /** Hit circle radius of each piece, centred on its pivot. */
   hitRadius: Record<LeviathanPieceKind, number>;
+  /** Pieces drawn bigger or smaller (and their hit circles), fading out over their neighbours. */
+  bulges: LeviathanBulge[];
+}
+
+/** A bulge on one piece of a Leviathan's body. */
+export interface LeviathanBulge {
+  /** Which piece: 0 = the head, 1 = the first segment... (counted from the head). */
+  piece: number;
+  /** Its size there: 1 = normal, 1.5 = half as big again, 0.7 = smaller. */
+  scale: number;
+  /** How many pieces on each side also get some of it (0 = only this one). */
+  falloff: number;
+  /** Shape of the fade over the falloff (a Bezier curve): 0 = even, + = stays big then drops, − = drops fast then trails off. */
+  curve: number;
 }
 
 export const emptyLayouts = (): ArtLayoutsFile => ({ ships: {}, objects: {}, particleDefaults: {}, images: {} });

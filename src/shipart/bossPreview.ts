@@ -121,8 +121,8 @@ export class LeviathanPreview {
     const { sprite, mirror } = leviathanPieceArt(assets, this.body, p.kind);
     const { x, y, angle } = this.pose(p);
     const a = angle + Math.PI / 2;
-    const lx = (u - sprite.anchorX) * (mirror ? -1 : 1);
-    const ly = v - sprite.anchorY;
+    const lx = (u - sprite.anchorX) * (mirror ? -1 : 1) * p.scale;
+    const ly = (v - sprite.anchorY) * p.scale;
     return { x: x + lx * Math.cos(a) - ly * Math.sin(a), y: y + lx * Math.sin(a) + ly * Math.cos(a) };
   }
 
@@ -130,8 +130,8 @@ export class LeviathanPreview {
   worldToImageDelta(assets: Assets, p: LeviathanPiece, dx: number, dy: number) {
     const { mirror } = leviathanPieceArt(assets, this.body, p.kind);
     const a = this.pose(p).angle + Math.PI / 2;
-    const lx = dx * Math.cos(a) + dy * Math.sin(a);
-    const ly = -dx * Math.sin(a) + dy * Math.cos(a);
+    const lx = (dx * Math.cos(a) + dy * Math.sin(a)) / p.scale;
+    const ly = (-dx * Math.sin(a) + dy * Math.cos(a)) / p.scale;
     return { u: mirror ? -lx : lx, v: ly };
   }
 
@@ -171,23 +171,38 @@ export class LeviathanPreview {
     return null;
   }
 
-  /** The piece shown for a pick (the first of the repeating segments, say), or null. */
-  shownPiece(piece: BossPiece | null) {
+  /** The piece shown for a pick: the one clicked (`index`, counted from the head) if it's that kind, else the first of that kind. */
+  shownPiece(piece: BossPiece | null, index: number | null = null) {
     if (!piece) return null;
+    const at = index !== null ? this.body.pieces[index] : undefined;
+    if (at && this.pieceId(at) === piece) return at;
     return this.body.pieces.find((p) => this.pieceId(p) === piece) ?? null;
   }
 
   /** The resize handle of a piece's hit circle: on its edge, sideways from where the piece faces. */
   hitEdge(p: LeviathanPiece) {
     const { x, y, angle } = this.pose(p);
-    const r = this.body.layout.hitRadius[bossPieceKind(this.pieceId(p))];
+    const r = this.body.layout.hitRadius[bossPieceKind(this.pieceId(p))] * p.scale;
     return { x: x + Math.cos(angle + Math.PI / 2) * r, y: y + Math.sin(angle + Math.PI / 2) * r };
   }
 
-  drawGuides(ctx: CanvasRenderingContext2D, assets: Assets, toScreen: (x: number, y: number) => { x: number; y: number }, scale: number, piece: BossPiece | null) {
+  drawGuides(ctx: CanvasRenderingContext2D, assets: Assets, toScreen: (x: number, y: number) => { x: number; y: number }, scale: number, piece: BossPiece | null, index: number | null) {
     const R = this.body.layout.hitRadius;
-    // Only one of the repeating segments is outlined (they all share the picked image).
-    const first = this.shownPiece(piece);
+    // Only one of the repeating segments is outlined (they all share the picked image): the one clicked.
+    const first = this.shownPiece(piece, index);
+    const bulged = new Set(this.body.layout.bulges.map((b) => b.piece));
+    this.body.pieces.forEach((p, i) => {
+      // A bulge's own piece: a purple ring with its number.
+      if (bulged.has(i)) {
+        const { x, y } = this.pose(p);
+        const c = toScreen(x, y);
+        ctx.strokeStyle = '#c58bff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    });
     for (const p of this.body.pieces) {
       const picked = p === first;
       const { x, y } = this.pose(p);
@@ -196,7 +211,7 @@ export class LeviathanPreview {
       ctx.strokeStyle = picked ? '#ffd34a' : 'rgba(95,224,138,0.55)';
       ctx.lineWidth = picked ? 2 : 1;
       ctx.beginPath();
-      ctx.arc(c.x, c.y, R[p.kind] * scale, 0, Math.PI * 2);
+      ctx.arc(c.x, c.y, R[p.kind] * p.scale * scale, 0, Math.PI * 2);
       ctx.stroke();
       // Pivot.
       ctx.strokeStyle = picked ? '#ffd34a' : 'rgba(255,255,255,0.6)';
@@ -217,6 +232,9 @@ export class LeviathanPreview {
       const e = toScreen(this.hitEdge(p).x, this.hitEdge(p).y);
       ctx.fillStyle = '#ffd34a';
       ctx.fillRect(e.x - 3, e.y - 3, 6, 6);
+      // Its number along the body (what a bulge's "Piece" means).
+      ctx.font = '11px monospace';
+      ctx.fillText(`#${this.body.pieces.indexOf(p)}`, c.x + 6, c.y - 6);
     }
   }
 }

@@ -314,7 +314,8 @@ pivots near its top. Set it all up in **ShipArt → Bosses → Leviathan**: it s
 eight (or **Lay straight** holds it still); pick a piece to drag its image around its pivot
 (saved as its anchor in the manifest) and size its hit circle; the panel has the number of
 repeating segments, the gaps between pieces (saved in `art.json`) and which way the side
-head is drawn.
+head is drawn. **Bulges** make one piece bigger or smaller, fading over its neighbours
+(falloff) along a curve.
 
 ## Tiers (bigger ships)
 

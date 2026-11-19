@@ -8,7 +8,7 @@
 
 import { clamp, turnToward, wrapAngle } from '../engine/math';
 import { CONFIG } from './config';
-import type { ArtLayoutsFile, HitCircle, LeviathanLayout, LeviathanPieceKind } from './artLayout';
+import type { ArtLayoutsFile, HitCircle, LeviathanBulge, LeviathanLayout, LeviathanPieceKind } from './artLayout';
 import type { GameState, Ship } from './world';
 import { findNearestEnemy } from './world';
 
@@ -19,6 +19,8 @@ export interface LeviathanPiece {
   kind: PieceKind;
   /** Distance behind the head along its path. */
   behind: number;
+  /** How big it's drawn (and its hit circle), from the bulges: 1 = normal. */
+  scale: number;
   x: number;
   y: number;
   angle: number;
@@ -62,12 +64,42 @@ export const LEVIATHAN_DEFAULTS: LeviathanLayout = {
   tailGap: 18,
   sideViewForRightTurns: true,
   hitRadius: { head: 34, segment: 32, antepenultimate: 30, penultimate: 26, tail: 22 },
+  bulges: [],
 };
+
+/**
+ * How much of a bulge a piece gets, `t` of the way out over its falloff (0 = the bulge's own
+ * piece, 1 = just past the last one that gets any): 1 down to 0 along a cubic Bezier curve.
+ * curve 0 = a straight fade; toward +1 it stays strong then drops; toward −1 it drops fast then trails.
+ */
+export function falloffWeight(t: number, curve: number) {
+  if (t <= 0) return 1;
+  if (t >= 1) return 0;
+  // The fade's shape y(t) from 0 to 1 (x = t), with its two middle control points raised or lowered.
+  const c = clamp(curve, -1, 1);
+  const a = 1 / 3 - c / 3;
+  const b = 2 / 3 - c / 3;
+  const u = 1 - t;
+  return 1 - (3 * u * u * t * a + 3 * u * t * t * b + t * t * t);
+}
+
+/** Each piece's size from the bulges (several multiply). */
+export function bulgeScales(bulges: LeviathanBulge[], count: number): number[] {
+  const scales = Array<number>(count).fill(1);
+  for (const b of bulges) {
+    const reach = Math.max(0, b.falloff) + 1;
+    for (let i = 0; i < count; i++) {
+      const w = falloffWeight(Math.abs(i - b.piece) / reach, b.curve);
+      if (w > 0) scales[i] *= 1 + (b.scale - 1) * w;
+    }
+  }
+  return scales.map((s) => Math.max(0.05, s));
+}
 
 /** The layout in this art.json data, with the defaults filled in. */
 export function leviathanLayout(data: ArtLayoutsFile | null | undefined): LeviathanLayout {
   const own = data?.bosses?.leviathan ?? {};
-  return { ...LEVIATHAN_DEFAULTS, ...own, hitRadius: { ...LEVIATHAN_DEFAULTS.hitRadius, ...own.hitRadius } };
+  return { ...LEVIATHAN_DEFAULTS, ...own, hitRadius: { ...LEVIATHAN_DEFAULTS.hitRadius, ...own.hitRadius }, bulges: own.bulges ?? [] };
 }
 
 /** The layout the game uses (Game.ts sets it once art.json is loaded). */
@@ -80,12 +112,13 @@ export const currentLeviathanLayout = () => gameLayout;
 /** The pieces, head to tail, at their distances behind the head. */
 function makePieces(L: LeviathanLayout): LeviathanPiece[] {
   const kinds: PieceKind[] = ['head', ...Array<PieceKind>(Math.max(0, Math.round(L.segments))).fill('segment'), 'antepenultimate', 'penultimate', 'tail'];
+  const scales = bulgeScales(L.bulges, kinds.length);
   let behind = 0;
   return kinds.map((kind, i) => {
     if (i === 1) behind += L.headGap;
     else if (kind === 'tail') behind += L.tailGap;
     else if (i > 1) behind += L.spacing;
-    return { kind, behind, x: 0, y: 0, angle: 0 };
+    return { kind, behind, scale: scales[i], x: 0, y: 0, angle: 0 };
   });
 }
 
@@ -235,5 +268,5 @@ function placePieces(body: LeviathanBody, hx: number, hy: number, headAngle: num
 /** Its hit circles (world positions): one per piece. */
 export function leviathanCircles(body: LeviathanBody): HitCircle[] {
   const R = body.layout.hitRadius;
-  return body.pieces.map((p) => ({ x: p.x, y: p.y, r: R[p.kind] }));
+  return body.pieces.map((p) => ({ x: p.x, y: p.y, r: R[p.kind] * p.scale }));
 }

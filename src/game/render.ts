@@ -514,8 +514,8 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
 export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanBody, x: number, y: number, angle: number, time: number) {
   for (const p of body.pieces) {
     const { sprite, mirror } = leviathanPieceArt(assets, body, p.kind);
-    if (p.kind === 'head') r.drawAttached(sprite, x, y, angle, 0, 0, Math.PI / 2, time, 1, 1, mirror);
-    else r.drawAttached(sprite, p.x, p.y, p.angle, 0, 0, Math.PI / 2, time);
+    if (p.kind === 'head') r.drawAttached(sprite, x, y, angle, 0, 0, Math.PI / 2, time, 1, p.scale, mirror);
+    else r.drawAttached(sprite, p.x, p.y, p.angle, 0, 0, Math.PI / 2, time, 1, p.scale);
   }
 }
 

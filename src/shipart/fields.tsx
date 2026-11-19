@@ -61,3 +61,42 @@ export function FlipbookFields({
     </>
   );
 }
+
+/** A labelled slider with its value. Double-click puts it back to `reset` (if given). */
+export function SliderField({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  reset,
+  title,
+  format = (v) => String(v),
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  reset?: number;
+  title?: string;
+  format?: (v: number) => string;
+}) {
+  return (
+    <label className="sa-slider" title={title ?? (reset !== undefined ? `Double-click to reset (${format(reset)})` : undefined)}>
+      <span>{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onDoubleClick={() => reset !== undefined && onChange(reset)}
+      />
+      <span className="sa-slider-value">{format(value)}</span>
+    </label>
+  );
+}
