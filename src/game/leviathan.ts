@@ -109,8 +109,8 @@ export const LEVIATHAN_DEFAULTS: LeviathanLayout = {
   fins: [],
   finImages: { [DEFAULT_FIN_IMAGE]: { x: 11, y: 15 } },
   gradients: [],
-  // Between the fangs of the open-mouth side head (pixel 125, 88 with its pivot at 80, 140).
-  mouth: { x: 52, y: 45, angle: 0 },
+  // Between the fangs of the open-mouth side head (pixel 125, 85 with its pivot at 80, 140); the beam goes along its nose.
+  mouth: { x: 55, y: 45, angle: 0 },
 };
 
 /**
@@ -357,7 +357,7 @@ export function updateLeviathanAI(state: GameState, ship: Ship, dt: number) {
 
 // ---------- The charged beam (CONFIG.leviathan.beam) ----------
 
-/** Where its mouth is and which way the beam points, for its head at (x, y) facing `angle`, looking to `side`. */
+/** Where its mouth is and which way the beam points (along its nose), for its head at (x, y) facing `angle`, its side head looking to `side`. */
 export function beamOrigin(body: LeviathanBody, head: { x: number; y: number; angle: number }, side: number) {
   const m = body.layout.mouth;
   const k = body.pieces[0]?.scale ?? 1;
@@ -365,7 +365,7 @@ export function beamOrigin(body: LeviathanBody, head: { x: number; y: number; an
   return {
     x: head.x + (Math.cos(head.angle) * m.x + Math.cos(out) * m.y) * k,
     y: head.y + (Math.sin(head.angle) * m.x + Math.sin(out) * m.y) * k,
-    angle: head.angle + side * (Math.PI / 2 - (m.angle * Math.PI) / 180),
+    angle: head.angle + (side * m.angle * Math.PI) / 180,
   };
 }
 
@@ -406,7 +406,7 @@ export function advanceBeam(body: LeviathanBody, head: { angle: number }, dt: nu
     return { event: 'end' as const, dx: 0, dy: 0 };
   }
   // Recoil pushes the head back against the beam.
-  const back = head.angle + a.side * (Math.PI / 2 - (body.layout.mouth.angle * Math.PI) / 180) + Math.PI;
+  const back = head.angle + (a.side * body.layout.mouth.angle * Math.PI) / 180 + Math.PI;
   const push = a.recoil * dt;
   a.recoil *= Math.exp(-B.recoilFade * dt);
   return { event, dx: Math.cos(back) * push, dy: Math.sin(back) * push };
@@ -419,8 +419,9 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
   if (!body.attack) {
     body.beamIn -= dt;
     if (body.beamIn > 0 || !flagship || Math.hypot(flagship.x - ship.x, flagship.y - ship.y) > B.range) return false;
-    // Look toward the side your flagship is on.
-    startBeam(body, wrapAngle(Math.atan2(flagship.y - ship.y, flagship.x - ship.x) - ship.angle) >= 0 ? 1 : -1);
+    // Its head turns fully to the side it already looks (or toward your flagship), while its nose swings onto your flagship.
+    const toward = wrapAngle(Math.atan2(flagship.y - ship.y, flagship.x - ship.x) - ship.angle) >= 0 ? 1 : -1;
+    startBeam(body, body.view !== 0 ? (Math.sign(body.view) as 1 | -1) : toward);
   }
   const a = body.attack!;
   // Your flagship is gone while it's still turning: give up (it tries again later).
@@ -437,7 +438,9 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
     const err = wrapAngle(Math.atan2(flagship.y - o.y, flagship.x - o.x) - o.angle);
     if (a.phase === 'aim') {
       want = ship.angle + err;
-      if ((Math.abs(err) < (B.aimTolerance * Math.PI) / 180 && a.t > 0.3) || a.t >= B.aimTime) {
+      // Charge once its nose is on your flagship and its head has turned fully to the side (or it ran out of time).
+      const lined = Math.abs(err) < (B.aimTolerance * Math.PI) / 180 && body.view === 2 * a.side;
+      if ((lined && a.t > 0.3) || a.t >= B.aimTime) {
         a.phase = 'charge';
         a.t = 0;
         addSound(state, 'sfx.leviathan-charge', o, 1, 1, true);

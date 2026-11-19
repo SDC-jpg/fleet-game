@@ -552,7 +552,7 @@ export const CONFIG = {
     sideViewHold: 0.15,
     /** Seconds the head shows the half-side view on its way between the top and side views (a quick in-between). */
     viewStepTime: 0.08,
-    /** Its charged beam: it turns its head fully to the side toward your flagship, opens its mouth and charges (a ball grows, sparks rush in, a warning line shows where it will fire), then fires a huge beam for a few seconds that slowly follows your flagship. */
+    /** Its charged beam: it points its nose at your flagship with its head turned fully to the side, opens its mouth and charges (a ball grows, sparks rush in, a warning line shows where it will fire), then fires a huge beam for a few seconds that slowly follows your flagship. */
     beam: {
       /** Seconds after it appears before its first beam. */
       firstDelay: 5,
@@ -560,9 +560,9 @@ export const CONFIG = {
       every: 14,
       /** It only starts a beam while your flagship is within this distance of its head. */
       range: 1100,
-      /** Longest it spends turning to get your flagship to its side before it charges anyway (seconds). */
+      /** Longest it spends turning its nose onto your flagship (and its head fully to the side) before it charges anyway (seconds). */
       aimTime: 1.5,
-      /** It starts charging once your flagship is within this many degrees of where its mouth points. */
+      /** It starts charging once its head is fully turned and your flagship is within this many degrees of where its nose (the beam) points. */
       aimTolerance: 15,
       /** Seconds of charging (the ball grows; the warning line shows). */
       chargeTime: 2,

@@ -461,8 +461,8 @@ export function LeviathanPanel({
                 <NumberField label="Beam angle" value={layout.mouth.angle} step={5} onChange={(v) => onChange((l) => (l.mouth = { ...layout.mouth, angle: v }))} />
               </div>
               <div className="sa-note">
-                Pixels from the head's pivot: forward, and out toward the side it looks. Beam angle: 0 = straight out to the side, + = turned
-                toward the front. The gold cross in the preview shows it while a side head shows; Beam (toolbar) charges and fires once.
+                Pixels from the head's pivot: forward, and out toward the side it looks. Beam angle: 0 = straight along its nose, + = turned
+                toward the side it looks. The gold cross in the preview shows it while a side head shows; Beam (toolbar) charges and fires once.
               </div>
             </>
           )}

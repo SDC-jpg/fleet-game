@@ -178,7 +178,7 @@ export interface LeviathanLayout {
   /**
    * Where its beam comes out (CONFIG.leviathan.beam), from the head's pivot with the side-view head showing:
    * x forward, y out toward the side it looks (pixels); angle = which way the beam points, in degrees
-   * from straight out to the side (+ = turned toward the front).
+   * from straight along its nose (+ = turned toward the side it looks).
    */
   mouth: { x: number; y: number; angle: number };
 }

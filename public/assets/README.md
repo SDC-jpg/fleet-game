@@ -322,12 +322,13 @@ head is drawn. **Bulges** make one piece bigger or smaller, fading over its neig
 right from its root) sit on a piece, in front of or behind it, and bend as the creature swims;
 add, move, turn, size, mirror and swap them in the Fins section, and click the fin image there
 to set where it attaches.
-**Charged beam:** while charging, the head shows `head-side-mouth-open.png`, `charge-ball.png` grows and
+**Charged beam:** it fires along its nose (pointed at your flagship, head turned fully to the side). While
+charging, the head shows `head-side-mouth-open.png`, `charge-ball.png` grows and
 quivers at its mouth (sparks: `vfx.particle.charge`, a placeholder), and `boss.leviathan.beam-warning` marks
 where it will fire (for now the tier-6 laser warning art, recoloured red). Then the beam: `beam-start.png` (its
 rounded start, at the mouth) and `beam.png` (a segment repeated along it; each overlaps the next by 2 px).
 They're your beam image shrunk to game pixels (your mockup was at zoom 3; the beam is 50 px thick). Where it comes
-out is the **mouth** point: ShipArt → Bosses → Leviathan → Pieces → a side head (Forward, Out, Beam angle; a
+out is the **mouth** point: ShipArt → Bosses → Leviathan → Pieces → a side head (Forward, Out, Beam angle: 0 = along the nose; a
 gold cross in the preview), and the toolbar's **Beam** button plays the attack once. Sounds:
 `sfx.leviathan-charge` and `sfx.leviathan-beam` (a loop), placeholders.
 **Gradients** colour the body from head to tail, like a Photoshop gradient overlay: colour stops
