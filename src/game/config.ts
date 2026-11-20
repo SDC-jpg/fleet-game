@@ -944,6 +944,32 @@ export const CONFIG = {
   },
 
   /**
+   * Ship volume (2026-11-20, engine/tilt.ts): ships (yours and enemies) bank into turns and pitch as
+   * they speed up or slow down, drawn as a 3D hull guessed from their outline (shape per ship in
+   * ShipArt → Volume). Just for looks: hits and guns work as before. Settings → General switches it.
+   */
+  volume: {
+    /** On by default (each player can switch it off in Settings → General). */
+    enabled: true,
+    /** Most bank (degrees, rolling along its length into a turn). */
+    maxBank: 30,
+    /** Bank per turning speed: degrees of bank for each radian per second it turns. */
+    bankPerTurn: 22,
+    /** Most pitch (degrees; nose up while speeding up, down while slowing). */
+    maxPitch: 10,
+    /** Pitch per acceleration: degrees for each 100 pixels per second gained (or lost) each second. */
+    pitchPerAccel: 2.5,
+    /** How quickly the tilt follows (per second; lower = smoother, lazier). */
+    response: 6,
+    /** The tilt is drawn in steps of this many degrees (each step's picture is made once and kept). */
+    step: 5,
+    /** Light: the side tilting toward the light steps to lighter colours of its own palette (the user preferred it off). */
+    light: false,
+    /** Most milliseconds per frame spent making new tilted pictures (a ship is drawn flat that frame if its picture isn't ready). */
+    budgetMs: 4,
+  },
+
+  /**
    * Ship hit shapes (game/hitShape.ts): circles placed along the hull in ShipArt, so shots, missiles
    * and beams respect a ship's general shape. Ships without one use their round hit radius.
    */

@@ -233,17 +233,26 @@ function stepColor(ramps: Map<number, Ramp>, c: number, l: number, shift: number
 
 const tiltCache = new WeakMap<Frame, Map<string, Frame & { ax: number; ay: number }>>();
 
+/** New tilted pictures may only be made until this time (performance.now()); the game sets it each frame (tiltBudget). */
+let deadline = Infinity;
+/** Allow `ms` milliseconds of making new tilted pictures from now (call once per frame). */
+export function tiltBudget(ms: number) {
+  deadline = performance.now() + ms;
+}
+
 /** A frame tilted (angles snapped to TILT_STEP), with where its anchor now sits in the copy. */
-function tiltedFrame(f: Frame, anchorX: number, anchorY: number, shape: VolumeShape, bank: number, pitch: number, light: boolean) {
-  const bs = Math.round(bank / TILT_STEP);
-  const ps = Math.round(pitch / TILT_STEP);
+function tiltedFrame(f: Frame, anchorX: number, anchorY: number, shape: VolumeShape, bank: number, pitch: number, light: boolean, step: number) {
+  const bs = Math.round(bank / step);
+  const ps = Math.round(pitch / step);
   let byKey = tiltCache.get(f);
   if (!byKey) tiltCache.set(f, (byKey = new Map()));
-  const key = `${bs},${ps},${light ? 1 : 0}|${shape.height},${shape.round},${shape.spine}|${anchorX},${anchorY}`;
+  const key = `${step},${bs},${ps},${light ? 1 : 0}|${shape.height},${shape.round},${shape.spine}|${anchorX},${anchorY}`;
   const done = byKey.get(key);
   if (done) return done;
-  bank = bs * TILT_STEP;
-  pitch = ps * TILT_STEP;
+  // Out of time this frame: not made now (drawn flat; made on a later frame).
+  if (performance.now() > deadline) return null;
+  bank = bs * step;
+  pitch = ps * step;
   const H = heightsOf(f, shape);
   const ramps = light ? rampsOf(H.rgba) : null;
   // Room around it: raised parts can slide past the image's edges.
@@ -313,9 +322,17 @@ function tiltedFrame(f: Frame, anchorX: number, anchorY: number, shape: VolumeSh
   return out;
 }
 
-/** A sprite tilted by `bank` and `pitch` (radians, snapped to TILT_STEP); the same sprite when both are 0. */
-export function tiltedSprite(sprite: Sprite, shape: VolumeShape, bank: number, pitch: number, light: boolean): Sprite {
-  if (Math.round(bank / TILT_STEP) === 0 && Math.round(pitch / TILT_STEP) === 0) return sprite;
-  const frames = sprite.frames.map((f) => tiltedFrame(f, sprite.anchorX, sprite.anchorY, shape, bank, pitch, light));
-  return { ...sprite, frames, anchorX: frames[0].ax, anchorY: frames[0].ay };
+/**
+ * A sprite tilted by `bank` and `pitch` (radians, snapped to steps of `step` radians); the same
+ * sprite when both are 0, or when its picture couldn't be made in this frame's time (tiltBudget).
+ */
+export function tiltedSprite(sprite: Sprite, shape: VolumeShape, bank: number, pitch: number, light: boolean, step = TILT_STEP): Sprite {
+  if (Math.round(bank / step) === 0 && Math.round(pitch / step) === 0) return sprite;
+  const frames = sprite.frames.map((f) => tiltedFrame(f, sprite.anchorX, sprite.anchorY, shape, bank, pitch, light, step));
+  if (frames.some((f) => !f)) return sprite;
+  const ok = frames as (Frame & { ax: number; ay: number })[];
+  return { ...sprite, frames: ok, anchorX: ok[0].ax, anchorY: ok[0].ay };
 }
+
+/** The tilt actually drawn (snapped to `step`), so parts placed with tiltedSpot match the picture. */
+export const snapTilt = (a: number, step = TILT_STEP) => Math.round(a / step) * step;

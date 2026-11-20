@@ -79,6 +79,13 @@ function General({ hud, game }: { hud: HudInfo; game: Game | null }) {
         </span>
       </label>
       <label className="setting">
+        <input type="checkbox" checked={hud.volume3d} onChange={(e) => game?.setVolume3d(e.target.checked)} />
+        <span>
+          <b>3D ships</b>
+          <span className="note">Ships bank into turns and tip as they speed up or slow down, like 3D hulls. Off: flat, as before.</span>
+        </span>
+      </label>
+      <label className="setting">
         <input type="checkbox" checked={hud.commanderLines} onChange={(e) => game?.setCommanderLines(e.target.checked)} />
         <span>
           <b>Commander view: targeting lines</b>

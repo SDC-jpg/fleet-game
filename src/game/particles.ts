@@ -78,11 +78,25 @@ export class Particles {
    * (vx, vy) is how fast the ship or object is moving (spreads the particles along its path).
    */
   /** `scale`: the art is drawn this much bigger (see tierArt), so the mounts sit further out. */
-  emitMounts(data: ArtLayoutsFile, layout: ArtLayout | undefined, state: string, x: number, y: number, angle: number, dt: number, vx = 0, vy = 0, scale = 1) {
+  emitMounts(
+    data: ArtLayoutsFile,
+    layout: ArtLayout | undefined,
+    state: string,
+    x: number,
+    y: number,
+    angle: number,
+    dt: number,
+    vx = 0,
+    vy = 0,
+    scale = 1,
+    /** Where a point of the art sits now (a banking ship's tilted hull: render.ts shipVolume); missing = where it's drawn flat. */
+    spot?: (x: number, y: number) => { x: number; y: number },
+  ) {
     if (!layout) return;
     for (const m of layout.mounts) {
       if (!m.emit?.[state]) continue;
-      const p = shipPointToWorld((m.x + m.vfxX) * scale, (m.y + m.vfxY) * scale, x, y, angle);
+      const at = spot ? spot(m.x + m.vfxX, m.y + m.vfxY) : { x: m.x + m.vfxX, y: m.y + m.vfxY };
+      const p = shipPointToWorld(at.x * scale, at.y * scale, x, y, angle);
       this.emit(particleSettings(data, m, state), p.x, p.y, mountWorldAngle(m, angle) + Math.PI, dt, vx, vy);
     }
   }

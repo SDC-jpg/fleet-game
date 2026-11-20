@@ -10,7 +10,8 @@ import { PixelRenderer, ROTATION_MODES, type RotationMode } from '../engine/rend
 import { ROTATION_SETTING, loadSetting, saveSetting } from '../engine/settings';
 import type { Sounds } from '../engine/sound';
 import { clamp, wrapAngle } from '../engine/math';
-import { renderGame, setDetailSteps, tierArt, tierSprite, type ViewOptions } from './render';
+import { renderGame, setDetailSteps, shipVolume, tierArt, tierSprite, type ViewOptions } from './render';
+import { tiltBudget } from '../engine/tilt';
 import { setGunLayouts, shipArtBase } from './guns';
 import { setHitLayouts } from './hitShape';
 import { beamOrigin, setLeviathanLayout } from './leviathan';
@@ -85,6 +86,8 @@ const loadToggle = (key: string, fallback: boolean) => {
 };
 /** Commander view: symbol ships' targeting lines, and their shots, drawn or not. */
 const COMMANDER_LINES_SETTING = 'fleet-game.commander-lines';
+/** Ships as 3D hulls (Settings → General). */
+const VOLUME_SETTING = 'fleet-game.volume';
 const COMMANDER_SHOTS_SETTING = 'fleet-game.commander-shots';
 
 /** Numbers shown on screen by React. */
@@ -166,6 +169,8 @@ export interface HudInfo {
   leftHanded: boolean;
   /** Settings: commander view targeting lines / symbol ships' shots drawn. */
   commanderLines: boolean;
+  /** Ships drawn as 3D hulls, banking and pitching (Settings → General). */
+  volume3d: boolean;
   commanderShots: boolean;
   /** Frames drawn per second (averaged over half a second). */
   fps: number;
@@ -1002,6 +1007,13 @@ export class Game {
     saveSetting(COMMANDER_LINES_SETTING, on ? 'on' : 'off');
     this.sendHud();
   }
+  /** Ships as 3D hulls, banking and pitching (Settings → General; remembered in this browser). */
+  volume3d = loadToggle(VOLUME_SETTING, CONFIG.volume.enabled);
+  setVolume3d(on: boolean) {
+    this.volume3d = on;
+    saveSetting(VOLUME_SETTING, on ? 'on' : 'off');
+    this.sendHud();
+  }
   setCommanderShots(on: boolean) {
     this.commanderShots = on;
     saveSetting(COMMANDER_SHOTS_SETTING, on ? 'on' : 'off');
@@ -1027,6 +1039,7 @@ export class Game {
       red: this.shift.red,
       smearX: f ? -f.vx * back : 0,
       smearY: f ? -f.vy * back : 0,
+      volume: this.volume3d,
     };
   }
 
@@ -1052,7 +1065,9 @@ export class Game {
         continue;
       }
       const { name: base, scale } = tierArt(this.assets, shipArtBase(s), s.tier, '', false);
-      this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy, scale);
+      // A banking ship's thrusters move with its tilted hull.
+      const spot = shipVolume(this.renderer, this.assets, this.layouts, s, this.volume3d).spot;
+      this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy, scale, spot);
     }
     // Objects with particle emitters (art.json): missiles (Inert until they fire up, then Fired),
     // gun shots, mines, wrecks, laser beams and elite laser warnings.
@@ -1109,6 +1124,8 @@ export class Game {
         r.camY += sy;
         r.begin(frozen ? 0 : frameDt);
         if (!frozen) this.updateParticles(frameDt * this.timeScale);
+        // New tilted ship pictures (CONFIG.volume) only up to a few milliseconds a frame.
+        tiltBudget(CONFIG.volume.budgetMs);
         renderGame(this.state, r, this.assets, { layouts: this.layouts, particles: this.particles, topParticles: this.topParticles, view: this.viewOptions(frozen ? 0 : frameDt) });
         // While the cursor is locked the real one is hidden: draw the game's own.
         if (this.input.locked) {
@@ -1199,6 +1216,7 @@ export class Game {
       cursorLock: this.input.cursorLock,
       leftHanded: this.leftHanded,
       commanderLines: this.commanderLines,
+      volume3d: this.volume3d,
       commanderShots: this.commanderShots,
       fps: this.fps,
       resumeOffer: this.resumeOffer && {

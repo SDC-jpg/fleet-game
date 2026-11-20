@@ -105,6 +105,11 @@ export interface Ship {
   leviathan: LeviathanBody | null;
   /** Set for a Leviathan's parasite: latched onto one of your ships, or flying (leviathanAttacks.ts). */
   parasite: ParasiteState | null;
+  /** Its 3D tilt for drawing (CONFIG.volume; radians, smoothed): bank into turns, pitch with speeding up and slowing; and last step's facing and forward speed, to measure them. */
+  bank: number;
+  pitch: number;
+  lastAngle: number;
+  lastForward: number;
   /** What dealt the hit that destroyed it (see DamageSource). */
   killedBy?: DamageSource;
   /** Enemies: came as part of a fleet formation (not a lone fighter). */
@@ -838,6 +843,10 @@ function addShip(
     elite: null,
     leviathan: null,
     parasite: null,
+    bank: 0,
+    pitch: 0,
+    lastAngle: angle,
+    lastForward: 0,
     quirk: {
       phaseX: Math.random() * Math.PI * 2,
       phaseY: Math.random() * Math.PI * 2,
@@ -1031,6 +1040,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
     s.y += s.vy * dtOf(s) * k;
     for (let i = 0; i < s.gunTimers.length; i++) s.gunTimers[i] -= dtOf(s);
   }
+  updateShipTilt(state, dt);
   // A Leviathan's body follows where its head went.
   for (const s of state.ships)
     if (s.leviathan) {
@@ -1371,6 +1381,29 @@ export function hijackShip(state: GameState, s: Ship, duration: number) {
   s.hijackedFrom = from;
   s.hijacked = duration;
   s.ghost = null;
+}
+
+/**
+ * Each ship's 3D tilt for drawing (CONFIG.volume): it banks into turns (turning right = its right
+ * side dips) and pitches its nose up while speeding up, down while slowing. Just for looks.
+ */
+function updateShipTilt(state: GameState, dt: number) {
+  if (dt <= 0) return;
+  const V = CONFIG.volume;
+  const rad = Math.PI / 180;
+  const k = Math.min(1, V.response * dt);
+  for (const s of state.ships) {
+    if (s.leviathan || s.parasite) continue;
+    const turn = wrapAngle(s.angle - s.lastAngle) / dt;
+    const forward = s.vx * Math.cos(s.angle) + s.vy * Math.sin(s.angle);
+    const accel = (forward - s.lastForward) / dt;
+    s.lastAngle = s.angle;
+    s.lastForward = forward;
+    const bank = clamp(turn * V.bankPerTurn, -V.maxBank, V.maxBank) * rad;
+    const pitch = clamp((accel / 100) * V.pitchPerAccel, -V.maxPitch, V.maxPitch) * rad;
+    s.bank += (bank - s.bank) * k;
+    s.pitch += (pitch - s.pitch) * k;
+  }
 }
 
 /** Take a ship out of its fleet (a new leader takes over if it was leading). */

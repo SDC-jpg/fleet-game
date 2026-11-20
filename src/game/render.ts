@@ -12,7 +12,7 @@ import { gunsOf, shipArtBase } from './guns';
 import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
 import { HALF_SIDE_HEAD_SPRITE, MOUTH_OPEN_HEAD_SPRITE, PIECE_SPRITES, beamOrigin, beamThickness, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
 import { orbTell } from './leviathanAttacks';
-import { DEFAULT_VOLUME, tiltedSpot, tiltedSprite } from '../engine/tilt';
+import { DEFAULT_VOLUME, snapTilt, tiltedSpot, tiltedSprite } from '../engine/tilt';
 import { pieceGone } from './leviathanDeath';
 import { introText, riftOpening, type BossIntro } from './leviathanIntro';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
@@ -83,6 +83,34 @@ export interface ViewOptions {
   /** The long-exposure smear of the stars during Time Dilation: how far back (game pixels). */
   smearX: number;
   smearY: number;
+  /** Ships drawn as 3D hulls, banking and pitching (CONFIG.volume; Settings → General). */
+  volume: boolean;
+}
+
+const NO_TILT = { tilt: undefined, spot: (x: number, y: number) => ({ x, y }) };
+
+/**
+ * A ship's 3D tilt for drawing (CONFIG.volume, engine/tilt.ts) and where a point of it (mount,
+ * gun) sits on the tilted hull. Flat when switched off, in RotSprite mode, level, or when its
+ * tilted picture couldn't be made this frame.
+ */
+export function shipVolume(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, on: boolean) {
+  if (!on || r.rotation === 'rotsprite' || s.leviathan || s.parasite) return NO_TILT;
+  const V = CONFIG.volume;
+  const step = (V.step * Math.PI) / 180;
+  if (Math.round(s.bank / step) === 0 && Math.round(s.pitch / step) === 0) return NO_TILT;
+  const { name: base } = tierArt(assets, shipArtBase(s), s.tier, '', false);
+  const layout = layouts.ships[base];
+  const file = layout?.base[s.thrust] ?? layout?.base.idle;
+  const flat = assets.get(file ? fileSprite(file) : base);
+  const shape = layout?.volume ?? DEFAULT_VOLUME;
+  if (tiltedSprite(flat, shape, s.bank, s.pitch, V.light, step) === flat) return NO_TILT;
+  const bank = snapTilt(s.bank, step);
+  const pitch = snapTilt(s.pitch, step);
+  return {
+    tilt: { bank: s.bank, pitch: s.pitch, light: V.light, step },
+    spot: (x: number, y: number) => tiltedSpot(flat, shape, x, y, bank, pitch),
+  };
 }
 
 /**
@@ -238,12 +266,12 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
       const color = s.team === 'player' ? CONFIG.commander.lineColorPlayer : CONFIG.commander.lineColorEnemy;
       r.drawLine(s.x, s.y, t.x, t.y, color, CONFIG.commander.targetLineAlpha, 0);
     }
-  for (const s of ordered) drawShip(r, assets, extras.layouts, s, state.time, drawnAsSymbol(state, s, symbolMax));
+  for (const s of ordered) drawShip(r, assets, extras.layouts, s, state.time, drawnAsSymbol(state, s, symbolMax), !!view?.volume);
   if (flagship) {
     // The command ring is also the boost meter: its frames go from empty (first) to full (last).
     const { sprite: ring, scale } = tierSpriteScaled(assets, 'ui.command-ring', flagship.tier);
     r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1, false, scale);
-    drawShip(r, assets, extras.layouts, flagship, state.time, false);
+    drawShip(r, assets, extras.layouts, flagship, state.time, false, !!view?.volume);
   }
 
   // The Leviathan's charged beam (warning line, charge ball, beam), over the ships, and the sparks rushing into the ball.
@@ -533,7 +561,7 @@ export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, an
 }
 
 /** Draws one ship, plus a small health bar under it if it's damaged. */
-function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number, symbol: boolean) {
+function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number, symbol: boolean, volume = false) {
   if (s.absorbed) return; // already inside the ship it's merging into
   if (s.leviathan) return drawLeviathan(r, assets, s.leviathan, s.x, s.y, s.angle, time);
   // A Leviathan's parasite: its own little sprite (boss.leviathan.parasite, facing right).
@@ -567,10 +595,13 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
   }
   // A hijacked ship flickers in its last second before it switches back.
   if (s.hijacked > 0 && s.hijacked < 1 && Math.floor(s.hijacked * 10) % 2) alpha *= 0.4;
-  drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, null, time, alpha, true, scale);
+  // As a 3D hull, banking and pitching (CONFIG.volume); its parts and guns move with it.
+  const vol = shipVolume(r, assets, layouts, s, volume && !s.ghost);
+  drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, null, time, alpha, true, scale, vol.tilt);
   // Gun images (turrets) on top, turned to where each gun points.
   gunsOf(s).forEach((g, i) => {
-    if (g.image) r.drawAttached(assets.get(fileSprite(g.image)), s.x, s.y, s.angle, g.x, g.y, s.gunAim[i] ?? g.angle, time, alpha);
+    const p = vol.spot(g.x, g.y);
+    if (g.image) r.drawAttached(assets.get(fileSprite(g.image)), s.x, s.y, s.angle, p.x, p.y, s.gunAim[i] ?? g.angle, time, alpha);
   });
   // A hijacked ship keeps its old side's art, so a heart above it shows who it fights for
   // (in that side's colour; kept the same size on screen at any zoom).
@@ -852,7 +883,7 @@ export function drawLayoutArt(
   /** Draw it this much bigger, mounts included (a tier using a smaller tier's art, see tierArt). */
   scale = 1,
   /** Ships: banked and pitched (radians) as a 3D hull (engine/tilt.ts, shape from layout.volume), parts following; light = shading stepped to its palette. */
-  tilt?: { bank: number; pitch: number; light: boolean },
+  tilt?: { bank: number; pitch: number; light: boolean; step?: number },
 ) {
   const baseFile = layout?.base[state] ?? layout?.base.idle;
   const mounts = layout?.mounts ?? [];
@@ -868,8 +899,11 @@ export function drawLayoutArt(
   // Banked and pitched: a tilted copy of the hull, and the parts moved with it.
   const flat = baseSprite;
   const shape = layout?.volume ?? DEFAULT_VOLUME;
-  if (tilt) baseSprite = tiltedSprite(baseSprite, shape, tilt.bank, tilt.pitch, tilt.light);
-  const spot = (mx: number, my: number) => (tilt ? tiltedSpot(flat, shape, mx, my, tilt.bank, tilt.pitch) : { x: mx, y: my });
+  if (tilt) baseSprite = tiltedSprite(baseSprite, shape, tilt.bank, tilt.pitch, tilt.light, tilt.step);
+  // Parts follow the hull as drawn (snapped to its step; flat if its picture wasn't ready this frame).
+  const tilted = tilt && baseSprite !== flat;
+  const spot = (mx: number, my: number) =>
+    tilted ? tiltedSpot(flat, shape, mx, my, snapTilt(tilt.bank, tilt.step), snapTilt(tilt.pitch, tilt.step)) : { x: mx, y: my };
   // Art too big for RotSprite is drawn as in Grid, mounts too, so they stay put on it.
   const mode = r.rotation;
   if (mode === 'rotsprite' && !r.rotSpriteFits(baseSprite)) r.rotation = 'grid';
