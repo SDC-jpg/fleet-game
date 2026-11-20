@@ -895,6 +895,8 @@ export const CONFIG = {
       bankPerTurn: 14,
       /** How quickly the roll follows (per second). */
       response: 5,
+      /** Its head's most roll (degrees): instead of rolling with its turns, the head leans toward its next change of picture (top ↔ half-side ↔ side), most just before the change, so the roll and the picture change read as one turn. */
+      headLead: 22,
       /** Drawn in steps of this many degrees. */
       step: 4,
     },

@@ -46,6 +46,10 @@ export interface LeviathanBody {
   viewTimer: number;
   /** The head is partway through a change of view (top → half-side → side), so the next step comes sooner (viewStepTime). */
   viewStepping: boolean;
+  /** How far off its heading the point it watches is (degrees, + = to its right; see lookToward), for its head's roll; null = not watching (roaring, or its beam). */
+  lookOff: number | null;
+  /** The view its head's roll last saw (the roll jumps with the picture when the view changes; see headLead). */
+  rollView: HeadView;
   /** Seconds left of a roar (0 = not roaring), seconds until the next, and whether it has roared on first coming into view (CONFIG.leviathan.roar). */
   roaring: number;
   roarIn: number;
@@ -238,6 +242,8 @@ export function makeLeviathanBody(x: number, y: number, angle: number, L = gameL
     view: 0,
     viewTimer: 0,
     viewStepping: false,
+    lookOff: null,
+    rollView: 0,
     roaring: 0,
     roarIn: CONFIG.leviathan.roar.every[0],
     firstRoar: false,
@@ -335,6 +341,7 @@ export function lookToward(body: LeviathanBody, head: { x: number; y: number; an
   const C = CONFIG.leviathan;
   // How far off its heading the point is, in degrees (+ = to its right on screen).
   const off = at ? (wrapAngle(Math.atan2(at.y - head.y, at.x - head.x) - head.angle) * 180) / Math.PI : 0;
+  body.lookOff = off;
   const level = Math.abs(off) > C.sideViewAngle ? 2 : Math.abs(off) > C.frontViewAngle ? 1 : 0;
   // Right behind it, the head keeps looking over the shoulder it already uses (no flipping side to side).
   const side = level === 2 && Math.abs(off) > C.behindAngle && body.view !== 0 ? Math.sign(body.view) : Math.sign(off);
@@ -405,6 +412,7 @@ function updateRoar(state: GameState, ship: Ship, body: LeviathanBody, flagship:
   body.roaring = Math.max(0, body.roaring - dt);
   // Its head turns fully to the side your flagship is on (the mouth opens once it's there: render.ts).
   const side = flagship ? (wrapAngle(Math.atan2(flagship.y - ship.y, flagship.x - ship.x) - ship.angle) >= 0 ? 1 : -1) : Math.sign(body.view) || 1;
+  body.lookOff = null;
   stepView(body, (2 * side) as HeadView, dt);
   return true;
 }
@@ -678,11 +686,44 @@ export function updatePieceRoll(body: LeviathanBody, dt: number) {
   body.pieces.forEach((p, i) => {
     const turn = p.lastAngle === null ? 0 : wrapAngle(p.angle - p.lastAngle) / dt;
     p.lastAngle = p.angle;
-    // Its head levels out while it charges and fires its beam, so the beam leaves from its mouth (which doesn't follow the roll).
-    const levelHead = i === 0 && body.attack !== null;
-    const want = levelHead ? 0 : (clamp(turn * V.bankPerTurn, -V.maxBank, V.maxBank) * Math.PI) / 180;
+    if (i === 0) {
+      // Its head levels out while it charges and fires its beam, so the beam leaves from its mouth (which doesn't follow the roll).
+      const want = body.attack !== null ? 0 : (headLead(body) * V.headLead * Math.PI) / 180;
+      // A new head picture: the roll jumps with it (it was leaning into this picture, now it leans out of it), so the turn reads as one movement.
+      if (body.view !== body.rollView) p.bank = want;
+      body.rollView = body.view;
+      p.bank += (want - p.bank) * k;
+      return;
+    }
+    const want = (clamp(turn * V.bankPerTurn, -V.maxBank, V.maxBank) * Math.PI) / 180;
     p.bank += (want - p.bank) * k;
   });
+}
+
+/**
+ * Which way and how far its head leans toward the next change of head picture (−1..1 of
+ * CONFIG.leviathan.roll.headLead; + = its right side dips). The head rolls toward the picture it's
+ * about to show (top → half-side → side, and back), most just before the change and none halfway
+ * between two changes, so the roll carries each picture into the next. Its pictures turn it to
+ * the right (view +) by lifting its right side, so leaning toward view + dips its left side.
+ */
+function headLead(body: LeviathanBody) {
+  const off = body.lookOff;
+  if (off === null) return 0;
+  const C = CONFIG.leviathan;
+  const front = C.frontViewAngle;
+  const side = C.sideViewAngle;
+  const half = (side - front) / 2;
+  const v = body.view;
+  const d = v !== 0 ? Math.sign(v) : 1;
+  // How far round toward the side it looks (degrees), and where that is between its pictures: + = toward a bigger turn.
+  const x = off * d;
+  let toward: number;
+  if (v === 0) toward = clamp(off / front, -1, 1);
+  else if (Math.abs(v) === 1) toward = clamp((x - (front + side) / 2) / half, -1, 1) * d;
+  // Fully turned: the only change left is back to the half-side head, near sideViewAngle.
+  else toward = -clamp(1 - (x - side) / half, 0, 1) * d;
+  return -toward;
 }
 
 /** After the head moved to (x, y): remember its path, and put every piece on it. */

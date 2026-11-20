@@ -124,7 +124,11 @@ export class LeviathanPreview {
         const o = beamOrigin(this.body, this, a.side);
         this.sparks.emitInward('vfx.particle.charge', o.x, o.y, B.sparkRadius, B.sparksPerSecond, B.sparkLife, dt);
       }
-    } else if (s.head !== 'auto') this.body.view = HELD_VIEW[s.head];
+    } else if (s.head !== 'auto') {
+      // A held head doesn't lean toward another picture.
+      this.body.view = HELD_VIEW[s.head];
+      this.body.lookOff = null;
+    }
     this.sparks.update(dt);
     // Fins move even while it holds still (they settle, and show edits at once).
     updateFins(this.body, dt);
