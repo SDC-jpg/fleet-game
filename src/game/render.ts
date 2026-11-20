@@ -625,10 +625,10 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
  * The side-view head shows while it turns (mirrored for the other direction).
  */
 export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanBody, x: number, y: number, angle: number, time: number, volume = false) {
-  // Its pieces roll as they turn (CONFIG.volume.leviathan; its head only while seen from above). Not in RotSprite mode.
+  // Its pieces roll as they turn (CONFIG.leviathan.roll; its head only while seen from above). Not in RotSprite mode.
   const roll = volume && r.rotation !== 'rotsprite';
   const shape = body.layout.volume ?? DEFAULT_VOLUME;
-  const step = (CONFIG.volume.leviathan.step * Math.PI) / 180;
+  const step = (CONFIG.leviathan.roll.step * Math.PI) / 180;
   const rolled = (sprite: Sprite, p: LeviathanPiece) => (roll && (p.kind !== 'head' || body.view === 0) ? tiltedSprite(sprite, shape, p.bank, 0, false, step, 'up') : sprite);
   const tint = bodyTint(assets, body);
   // Fins by piece: drawn just under or over their piece, so they keep its place in the layering.

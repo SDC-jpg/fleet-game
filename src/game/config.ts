@@ -879,6 +879,21 @@ export const CONFIG = {
     finSwaySpeed: 0.6,
     /** Health = this × the wave's enemy fleet value × a tier-1 enemy's health (like elites, which use 8). Tuned with bots (2026-11-19) for a fight of a few minutes around wave 30. */
     healthPerFleetValue: 100,
+    /**
+     * The Leviathan: each body piece (and its head while seen from above) rolls along its length as
+     * it turns, so a bend rolls down the body like a wave. No pitch. Its shape: ShipArt → Bosses →
+     * Leviathan → Volume.
+     */
+    roll: {
+      /** Most roll (degrees). */
+      maxBank: 20,
+      /** Roll per turning speed: degrees for each radian per second the piece turns. */
+      bankPerTurn: 14,
+      /** How quickly the roll follows (per second). */
+      response: 5,
+      /** Drawn in steps of this many degrees. */
+      step: 4,
+    },
     /** Frozen (Freeze skill), it's never stopped: it swims, turns and attacks at this share of its normal pace. */
     freezeSlow: 0.5,
     /**
@@ -973,21 +988,6 @@ export const CONFIG = {
     light: false,
     /** Most milliseconds per frame spent making new tilted pictures (a ship is drawn flat that frame if its picture isn't ready). */
     budgetMs: 4,
-    /**
-     * The Leviathan: each body piece (and its head while seen from above) rolls along its length as
-     * it turns, so a bend rolls down the body like a wave. No pitch. Its shape: ShipArt → Bosses →
-     * Leviathan → Volume.
-     */
-    leviathan: {
-      /** Most roll (degrees). */
-      maxBank: 20,
-      /** Roll per turning speed: degrees for each radian per second the piece turns. */
-      bankPerTurn: 14,
-      /** How quickly the roll follows (per second). */
-      response: 5,
-      /** Drawn in steps of this many degrees. */
-      step: 4,
-    },
   },
 
   /**
