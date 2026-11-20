@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-20
+- Bug fixes.
 - New art for the tier-2 enemy ships (all three kinds) and a new energy gun turret.
 - New default screen look.
 - Bug fixes and small improvements.
