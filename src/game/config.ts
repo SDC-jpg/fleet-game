@@ -640,6 +640,8 @@ export const CONFIG = {
       bloodSpeedRandom: 0.35,
       /** Seconds each blood shot flies. */
       bloodLife: 2.8,
+      /** How quickly blood shots slow down (share of their speed lost per second; 0.6 until 2026-11-20, now they fly about twice as far). */
+      bloodDrag: 0.02,
       /** Damage per blood shot that hits, as a share of the ship's full health. */
       bloodDamage: 0.03,
       /** A blood shot's size for hitting ships (game pixels). */

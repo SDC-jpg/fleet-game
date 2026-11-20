@@ -219,7 +219,7 @@ function updateBlood(state: GameState, dt: number) {
     b.age += dt;
     b.x += b.vx * dt;
     b.y += b.vy * dt;
-    const keep = Math.max(0, 1 - 0.6 * dt);
+    const keep = Math.max(0, 1 - W.bloodDrag * dt);
     b.vx *= keep;
     b.vy *= keep;
     for (const s of state.ships) {
