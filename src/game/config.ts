@@ -656,9 +656,10 @@ export const CONFIG = {
       /**
        * Small homing missiles (they fly like the Missiles skill's, CONFIG.missiles): `missiles` per
        * shot by default (each gun can set its own in ShipArt), sharing the shot's damage, fanned out
-       * up to `spread` degrees either side of where the gun points.
+       * up to `spread` degrees either side of where the gun points. `enemyTargetRange`: enemy ships
+       * with explosive guns start firing at targets this many times farther than their normal shot range.
        */
-      explosive: { rate: 3, efficiency: 0.75, missiles: 1, spread: 20 },
+      explosive: { rate: 3, efficiency: 0.75, missiles: 1, spread: 20, enemyTargetRange: 2 },
     },
   },
 
@@ -900,9 +901,9 @@ export const CONFIG = {
     /** Seconds to go from drifting to top speed. */
     rampTime: 0.6,
     /** How fast they steer toward their target while speeding (radians per second). */
-    turnRate: 0.5,
+    turnRate: 0.2,
     /** Fuel: seconds after launch that a missile keeps flying and steering. Then it goes dead and tumbles. */
-    life: 2,
+    life: 4,
     /** Seconds a dead missile (out of fuel) tumbles on, harmless, bouncing off ships, before it disappears. */
     tumbleTime: 3,
     /** Fastest a dead missile spins (radians per second; each picks a random spin up to this, either way). */
@@ -930,7 +931,7 @@ export const CONFIG = {
     /** Mines dropped at once (more come from upgrade cards), spread out side by side. */
     count: 1,
     /** Seconds before an untouched mine fizzles out. */
-    life: 6,
+    life: 12,
   },
 
   /** Shield skill: a bubble on you and nearby ships of your fleet that soaks up damage. */

@@ -1220,7 +1220,9 @@ function aimAndShoot(state: GameState, ship: Ship, dt: number, idleAngle: number
   // An elite holds still while its laser warning shows, so the warning line is where the beam will go.
   if (ship.elite && ship.elite.laserCharge > 0) return;
   // Merging ships hold fire.
-  const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range, arc);
+  // Enemy ships with missile (explosive) guns open fire from farther away.
+  const missileRange = ship.team === 'enemy' && gunsOf(ship).some((g) => g.type === 'explosive') ? CONFIG.guns.types.explosive.enemyTargetRange : 1;
+  const target = ship.merge ? null : findNearestEnemy(state, ship, ship.stats.range * missileRange, arc);
   ship.target = target;
   if (!target) {
     ship.angle = turnToward(ship.angle, idleAngle, ship.stats.turnRate * dt);

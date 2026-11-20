@@ -4,6 +4,11 @@ Player-facing changes, newest first. When a new version goes live, the lines
 added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
+## 2026-11-19
+- Missiles (yours and the enemy's) now burn for 4 seconds instead of 2 and turn more slowly, so they fly wider, longer arcs.
+- Enemy missile ships open fire from twice as far away.
+- Mines now wait 12 seconds before fizzling out (was 6).
+
 ## 2026-11-18
 - The Leviathan (test key B) now has fins that flow and trail behind it as it swims.
 - First look at the Leviathan, a giant space serpent boss whose body curls and follows its head, which turns sideways and opens its jaws as it turns. For now it only appears with the test key B, circles you and lunges, and can be shot anywhere along its body (one health bar at the top of the screen); it doesn't attack yet.
