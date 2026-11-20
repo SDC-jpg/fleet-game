@@ -1970,7 +1970,8 @@ function removeDeadShips(state: GameState) {
     const firstKill = wasEnemy && state.stats.kills === 1 && CONFIG.firstKillWreck;
     let wreckChance = firstKill ? 1 : CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
     let wreckTier = s.tier;
-    if (s.parasite) wreckChance = 0;
+    // Parasites, and enemies struck down by its entrance's lightning, leave nothing.
+    if (s.parasite || s.killedBy === 'leviathan-intro') wreckChance = 0;
     else if (s.leviathan) {
       // A Leviathan is a creature: no wreck, but an item with elite odds.
       dropItem(state, s, rarityWeights('elite'));
@@ -2311,6 +2312,8 @@ export function wavePlan(state: GameState, wave: number) {
 }
 
 function updateWaves(state: GameState, dt: number, spawnDistance: number) {
+  // While a Leviathan comes, fights and dies, the waves wait (the user, 2026-11-20).
+  if (state.bossIntro || state.ships.some((s) => s.leviathan)) return;
   state.waveTimer -= dt;
   if (state.waveTimer > 0) return;
   state.wave++;
@@ -2326,7 +2329,7 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
   // (wavePlan is asked one wave ahead for the HUD; here the wave has just begun.)
   const plan = state.nextLeviathan ? { ...wavePlan(state, state.wave + 1), leviathan: true } : wavePlan(state, state.wave);
-  rollLeviathan(state);
+  rollLeviathan(state, plan.elite);
   if (plan.leviathan) {
     // The Leviathan's wave: its entrance instead of the usual enemies (an elite due waits for the next wave).
     state.eliteDue = plan.eliteSlot;
@@ -2357,9 +2360,10 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
 
 /**
  * Is the next wave a Leviathan? From CONFIG.leviathan.spawn.fromWave the chance grows each wave
- * (chancePerWave: 20%, 40%...) until one comes; none while one is coming or on the field.
+ * (chancePerWave: 20%, 40%...) until one comes; none while one is coming or on the field, and
+ * never right after a wave that brought an elite (`eliteWave`; the chance still grows).
  */
-function rollLeviathan(state: GameState) {
+function rollLeviathan(state: GameState, eliteWave: boolean) {
   const S = CONFIG.leviathan.spawn;
   const busy = state.bossIntro !== null || state.ships.some((s) => s.leviathan);
   if (state.nextLeviathan) {
@@ -2370,7 +2374,7 @@ function rollLeviathan(state: GameState) {
   }
   if (!S.enabled || busy || state.wave + 1 < S.fromWave) return;
   state.leviathanChance = Math.min(1, state.leviathanChance + S.chancePerWave);
-  state.nextLeviathan = Math.random() < state.leviathanChance;
+  state.nextLeviathan = !eliteWave && Math.random() < state.leviathanChance;
 }
 
 /** The enemy variant a wave's squadron is (CONFIG.variants), or null for none this wave. */

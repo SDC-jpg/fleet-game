@@ -10,7 +10,7 @@
 import { randRange } from '../engine/math';
 import { CONFIG } from './config';
 import { followHead, makeLeviathanBody, type LeviathanBody } from './leviathan';
-import { addSound, controlledShip, spawnLeviathanFrom, type GameState } from './world';
+import { addSound, controlledShip, damageShip, spawnLeviathanFrom, type GameState } from './world';
 
 export interface BossIntro {
   /** Seconds since it started. */
@@ -69,6 +69,8 @@ export function updateBossIntro(state: GameState, dt: number, spawnDistance: num
   it.bolts = it.bolts.filter((b) => b.age < I.boltLife);
   if (it.t >= it.nextBolt && it.t < I.textUntil + I.textFade) {
     it.nextBolt = it.t + randRange(I.boltGap[0], I.boltGap[1]);
+    // The lightning clears the field: every enemy ship left is destroyed, leaving nothing (no XP, item or wreck).
+    for (const s of state.ships) if (s.team === 'enemy' && !s.hijackedFrom && !s.dead && !s.leviathan) damageShip(state, s, Infinity, 'leviathan-intro');
     it.bolts.push({ x: randRange(-900, 900), y: randRange(-480, 200), frame: Math.floor(Math.random() * 4), scale: randRange(1.2, 2.6), flip: Math.random() < 0.5, age: 0 });
     if (Math.random() < 0.5) addSound(state, 'sfx.leviathan-thunder', controlledShip(state) ?? { x: 0, y: 0 }, 1, randRange(0.4, 1), true);
   }

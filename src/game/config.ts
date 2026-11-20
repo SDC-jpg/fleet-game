@@ -667,14 +667,15 @@ export const CONFIG = {
     },
     /**
      * When it comes: from `fromWave`, each wave adds `chancePerWave` to the chance that the next wave
-     * is a Leviathan (20%, 40%, 60%...) until one comes; that wave's usual enemies don't come (its
-     * intro plays instead). The build-up starts again once it's gone. While one is on the field the
-     * camera is never closer than at a tier-3 fleet.
+     * is a Leviathan (20%, 40%, 60%...) until one comes, never right after a wave with an elite; that
+     * wave's usual enemies don't come (its intro plays instead, and the first lightning strike destroys
+     * every enemy ship left, leaving nothing). The waves wait until it's dead; the build-up starts again
+     * after. While one is on the field the camera is never closer than at a tier-3 fleet.
      */
     spawn: {
       /** Off = it only comes with the test keys. */
       enabled: true,
-      fromWave: 30,
+      fromWave: 27,
       chancePerWave: 0.2,
     },
     /**
