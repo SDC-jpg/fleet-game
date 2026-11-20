@@ -30,6 +30,7 @@ The user wants their teammate to meet the Leviathan by surprise, like a player. 
 lines were taken out before the push of 2026-11-20 (the Discord post would have shown them). Put
 them back (or a summary) when the user reveals it:
 
+- The Leviathan shows its battle damage: shots tear and burn its flesh, every wound leaves a glowing gash ringed with charred flesh, and it drips purple blood as it weakens.
 - The Leviathan's warning words now type out in a pixel font, part of the picture like everything else.
 - The Leviathan roars, mouth open, as it first comes into view and now and then during the fight, and it catches up fast if you try to leave it behind.
 - From wave 30, a Leviathan can now come for you: the chance grows each wave until it appears. Watch the sky: it announces itself.

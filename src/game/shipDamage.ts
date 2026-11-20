@@ -11,8 +11,9 @@ import type { Assets, Frame, Sprite } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { CONFIG } from './config';
 import type { DamageHit, HitKind } from './damage';
-import { tiltedSprite, type VolumeShape } from '../engine/tilt';
+import { tiltedSprite, type Facing, type VolumeShape } from '../engine/tilt';
 import type { Particles } from './particles';
+import type { ParticleSettings } from './artLayout';
 
 /** What a ship needs to have marks (a real Ship, or ShipArt's pretend one). */
 export interface Damageable {
@@ -23,6 +24,52 @@ export interface Damageable {
   vx?: number;
   vy?: number;
 }
+
+/**
+ * What damage looks like on something: ships (plating torn open on innards, soot, smoke and sparks)
+ * or the Leviathan's flesh (glowing flesh inside charred edges, purple burns, blood drops).
+ */
+export interface DamageLook {
+  /** Textures (sprite names, repeated across the image): inside torn marks, their edges (null = the hull's own colour darkened), and burns' scorch. */
+  inside: string;
+  /** Inside a wound (the Leviathan's blood bursting out): glowing. */
+  woundInside: string;
+  edge: string | null;
+  scorch: string;
+  /** Burns' colours from hottest (left) to cold (right). */
+  heat: string;
+  /** From burns and badly hurt spots (smoke or blood drops), and in bursts below half health (sparks or blood spurts). */
+  smoke: ParticleSettings;
+  spark: ParticleSettings;
+  /** Share of those particles given off (the Leviathan has many pieces). */
+  particles: number;
+  /** Most marks (else by tier). */
+  maxMarks?: number;
+  /** Marks go when it's repaired (ships); the Leviathan never heals, so its stay. */
+  repairs: boolean;
+  /** A wound's rim (pixels wide). */
+  woundRim: number;
+}
+
+/** Ships' damage look (CONFIG.damage). */
+const shipLook = (): DamageLook => ({
+  inside: 'vfx.damage-innards',
+  woundInside: 'vfx.damage-innards',
+  edge: null,
+  scorch: 'vfx.damage-scorch',
+  heat: 'vfx.damage-heat',
+  smoke: CONFIG.damage.smoke,
+  spark: CONFIG.damage.spark,
+  particles: 1,
+  repairs: true,
+  woundRim: 1,
+});
+
+/** The Leviathan's flesh (CONFIG.leviathan.damage). */
+export const fleshLook = (): DamageLook => {
+  const L = CONFIG.leviathan.damage;
+  return { inside: L.torn, woundInside: L.inside, edge: L.char, scorch: L.char, heat: L.heat, smoke: L.drops, spark: L.spurt, particles: L.perPiece, maxMarks: L.maxMarks, repairs: false, woundRim: L.woundRim };
+};
 
 /** A piece of a ship knocked off by a hit: a few pixels cut from its own image, tumbling away. */
 interface Chip {
@@ -81,6 +128,7 @@ interface Mark {
 
 interface Marks {
   marks: Mark[];
+  look: DamageLook;
   /** The ship image they were made on (marks start again if it's a different one), as last drawn, and its size. */
   frame: Frame;
   sprite: Sprite;
@@ -177,15 +225,15 @@ function cool(f: Frame, h: Heat, by: number) {
  * (vfx.damage-heat: its first pixel is white hot, its last cold), scorched ones the hull's colour
  * turned toward the scorch texture (vfx.damage-scorch, tiled across the image).
  */
-function paintHeat(assets: Assets, f: Frame, h: Heat) {
+function paintHeat(assets: Assets, look: DamageLook, f: Frame, h: Heat) {
   const b = h.dirty;
   if (!b) return;
   h.dirty = null;
   const D = CONFIG.damage;
   const src = pixelsOf(f);
-  const ramp = assets.has('vfx.damage-heat') ? assets.get('vfx.damage-heat').frames[0] : null;
+  const ramp = assets.has(look.heat) ? assets.get(look.heat).frames[0] : null;
   const rampPx = ramp ? pixelsOf(ramp) : null;
-  const tex = assets.has('vfx.damage-scorch') ? assets.get('vfx.damage-scorch').frames[0] : null;
+  const tex = assets.has(look.scorch) ? assets.get(look.scorch).frames[0] : null;
   const texPx = tex ? pixelsOf(tex) : null;
   const out = h.image.data;
   for (let y = b.y0; y <= b.y1; y++)
@@ -273,7 +321,7 @@ function noise(seed: number, x: number, y: number) {
 }
 
 /** The image of a mark of radius r at (px, py) on this frame, and where it sits. */
-function makeMark(assets: Assets, f: Frame, anchorX: number, anchorY: number, px: number, py: number, kind: HitKind, strength: number): Mark {
+function makeMark(assets: Assets, look: DamageLook, f: Frame, anchorX: number, anchorY: number, px: number, py: number, kind: HitKind, strength: number): Mark {
   const D = CONFIG.damage;
   const src = pixelsOf(f);
   const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < f.w && y < f.h && src[(y * f.w + x) * 4 + 3] > 0;
@@ -291,9 +339,18 @@ function makeMark(assets: Assets, f: Frame, anchorX: number, anchorY: number, px
       const d = Math.hypot(x - R, y - R);
       if (d <= 0.5 || d < r * (1 + D.ragged * (noise(seed, ix, iy) - 0.5) * 2)) inBlob[y * w + x] = 1;
     }
-  // Its inside from the innards texture (tiled across the ship's image), its torn edge the hull's colour darkened.
-  const tex = assets.has('vfx.damage-innards') ? assets.get('vfx.damage-innards').frames[0] : null;
+  // Its inside from the inside texture (tiled across the image), its torn edge the edge texture or the hull's colour darkened.
+  const insideName = kind === 'wound' ? look.woundInside : look.inside;
+  const tex = assets.has(insideName) ? assets.get(insideName).frames[0] : null;
   const texPx = tex ? pixelsOf(tex) : null;
+  const edgeTex = look.edge && assets.has(look.edge) ? assets.get(look.edge).frames[0] : null;
+  const edgePx = edgeTex ? pixelsOf(edgeTex) : null;
+  // A wound's rim is wider; it's an edge pixel if any pixel within the rim is outside the mark.
+  const rim = kind === 'wound' ? look.woundRim : 1;
+  const nearOutside = (x: number, y: number) => {
+    for (let j = -rim; j <= rim; j++) for (let i = -rim; i <= rim; i++) if (Math.abs(i) + Math.abs(j) <= rim && !inside(x + i, y + j)) return true;
+    return false;
+  };
   const c = document.createElement('canvas');
   c.width = c.height = w;
   const g = c.getContext('2d')!;
@@ -305,8 +362,12 @@ function makeMark(assets: Assets, f: Frame, anchorX: number, anchorY: number, px
       const iy = py - R + y;
       const o = (y * w + x) * 4;
       // (Small marks are all hole: a torn edge needs room.)
-      const edge = r >= D.edgeFrom && (!inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1));
-      if (edge || !tex || !texPx) {
+      const edge = r >= D.edgeFrom && nearOutside(x, y);
+      if (edge && edgeTex && edgePx) {
+        const t = ((iy % edgeTex.h) * edgeTex.w + (ix % edgeTex.w)) * 4;
+        out.data.set(edgePx.subarray(t, t + 4), o);
+        out.data[o + 3] = Math.min(out.data[o + 3], src[(iy * f.w + ix) * 4 + 3]);
+      } else if (edge || !tex || !texPx) {
         const s = (iy * f.w + ix) * 4;
         out.data[o] = src[s] * D.edgeShade;
         out.data[o + 1] = src[s + 1] * D.edgeShade;
@@ -320,6 +381,8 @@ function makeMark(assets: Assets, f: Frame, anchorX: number, anchorY: number, px
     }
   g.putImageData(out, 0, 0);
   const sprite: Sprite = { frames: [{ image: c, sx: 0, sy: 0, w, h: w }], fps: 0, loop: false, anchorX: R + 0.5, anchorY: R + 0.5 };
+  // A wound glows like its inside texture does (its glow in the manifest, set in ShipArt → Effects).
+  if (kind === 'wound' && assets.has(insideName)) sprite.glow = assets.get(insideName).glow;
   return { px, py, kind, strength, sprite, ox: px + 0.5 - anchorX, oy: py + 0.5 - anchorY };
 }
 
@@ -366,15 +429,15 @@ function addMark(assets: Assets, m: Marks, sprite: Sprite, tier: number, px: num
   const f = m.frame;
   const near = m.marks.find((k) => k.kind === kind && Math.hypot(k.px - px, k.py - py) <= radiusFor(f, k.strength) * CONFIG.damage.mergeReach);
   if (near) {
-    const grown = makeMark(assets, f, sprite.anchorX, sprite.anchorY, near.px, near.py, kind, Math.min(1, near.strength + strength));
+    const grown = makeMark(assets, m.look, f, sprite.anchorX, sprite.anchorY, near.px, near.py, kind, Math.min(1, near.strength + strength));
     m.marks[m.marks.indexOf(near)] = grown;
     return;
   }
-  if (m.marks.length >= maxMarks(tier)) {
+  if (m.marks.length >= (m.look.maxMarks ?? maxMarks(tier))) {
     const weakest = m.marks.reduce((a, b) => (b.strength < a.strength ? b : a));
     m.marks.splice(m.marks.indexOf(weakest), 1);
   }
-  m.marks.push(makeMark(assets, f, sprite.anchorX, sprite.anchorY, px, py, kind, strength));
+  m.marks.push(makeMark(assets, m.look, f, sprite.anchorX, sprite.anchorY, px, py, kind, strength));
 }
 
 /** A hull's banking for drawing its burns as a 3D hull (drawLayoutArt), or none. */
@@ -383,6 +446,8 @@ export interface DecorTilt {
   pitch: number;
   step?: number;
   shape: VolumeShape;
+  /** Which way its art faces (ships right, the Leviathan's pieces up). */
+  facing?: Facing;
 }
 
 /**
@@ -404,11 +469,13 @@ export function drawDamage(
   alpha: number,
   time: number,
   tilt?: DecorTilt,
+  look: DamageLook = shipLook(),
 ) {
   const D = CONFIG.damage;
   const f = sprite.frames[0];
   let m = shipMarks.get(s);
-  if (!m || m.frame !== f) shipMarks.set(s, (m = { marks: [], frame: f, sprite, scale, heat: null, smoke: [], burn: 0, time }));
+  if (!m || m.frame !== f) shipMarks.set(s, (m = { marks: [], look, frame: f, sprite, scale, heat: null, smoke: [], burn: 0, time }));
+  m.look = look;
   m.sprite = sprite;
   m.scale = scale;
   const dt = Math.min(0.1, Math.max(0, time - m.time));
@@ -451,17 +518,19 @@ export function drawDamage(
   // Follow health: repaired, marks go (the oldest first, then the burns); worn down with few marks, an extra one.
   const lost = Math.max(0, 1 - s.hp / s.stats.maxHp);
   const total = () => m.marks.reduce((n, k) => n + k.strength, 0) + (m.heat?.strength ?? 0);
-  while (m.marks.length && total() > lost * 1.2 + 0.01) m.marks.shift();
-  if (m.heat && (total() > lost * 1.2 + 0.01 || lost < 0.02)) m.heat = null;
+  if (look.repairs) {
+    while (m.marks.length && total() > lost * 1.2 + 0.01) m.marks.shift();
+    if (m.heat && (total() > lost * 1.2 + 0.01 || lost < 0.02)) m.heat = null;
+  }
   // (Only if the extra mark wouldn't be too much for its health at once: else it would come and go every frame.)
-  if (total() < lost * D.followHealth && total() + D.extraStrength <= lost * 1.2 && m.marks.length < maxMarks(tier)) {
+  if (total() < lost * D.followHealth && total() + D.extraStrength <= lost * 1.2 && m.marks.length < (look.maxMarks ?? maxMarks(tier))) {
     const p = randomHullPixel(f);
     if (p) addMark(assets, m, sprite, tier, p.px, p.py, 'gun', D.extraStrength);
   }
   // Burns cool, and their image is remade where it changed.
   if (m.heat) {
     cool(f, m.heat, dt / D.coolTime);
-    paintHeat(assets, f, m.heat);
+    paintHeat(assets, look, f, m.heat);
   }
   // Drawn as on a grid (each mark is its own little image: RotSprite would keep a turned copy of each).
   const mode = r.rotation;
@@ -469,7 +538,7 @@ export function drawDamage(
   if (m.heat) {
     // Cooled burns bank with the hull as a 3D copy; hot ones change every frame, so they're drawn flat.
     let img = heatSprite(m.heat);
-    if (tilt && !m.heat.hot) img = tiltedSprite(img, tilt.shape, tilt.bank, tilt.pitch, false, tilt.step);
+    if (tilt && !m.heat.hot) img = tiltedSprite(img, tilt.shape, tilt.bank, tilt.pitch, false, tilt.step, tilt.facing);
     r.drawRotated(img, x, y, angle, 0, alpha, scale);
   }
   for (const k of m.marks) {
@@ -585,27 +654,64 @@ export function emitDamageParticles(particles: Particles, s: Damageable & { x: n
     return { x: s.x + ox * c - oy * n, y: s.y + ox * n + oy * c };
   };
   const size = Math.sqrt(m.scale);
+  const look = m.look;
   for (const k of m.smoke) {
     const p = at(k);
-    particles.emit({ ...D.smoke, perSecond: D.smoke.perSecond * size }, p.x, p.y, Math.random() * Math.PI * 2, dt, s.vx, s.vy);
+    particles.emit({ ...look.smoke, perSecond: look.smoke.perSecond * size * look.particles }, p.x, p.y, Math.random() * Math.PI * 2, dt, s.vx, s.vy);
   }
   const health = s.hp / s.stats.maxHp;
   if (health >= D.sparksBelow || s.hp <= 0) return;
   const spots = damagedSpots(m);
   if (!spots.length) return;
   // Sparks: bursts now and then, more often the lower its health.
-  const often = D.sparkBursts * (1 - health / D.sparksBelow);
+  const often = D.sparkBursts * (1 - health / D.sparksBelow) * look.particles;
   if (Math.random() < often * dt) {
     const p = at(spots[Math.floor(Math.random() * spots.length)]);
     const count = D.sparkCount[0] + Math.floor(Math.random() * (D.sparkCount[1] - D.sparkCount[0] + 1));
-    particles.emit({ ...D.spark, perSecond: count }, p.x, p.y, Math.random() * Math.PI * 2, 1, s.vx, s.vy);
+    particles.emit({ ...look.spark, perSecond: count }, p.x, p.y, Math.random() * Math.PI * 2, 1, s.vx, s.vy);
   }
   // Smoke: steady, from its worst spots.
   if (health < D.smokeBelow)
     for (const k of spots.slice(0, D.lowSmokeSpots)) {
       const p = at(k);
-      particles.emit({ ...D.smoke, perSecond: D.lowSmoke * size }, p.x, p.y, Math.random() * Math.PI * 2, dt, s.vx, s.vy);
+      particles.emit({ ...look.smoke, perSecond: D.lowSmoke * size * look.particles }, p.x, p.y, Math.random() * Math.PI * 2, dt, s.vx, s.vy);
     }
+}
+
+/** What a Leviathan piece's marks hang on: its share of the shared health and where it was last drawn. */
+type PieceDamage = Damageable & { x: number; y: number; angle: number; vx: number; vy: number };
+const pieceDamage = new WeakMap<object, PieceDamage>();
+
+/**
+ * Draw a Leviathan body piece's marks (render.ts drawLeviathan; not its head): `piece` carries its
+ * hits, `health` = the whole body's health (0–1), `angle` its image's x axis (its art faces up).
+ */
+export function drawPieceDamage(
+  r: PixelRenderer,
+  assets: Assets,
+  piece: { hits?: DamageHit[] },
+  health: number,
+  sprite: Sprite,
+  spot: (x: number, y: number) => { x: number; y: number },
+  x: number,
+  y: number,
+  angle: number,
+  scale: number,
+  time: number,
+  tilt?: DecorTilt,
+) {
+  let d = pieceDamage.get(piece);
+  if (!d) pieceDamage.set(piece, (d = { hp: 1, stats: { maxHp: 1 }, x, y, angle, vx: 0, vy: 0 }));
+  Object.assign(d, { hp: health, hits: piece.hits, x, y, angle });
+  drawDamage(r, assets, d, 1, sprite, spot, x, y, angle, scale, 1, time, tilt, fleshLook());
+}
+
+/** A Leviathan's pieces' blood drops and spurts (Game.ts; as ships' smoke and sparks). */
+export function emitPieceParticles(particles: Particles, pieces: object[], dt: number) {
+  for (const p of pieces) {
+    const d = pieceDamage.get(p);
+    if (d) emitDamageParticles(particles, d, dt);
+  }
 }
 
 /** Forget a ship's marks (ShipArt's Repair button). */

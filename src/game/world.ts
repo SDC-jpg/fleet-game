@@ -1819,7 +1819,7 @@ export function damageShip(state: GameState, s: Ship, amount: number, source: Da
     s.killedBy = source;
   }
   // A Leviathan's hit piece flashes; every 1/20 of its health is a wound (leviathanAttacks.ts).
-  if (s.leviathan && amount > 0) onLeviathanHit(state, s, at);
+  if (s.leviathan && amount > 0) onLeviathanHit(state, s, at, amount, source);
   return s.dead;
 }
 

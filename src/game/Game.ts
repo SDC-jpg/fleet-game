@@ -1,6 +1,6 @@
 // Connects everything: input -> game rules -> drawing, plus info for the on-screen HUD.
 
-import { emitDamageParticles } from './shipDamage';
+import { emitDamageParticles, emitPieceParticles } from './shipDamage';
 import { ASSET_ROOT, spriteDuration, type Assets } from '../engine/assets';
 import { CrtFilter } from '../engine/crt';
 import { screenEffect } from './screenEffect';
@@ -1065,6 +1065,8 @@ export class Game {
           const o = beamOrigin(s.leviathan, s, a.side);
           this.topParticles.emitInward('vfx.particle.charge', o.x, o.y, B.sparkRadius, B.sparksPerSecond, B.sparkLife, dt);
         }
+        // Blood dripping from its burns and wounds (not while it dies).
+        if (!s.leviathan.dying) emitPieceParticles(this.topParticles, s.leviathan.pieces, dt);
         continue;
       }
       const { name: base, scale } = tierArt(this.assets, shipArtBase(s), s.tier, '', false);

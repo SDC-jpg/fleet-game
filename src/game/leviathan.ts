@@ -6,6 +6,7 @@
 // (ShipArt → Bosses), defaults below. Art: boss.leviathan.* (drawn facing up), drawn in render.ts.
 // The body code doesn't need the game, so ShipArt's preview uses it too.
 
+import type { DamageHit } from './damage';
 import { clamp, turnToward, wrapAngle } from '../engine/math';
 import { CONFIG } from './config';
 import { DEFAULT_FIN_IMAGE, type ArtLayoutsFile, type HitCircle, type LeviathanBulge, type LeviathanFin, type LeviathanLayout, type LeviathanPieceKind } from './artLayout';
@@ -29,6 +30,8 @@ export interface LeviathanPiece {
   /** Its roll along its length (radians, smoothed; CONFIG.leviathan.roll), and last step's angle to measure its turning. */
   bank: number;
   lastAngle: number | null;
+  /** Hits waiting to become damage marks on it (damage.ts recordPieceHit). */
+  hits?: DamageHit[];
 }
 
 export interface LeviathanBody {

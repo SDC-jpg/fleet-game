@@ -15,7 +15,7 @@ import { orbTell } from './leviathanAttacks';
 import { DEFAULT_VOLUME, snapTilt, tiltedSpot, tiltedSprite } from '../engine/tilt';
 import { pieceGone } from './leviathanDeath';
 import { introText, riftOpening, type BossIntro } from './leviathanIntro';
-import { drawDamage, drawDebrisChips, hullDepth, type DecorTilt } from './shipDamage';
+import { drawDamage, drawDebrisChips, drawPieceDamage, hullDepth, type DecorTilt } from './shipDamage';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
@@ -570,7 +570,7 @@ export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, an
 /** Draws one ship, plus a small health bar under it if it's damaged. */
 function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number, symbol: boolean, volume = false) {
   if (s.absorbed) return; // already inside the ship it's merging into
-  if (s.leviathan) return drawLeviathan(r, assets, s.leviathan, s.x, s.y, s.angle, time, volume);
+  if (s.leviathan) return drawLeviathan(r, assets, s.leviathan, s.x, s.y, s.angle, time, volume, Math.max(0, s.hp) / s.stats.maxHp);
   // A Leviathan's parasite: its own little sprite (boss.leviathan.parasite, facing right).
   if (s.parasite) return r.drawRotated(assets.get('boss.leviathan.parasite'), s.x, s.y, s.angle, time + (s.id % 7) * 0.13);
   // Commander view (and ships too small after detail steps): a HUD symbol by tier, fixed size on screen.
@@ -636,7 +636,7 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
  * is on top. Its art faces up (the game's art faces right), so every piece turns a quarter more.
  * The side-view head shows while it turns (mirrored for the other direction).
  */
-export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanBody, x: number, y: number, angle: number, time: number, volume = false) {
+export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanBody, x: number, y: number, angle: number, time: number, volume = false, health = 1) {
   // Its pieces roll as they turn (CONFIG.leviathan.roll; its head too, in every view). Not in RotSprite mode.
   const roll = volume && r.rotation !== 'rotsprite';
   const shape = body.layout.volume ?? DEFAULT_VOLUME;
@@ -664,6 +664,12 @@ export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanB
     const pa = p.kind === 'head' ? angle : p.angle;
     const flip = p.kind === 'head' && mirror;
     r.drawAttached(rolled(sprite, p, flip), px, py, pa, 0, 0, Math.PI / 2, time, 1, p.scale, flip);
+    // Its damage marks (not on its head, whose pictures change and mirror): torn, burnt flesh and wounds.
+    if (index > 0 && CONFIG.damage.enabled) {
+      const bank = snapTilt(p.bank, step);
+      const spot = roll && bank ? (ox: number, oy: number) => tiltedSpot(sprite, shape, ox, oy, bank, 0, 'up') : (ox: number, oy: number) => ({ x: ox, y: oy });
+      drawPieceDamage(r, assets, p, health, sprite, spot, px, py, pa + Math.PI / 2, p.scale, time, roll && bank ? { bank, pitch: 0, step, shape, facing: 'up' } : undefined);
+    }
     // A hit flash: a light silhouette of the piece over it, fading out (CONFIG.leviathan.flash).
     const flash = body.flash[index] ?? 0;
     if (flash > 0.02) r.drawAttached(rolled(silhouette(art.sprite, CONFIG.leviathan.flash.color), p, flip), px, py, pa, 0, 0, Math.PI / 2, time, Math.min(1, flash), p.scale, flip);

@@ -3,6 +3,7 @@
 // CONFIG.leviathan.orbs / wounds / parasites. Art: boss.leviathan.* (purple placeholders).
 // It's a beast: its balls and blood hurt ships of either side (never itself or its parasites).
 
+import { recordPieceHit, type HitPoint } from './damage';
 import { clamp, randRange, wrapAngle } from '../engine/math';
 import { CONFIG } from './config';
 import { flashPiece, type LeviathanBody } from './leviathan';
@@ -158,7 +159,7 @@ export function orbTell(o: Orb) {
  * flashes; each 1/count of its health lost is a wound: blood, a rippling flash, and parasites
  * (not from its head or tail).
  */
-export function onLeviathanHit(state: GameState, ship: Ship, at: { x: number; y: number } | undefined) {
+export function onLeviathanHit(state: GameState, ship: Ship, at: HitPoint | undefined, amount = 0, source = 'gun') {
   const body = ship.leviathan!;
   const W = CONFIG.leviathan.wounds;
   // The piece hit: nearest to where it landed (or, not known, nearest to your flagship).
@@ -174,6 +175,8 @@ export function onLeviathanHit(state: GameState, ship: Ship, at: { x: number; y:
   });
   flashPiece(body, piece, CONFIG.leviathan.flash.hit);
   body.lastHit = piece;
+  // A mark where it landed (damage.ts; drawn in shipDamage.ts).
+  recordPieceHit(ship, body.pieces[piece], piece, amount, source, at);
   if (ship.dead) return;
   const lost = ship.stats.maxHp - Math.max(0, ship.hp);
   const step = ship.stats.maxHp / W.count;
@@ -186,6 +189,8 @@ export function onLeviathanHit(state: GameState, ship: Ship, at: { x: number; y:
     const x = at?.x ?? p.x + Math.cos(a) * r;
     const y = at?.y ?? p.y + Math.sin(a) * r;
     wound(state, body, piece, x, y);
+    // A big glowing gash where its blood burst out.
+    recordPieceHit(ship, p, piece, 0, 'leviathan-wound', { x, y }, 'wound');
   }
 }
 

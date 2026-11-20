@@ -884,6 +884,33 @@ export const CONFIG = {
     /** Health = this × the wave's enemy fleet value × a tier-1 enemy's health (like elites, which use 8). Tuned with bots (2026-11-19) for a fight of a few minutes around wave 30. */
     healthPerFleetValue: 100,
     /**
+     * Its damage marks (docs/SHIP-DAMAGE.md, like ships' but flesh): hits tear and burn its body
+     * pieces (not its head), coloured from its own textures; each wound (blood bursting out) leaves
+     * a big gash glowing inside, charred around; steady blood instead of smoke.
+     */
+    damage: {
+      /** A wound's gash: as big as a hit taking this share of a piece's health. */
+      woundStrength: 0.6,
+      /** A wound's charred rim (pixels wide). */
+      woundRim: 2,
+      /** Most marks on one piece. */
+      maxMarks: 6,
+      /** Inside a torn mark: raw flesh (repeats across the piece). */
+      torn: 'boss.leviathan.damage-torn',
+      /** Inside a wound's gash: glowing flesh (repeats; its glow is set in ShipArt → Effects). */
+      inside: 'boss.leviathan.damage-inside',
+      /** Around a mark, and its burns: charred flesh (repeats). */
+      char: 'boss.leviathan.damage-char',
+      /** Its burns' colours from hottest (left) to cold (right). */
+      heat: 'boss.leviathan.damage-heat',
+      /** Purple blood drops instead of smoke (from burns and below smokeBelow of its health; particle settings as for thrusters). */
+      drops: { sprite: 'boss.leviathan.particle-blood', perSecond: 8, speed: 18, angle: 360, life: 1.2, drag: 0.6 },
+      /** Spurts of blood instead of sparks (below sparksBelow of its health). */
+      spurt: { sprite: 'boss.leviathan.particle-blood', perSecond: 1, speed: 60, angle: 360, life: 0.5, drag: 2 },
+      /** Its pieces each give off this share of a ship's drops and spurts (there are many of them). */
+      perPiece: 0.3,
+    },
+    /**
      * The Leviathan: each body piece (and its head, in every view) rolls along its length as
      * it turns, so a bend rolls down the body like a wave. No pitch. Its shape: ShipArt → Bosses →
      * Leviathan → Volume.

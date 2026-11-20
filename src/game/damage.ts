@@ -6,9 +6,10 @@
 import { CONFIG } from './config';
 import { worldToShipPoint } from './artLayout';
 import type { Ship } from './world';
+import type { LeviathanPiece } from './leviathan';
 
-/** Gun shots tear plating; energy burns; missiles and other blasts burn and break. */
-export type HitKind = 'gun' | 'energy' | 'missile';
+/** Gun shots tear plating; energy burns; missiles and other blasts burn and break; a Leviathan's wound (its blood bursting out) is a big glowing gash. */
+export type HitKind = 'gun' | 'energy' | 'missile' | 'wound';
 
 export interface DamageHit {
   /** Where, in the ship's own game pixels (x forward, y to its right, from its middle). */
@@ -57,20 +58,43 @@ export function recordHit(s: Ship, amount: number, source: string, at?: HitPoint
   if (!CONFIG.damage.enabled || amount <= 0 || s.leviathan || s.parasite) return;
   const kind = hitKind(source, (at?.homing ?? 0) > 0);
   if (!at && kind === 'gun') return;
-  const hit: DamageHit = { x: 0, y: 0, kind, strength: Math.min(1, amount / s.stats.maxHp), random: !at };
+  pushHit((s.hits ??= []), makeHit(kind, Math.min(1, amount / s.stats.maxHp), s.x, s.y, s.angle, at));
+}
+
+/** A hit in the frame of something at (x, y) turned to `angle` (its image's x axis). */
+function makeHit(kind: HitKind, strength: number, x: number, y: number, angle: number, at?: HitPoint): DamageHit {
+  const hit: DamageHit = { x: 0, y: 0, kind, strength, random: !at };
   if (at) {
-    const p = worldToShipPoint(at.x, at.y, s.x, s.y, s.angle);
+    const p = worldToShipPoint(at.x, at.y, x, y, angle);
     hit.x = p.x;
     hit.y = p.y;
     const v = Math.hypot(at.vx ?? 0, at.vy ?? 0);
     if (v > 0) {
-      const a = Math.atan2(at.vy!, at.vx!) - s.angle;
+      const a = Math.atan2(at.vy!, at.vx!) - angle;
       hit.dx = Math.cos(a);
       hit.dy = Math.sin(a);
     }
     hit.through = at.through;
   }
-  const hits = (s.hits ??= []);
+  return hit;
+}
+
+function pushHit(hits: DamageHit[], hit: DamageHit) {
   hits.push(hit);
   if (hits.length > CONFIG.damage.pendingHits) hits.shift();
+}
+
+/**
+ * The Leviathan: a hit on one of its pieces (not its head, whose pictures change and mirror),
+ * remembered on that piece in its image's frame (its art faces up, so turned a quarter more).
+ * Its health is shared by every piece, so a hit counts as if each piece had its share of it.
+ * `kind` given = a wound (its blood bursting out there).
+ */
+export function recordPieceHit(s: Ship, piece: LeviathanPiece, index: number, amount: number, source: string, at?: HitPoint, kind?: HitKind) {
+  const body = s.leviathan!;
+  if (!CONFIG.damage.enabled || index === 0 || (amount <= 0 && !kind)) return;
+  const k = kind ?? hitKind(source, (at?.homing ?? 0) > 0);
+  if (!at && k === 'gun') return;
+  const strength = kind === 'wound' ? CONFIG.leviathan.damage.woundStrength : Math.min(1, (amount * body.pieces.length) / s.stats.maxHp);
+  pushHit((piece.hits ??= []), makeHit(k, strength, piece.x, piece.y, piece.angle + Math.PI / 2, at));
 }
