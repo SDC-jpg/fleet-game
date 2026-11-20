@@ -350,8 +350,9 @@ charge ball's size, looping), `orb-pulse.png` (its pulse: a ring growing to the 
 image = the pulse's reach, play once), `blood.png` (a blood shot, looping) and `blood-hit.png`
 (blood splashing on a ship, and a parasite popping), `parasite.png` (a parasite, half a tier-1
 ship, facing right, 2 frames). Its hit flash is a light purple silhouette of the piece itself (no
-image). Sounds: `sfx.leviathan-bump`, `-roar` (before a ram), `-orb`, `-pulse`, `-wound`,
-`sfx.parasite-latch`, `sfx.parasite-shake`, placeholders.
+image). Sounds: `sfx.leviathan-roar` (your `leviathan-roar.mp3`: its roars and the warning
+before a ram), and placeholders `sfx.leviathan-bump`, `-orb`, `-pulse`, `-wound`,
+`sfx.parasite-latch`, `sfx.parasite-shake`.
 **Its entrance and death** (purple placeholders too): `lightning.png` (4 different distant bolts,
 one frame each), `rift.png` (the tear in space opening over 6 frames; it closes by playing them
 backwards), `explosion.png` (its death: purple explosions consuming each piece) and
@@ -361,7 +362,8 @@ Its words ("The fabric of space grows thin...") use the **pixel font** `ui/font-
 row of 6×10 cells, one letter each (space, A–Z, a–z, 0–9, then `.,!?'"-:;()/+=%&*`), white (the game
 colours them and adds a shadow and the manifest glow). Repaint the letters in your own style,
 keeping each in its cell; the line sits on row 8 of the cell, descenders below it.
-Sounds: `sfx.leviathan-thunder`, `sfx.leviathan-rift`. To look at them without waiting: the page
+Sounds: `sfx.leviathan-deeproar` (your `leviathan-deeproar.mp3`, as the rift opens), and
+placeholders `sfx.leviathan-thunder`, `sfx.leviathan-rift` (the tearing, under the deep roar). To look at them without waiting: the page
 address `?intro=7` starts the entrance 7 seconds in, `?boss=dying` plays its death at once (dev
 server only).
 **Gradients** colour the body from head to tail, like a Photoshop gradient overlay: colour stops

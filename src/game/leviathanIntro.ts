@@ -33,9 +33,8 @@ export interface BossIntro {
   /** When the tail came out, and when the rift closed (−1 = not yet). */
   tailOutAt: number;
   closedAt: number;
-  /** One-off moments done (sounds, flash). */
+  /** The flash (and its sounds) done. */
   flashed: boolean;
-  roared: boolean;
 }
 
 /** Start the entrance (instead of a wave's usual enemies). */
@@ -57,7 +56,6 @@ export function startBossIntro(state: GameState) {
     tailOutAt: -1,
     closedAt: -1,
     flashed: false,
-    roared: false,
   };
 }
 
@@ -77,17 +75,16 @@ export function updateBossIntro(state: GameState, dt: number, spawnDistance: num
   // The flash, and the rift tears open.
   if (!it.flashed && it.t >= I.riftAt) {
     it.flashed = true;
-    addSound(state, 'sfx.leviathan-rift', controlledShip(state) ?? { x: 0, y: 0 }, 1, 1, true);
+    const at = controlledShip(state) ?? { x: 0, y: 0 };
+    addSound(state, 'sfx.leviathan-rift', at, 1, 1, true);
+    // Its deep roar from beyond the rift (the user's sound).
+    addSound(state, 'sfx.leviathan-deeproar', at, 1, 1, true);
   }
   // Its silhouette rushes out of the rift.
   if (it.t >= I.riftAt + I.silhouetteAfter) {
     if (!it.body) {
       it.body = makeLeviathanBody(0, 0, it.angle);
       it.out = it.body.pieces.map(() => -1);
-    }
-    if (!it.roared) {
-      it.roared = true;
-      addSound(state, 'sfx.leviathan-roar', controlledShip(state) ?? { x: 0, y: 0 }, 1, 0.7, true);
     }
     it.travel += I.silhouetteSpeed * dt;
     // Straight out, with a slow snaking sway.

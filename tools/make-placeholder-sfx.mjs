@@ -276,20 +276,6 @@ function leviathanBump() {
   });
 }
 
-/** Leviathan about to ram: a rising, growling roar. */
-function leviathanRoar() {
-  const r = rng(94);
-  const lp = lowpass();
-  const growl = oscillator('saw');
-  const growl2 = oscillator('saw');
-  return render(0.9, (t, k) => {
-    const f = sweep(60, 120, k) * (1 + 0.06 * Math.sin(t * 2 * Math.PI * 28));
-    const tone = lp(growl(f) + growl2(f * 1.5), 1400) * 0.45;
-    const breath = lp(r() * 2 - 1, 2200) * 0.35;
-    return (tone + breath) * Math.min(1, t * 8) * (1 - k * k);
-  });
-}
-
 /** An energy ball appearing: a crackling zap that settles into a hum. */
 function leviathanOrb() {
   const r = rng(95);
@@ -741,7 +727,6 @@ const FILES = {
   'leviathan-bump.wav': leviathanBump,
   'leviathan-thunder.wav': leviathanThunder,
   'leviathan-rift.wav': leviathanRift,
-  'leviathan-roar.wav': leviathanRoar,
   'leviathan-orb.wav': leviathanOrb,
   'leviathan-pulse.wav': leviathanPulse,
   'leviathan-wound.wav': leviathanWound,

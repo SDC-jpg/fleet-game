@@ -545,8 +545,8 @@ export const CONFIG = {
      * screen shake). Always when it first comes into view, then now and then while not attacking.
      */
     roar: {
-      /** Seconds a roar lasts (its head turns first, then the mouth opens). */
-      time: 1.4,
+      /** Seconds a roar lasts (its head turns first, then the mouth opens); about as long as the roar sound (3.5 s, fading out). */
+      time: 2.5,
       /** "In view": its head within this distance of your flagship (the fight's view is about 540 from the middle to the top). */
       inView: 480,
       /** Seconds between roars during the fight (random between the two). */
