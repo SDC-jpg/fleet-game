@@ -593,13 +593,13 @@ export const CONFIG = {
      */
     orbs: {
       /** Seconds of combat between balls. */
-      every: 6,
+      every: 3,
       /** "Combat" = your flagship within this distance of its head. */
       combatRange: 1100,
       /** Most balls at once. */
-      max: 10,
+      max: 20,
       /** How fast a ball drifts toward your fleet (pixels per second; your ships fly 150). */
-      speed: 70,
+      speed: 140,
       /** How much its path wanders either side of straight at you (radians). */
       wander: 0.9,
       /** How quickly the wander changes (cycles per second). */
@@ -611,7 +611,7 @@ export const CONFIG = {
       /** Reach of a pulse from the ball's middle (game pixels; the pulse ring's art is drawn for 70). */
       radius: 70,
       /** Damage per pulse to every ship it reaches, as a share of that ship's full health. */
-      damage: 0.025,
+      damage: 0.05,
     },
     /**
      * Wounds: every time it loses 1/count of its health, the blow that did it sprays purple blood
@@ -627,9 +627,9 @@ export const CONFIG = {
       bloodSpeed: 260,
       bloodSpeedRandom: 0.35,
       /** Seconds each blood shot flies. */
-      bloodLife: 1.4,
+      bloodLife: 2.8,
       /** Damage per blood shot that hits, as a share of the ship's full health. */
-      bloodDamage: 0.015,
+      bloodDamage: 0.03,
       /** A blood shot's size for hitting ships (game pixels). */
       bloodRadius: 4,
       /** Parasites per wound (a random number between these). */
@@ -677,6 +677,28 @@ export const CONFIG = {
       enabled: true,
       fromWave: 27,
       chancePerWave: 0.2,
+      /** The chance at fromWave itself, the first time (1 = it always comes then, for testing; the user, 2026-11-20). Later build-ups use chancePerWave. */
+      firstChance: 1,
+      /** Only one Leviathan per run (for now; the user, 2026-11-20). Off = the build-up starts again after each one. */
+      oncePerRun: true,
+    },
+    /** What it drops: items of Superior (blue) rarity or better, and items below that, popping out one after another like a fountain. */
+    loot: {
+      /** Items of Superior (blue) rarity or better (with an elite's odds among those). */
+      rare: 3,
+      /** Items below Superior (Common or Uncommon, normal odds). */
+      common: 5,
+      /** Seconds between items. */
+      every: 0.15,
+      /** How fast they fly out (pixels per second, random between the two). */
+      speed: [120, 300] as [number, number],
+    },
+    /** Test key 0 (dev copy only): jump to the start of fromWave with a fleet worth this (a career bot's median there) and a random weapon, defence and passive at this level. */
+    testJump: {
+      /** Your fleet's value after the jump. */
+      fleetValue: 317,
+      /** Your level after the jump. */
+      level: 8,
     },
     /**
      * Its entrance: words typing across the top of the screen, distant purple lightning far beyond the

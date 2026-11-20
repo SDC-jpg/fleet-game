@@ -11,7 +11,7 @@ import { gunsOf, type GunSpec } from './guns';
 import { pointHitsShip, rayHitsShip } from './hitShape';
 import type { WeaponType } from './artLayout';
 import { drawCards, gainXp } from './progress';
-import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
+import { defaultMergeAllow, dropItem, maybeDropItem, rollItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 import type { SkillObj } from './moreSkills';
 import { startBossIntro, updateBossIntro, type BossIntro } from './leviathanIntro';
@@ -517,6 +517,10 @@ export interface GameState {
   blood: Blood[];
   /** Your fleet was dashing last step (a new dash shakes parasites off). */
   parasitesShaken: boolean;
+  /** Items still to pop out of a destroyed Leviathan, one after another (CONFIG.leviathan.loot). */
+  lootFountains: { x: number; y: number; items: Item[]; next: number }[];
+  /** A Leviathan has come this run (with CONFIG.leviathan.spawn.oncePerRun, no more come). */
+  leviathanCame: boolean;
   /** The Leviathan's entrance playing (leviathanIntro.ts), or null. */
   bossIntro: BossIntro | null;
   /** A Leviathan's final blow: time slows (Game.ts) until `ready`, like finalBlow. */
@@ -682,6 +686,8 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     parasitesShaken: false,
     bossIntro: null,
     bossFinal: null,
+    lootFountains: [],
+    leviathanCame: false,
     leviathanChance: 0,
     nextLeviathan: false,
     elitesEnabled: CONFIG.elite.enabled,
@@ -768,6 +774,11 @@ export function rebuildPlayerFleet(state: GameState, value: number) {
   state.finalBlow = null;
   state.enemyFleets = [];
   state.reinforcementFleets = [];
+  state.orbs = [];
+  state.blood = [];
+  state.bossIntro = null;
+  state.bossFinal = null;
+  state.lootFountains = [];
   state.playerFleet = newFleet('player');
   const counts = tierCounts(Math.max(1, Math.round(value)));
   let leader: Ship | null = null;
@@ -1034,6 +1045,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   updateLeviathanAttacks(state, edt);
   removeDeadShips(state);
   updateWrecks(state, dt);
+  updateLootFountains(state, dt);
   updateLoot(state, dt);
   startMerges(state);
   promoteFlagship(state);
@@ -1973,8 +1985,17 @@ function removeDeadShips(state: GameState) {
     // Parasites, and enemies struck down by its entrance's lightning, leave nothing.
     if (s.parasite || s.killedBy === 'leviathan-intro') wreckChance = 0;
     else if (s.leviathan) {
-      // A Leviathan is a creature: no wreck, but an item with elite odds.
-      dropItem(state, s, rarityWeights('elite'));
+      // A Leviathan is a creature: no wreck, but a fountain of items (CONFIG.leviathan.loot), popping out one after another.
+      const L = CONFIG.leviathan.loot;
+      const rare = { ...rarityWeights('elite'), common: 0, uncommon: 0 };
+      const low = Object.fromEntries(Object.keys(rare).map((r) => [r, 0])) as typeof rare;
+      const normal = rarityWeights();
+      low.common = normal.common;
+      low.uncommon = normal.uncommon;
+      const items = [...Array(L.rare)].map(() => rollItem(state, { weights: rare })).concat([...Array(L.common)].map(() => rollItem(state, { weights: low })));
+      // Shuffled, so the rare ones come out among the others.
+      items.sort(() => Math.random() - 0.5);
+      state.lootFountains.push({ x: s.x, y: s.y, items, next: 0 });
       wreckChance = 0;
     } else if (s.elite) {
       // An elite always drops a wreck, a (better) item, or both.
@@ -2370,10 +2391,12 @@ function rollLeviathan(state: GameState, eliteWave: boolean) {
     // This wave is the one: start over.
     state.nextLeviathan = false;
     state.leviathanChance = 0;
+    state.leviathanCame = true;
     return;
   }
-  if (!S.enabled || busy || state.wave + 1 < S.fromWave) return;
-  state.leviathanChance = Math.min(1, state.leviathanChance + S.chancePerWave);
+  if (!S.enabled || busy || state.wave + 1 < S.fromWave || (S.oncePerRun && state.leviathanCame)) return;
+  // At fromWave itself the chance is firstChance; after that it builds up.
+  state.leviathanChance = state.wave + 1 === S.fromWave ? S.firstChance : Math.min(1, state.leviathanChance + S.chancePerWave);
   state.nextLeviathan = !eliteWave && Math.random() < state.leviathanChance;
 }
 
@@ -2640,6 +2663,49 @@ export function spawnParasite(state: GameState, x: number, y: number, angle: num
   ship.fleet.leader = ship;
   state.enemyFleets.push(ship.fleet);
   return ship;
+}
+
+/** A destroyed Leviathan's items pop out one after another, flying outward (CONFIG.leviathan.loot). */
+function updateLootFountains(state: GameState, dt: number) {
+  const L = CONFIG.leviathan.loot;
+  for (const f of state.lootFountains) {
+    f.next -= dt;
+    while (f.next <= 0 && f.items.length) {
+      f.next += L.every;
+      const a = Math.random() * Math.PI * 2;
+      const v = randRange(L.speed[0], L.speed[1]);
+      state.loot.push({ item: f.items.pop()!, x: f.x, y: f.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: CONFIG.items.lifetime });
+      addSound(state, 'sfx.loot', f, 1, 0.5, true);
+    }
+  }
+  state.lootFountains = state.lootFountains.filter((f) => f.items.length);
+}
+
+/**
+ * Test key 0 (dev copy only): the start of the Leviathan's first wave (CONFIG.leviathan.spawn.fromWave)
+ * with a fleet worth CONFIG.leviathan.testJump.fleetValue, level testJump.level, no skills
+ * (Game.ts then gives a random weapon, defence and passive). The Leviathan comes next.
+ */
+export function testJumpToLeviathan(state: GameState) {
+  const J = CONFIG.leviathan.testJump;
+  const wave = CONFIG.leviathan.spawn.fromWave;
+  rebuildPlayerFleet(state, J.fleetValue);
+  state.maxFleetSize = Math.max(state.maxFleetSize, J.fleetValue);
+  for (const s of state.playerFleet.members) state.maxTier = Math.max(state.maxTier, s.tier);
+  state.wave = wave - 1;
+  state.waveTimer = 2;
+  state.waveLength = 2;
+  state.nextLeviathan = true;
+  state.leviathanCame = false;
+  state.leviathanChance = 0;
+  state.eliteDue = false;
+  state.level = J.level;
+  state.xp = 0;
+  state.pendingLevels = 0;
+  state.cards = null;
+  state.skills = [];
+  state.setAside = [];
+  state.activeWeapon = 0;
 }
 
 /** Spawns a Leviathan right away (test key B). */

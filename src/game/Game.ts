@@ -40,6 +40,7 @@ import {
   testKillEnemies,
   testSpawnElite,
   testSpawnLeviathan,
+  testJumpToLeviathan,
   damageShip,
   testSpawnSwarm,
   testSpawnVariants,
@@ -909,6 +910,15 @@ export class Game {
   private handleLeviathanKeys() {
     const i = this.input;
     const s = this.state;
+    // 0: jump to the start of the Leviathan's wave (27) with a fleet like a player's there, and a random weapon, defence and passive.
+    if (i.wasPressed('Digit0')) {
+      testJumpToLeviathan(s);
+      for (const side of ['left', 'right', 'passive'] as const) {
+        const ids = (Object.keys(SKILLS) as SkillId[]).filter((id) => SKILLS[id].enabled && SKILLS[id].side === side);
+        if (ids.length) applyCard(s, { kind: 'skill', skill: ids[Math.floor(Math.random() * ids.length)] }, true);
+      }
+      this.renderer.setZoom(s.zoom, true);
+    }
     // B: the Leviathan's full entrance, then the fight. Shift+B: straight in.
     if (i.wasPressed('KeyB')) {
       if (i.isDown('ShiftLeft', 'ShiftRight')) testSpawnLeviathan(s, this.spawnDistance());
