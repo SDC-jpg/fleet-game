@@ -675,12 +675,14 @@ export function updatePieceRoll(body: LeviathanBody, dt: number) {
   if (dt <= 0) return;
   const V = CONFIG.leviathan.roll;
   const k = Math.min(1, V.response * dt);
-  for (const p of body.pieces) {
+  body.pieces.forEach((p, i) => {
     const turn = p.lastAngle === null ? 0 : wrapAngle(p.angle - p.lastAngle) / dt;
     p.lastAngle = p.angle;
-    const want = (clamp(turn * V.bankPerTurn, -V.maxBank, V.maxBank) * Math.PI) / 180;
+    // Its head levels out while it charges and fires its beam, so the beam leaves from its mouth (which doesn't follow the roll).
+    const levelHead = i === 0 && body.attack !== null;
+    const want = levelHead ? 0 : (clamp(turn * V.bankPerTurn, -V.maxBank, V.maxBank) * Math.PI) / 180;
     p.bank += (want - p.bank) * k;
-  }
+  });
 }
 
 /** After the head moved to (x, y): remember its path, and put every piece on it. */

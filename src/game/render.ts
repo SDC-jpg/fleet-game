@@ -625,11 +625,12 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
  * The side-view head shows while it turns (mirrored for the other direction).
  */
 export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanBody, x: number, y: number, angle: number, time: number, volume = false) {
-  // Its pieces roll as they turn (CONFIG.leviathan.roll; its head only while seen from above). Not in RotSprite mode.
+  // Its pieces roll as they turn (CONFIG.leviathan.roll; its head too, in every view). Not in RotSprite mode.
   const roll = volume && r.rotation !== 'rotsprite';
   const shape = body.layout.volume ?? DEFAULT_VOLUME;
   const step = (CONFIG.leviathan.roll.step * Math.PI) / 180;
-  const rolled = (sprite: Sprite, p: LeviathanPiece) => (roll && (p.kind !== 'head' || body.view === 0) ? tiltedSprite(sprite, shape, p.bank, 0, false, step, 'up') : sprite);
+  // A mirrored head (looking the other way) rolls the other way before it's mirrored, so it dips to the same side as its body.
+  const rolled = (sprite: Sprite, p: LeviathanPiece, mirrored = false) => (roll ? tiltedSprite(sprite, shape, mirrored ? -p.bank : p.bank, 0, false, step, 'up') : sprite);
   const tint = bodyTint(assets, body);
   // Fins by piece: drawn just under or over their piece, so they keep its place in the layering.
   const fins = new Map<LeviathanPiece, number[]>();
@@ -650,10 +651,10 @@ export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanB
     const py = p.kind === 'head' ? y : p.y;
     const pa = p.kind === 'head' ? angle : p.angle;
     const flip = p.kind === 'head' && mirror;
-    r.drawAttached(rolled(sprite, p), px, py, pa, 0, 0, Math.PI / 2, time, 1, p.scale, flip);
+    r.drawAttached(rolled(sprite, p, flip), px, py, pa, 0, 0, Math.PI / 2, time, 1, p.scale, flip);
     // A hit flash: a light silhouette of the piece over it, fading out (CONFIG.leviathan.flash).
     const flash = body.flash[index] ?? 0;
-    if (flash > 0.02) r.drawAttached(rolled(silhouette(art.sprite, CONFIG.leviathan.flash.color), p), px, py, pa, 0, 0, Math.PI / 2, time, Math.min(1, flash), p.scale, flip);
+    if (flash > 0.02) r.drawAttached(rolled(silhouette(art.sprite, CONFIG.leviathan.flash.color), p, flip), px, py, pa, 0, 0, Math.PI / 2, time, Math.min(1, flash), p.scale, flip);
     for (const i of own) if (body.layout.fins[i].front) drawFin(r, assets, body, i, time, tint);
   });
 }

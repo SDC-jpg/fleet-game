@@ -880,13 +880,13 @@ export const CONFIG = {
     /** Health = this × the wave's enemy fleet value × a tier-1 enemy's health (like elites, which use 8). Tuned with bots (2026-11-19) for a fight of a few minutes around wave 30. */
     healthPerFleetValue: 100,
     /**
-     * The Leviathan: each body piece (and its head while seen from above) rolls along its length as
+     * The Leviathan: each body piece (and its head, in every view) rolls along its length as
      * it turns, so a bend rolls down the body like a wave. No pitch. Its shape: ShipArt → Bosses →
      * Leviathan → Volume.
      */
     roll: {
       /** Most roll (degrees). */
-      maxBank: 20,
+      maxBank: 30,
       /** Roll per turning speed: degrees for each radian per second the piece turns. */
       bankPerTurn: 14,
       /** How quickly the roll follows (per second). */
