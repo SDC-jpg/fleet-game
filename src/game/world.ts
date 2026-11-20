@@ -60,6 +60,8 @@ export interface Ship {
   hp: number;
   /** Seconds until each gun (see gunsOf) can fire again. Empty until it first fires. */
   gunTimers: number[];
+  /** A fly-by attacker's current run (CONFIG.enemyTactics): the way it's flying (radians) and which side of its target it passes. */
+  run?: { dir: number; side: number };
   /** Where each gun points now, from the ship's facing (radians; turrets turn, fixed guns don't). */
   gunAim: number[];
   fleet: Fleet;
@@ -1353,19 +1355,104 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
     ship.thrust = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED ? 'move' : 'idle';
     return;
   }
-  const nx = dx / d;
-  const ny = dy / d;
-  // A big enemy fleet charges in. A lone fighter keeps its distance and circles.
-  const preferred =
-    ship.fleet.members.length > 3 ? 60 + ship.stats.radius + target.stats.radius : CONFIG.enemyPreferredDistance;
-  if (d > preferred) {
-    steer(ship, nx * speed, ny * speed, t.accel, dt);
+  // Elites keep their distance and circle (they have skills to use); others fight by their guns.
+  if (!ship.elite) {
+    flyTactics(state, ship, target, speed, t.accel, dt);
   } else {
-    const dir = ship.id % 2 ? 1 : -1;
-    steer(ship, -ny * speed * 0.6 * dir, nx * speed * 0.6 * dir, t.accel, dt);
+    const nx = dx / d;
+    const ny = dy / d;
+    if (d > CONFIG.enemyPreferredDistance) {
+      steer(ship, nx * speed, ny * speed, t.accel, dt);
+    } else {
+      const dir = ship.id % 2 ? 1 : -1;
+      steer(ship, -ny * speed * 0.6 * dir, nx * speed * 0.6 * dir, t.accel, dt);
+    }
   }
   aimAndShoot(state, ship, dt, Math.atan2(dy, dx));
   ship.thrust = Math.hypot(ship.vx, ship.vy) > MOVING_SPEED ? 'move' : 'idle';
+}
+
+/** How far a fleet's ships spread from its leader (game pixels, their own size included). */
+function fleetRadius(fleet: Fleet) {
+  const l = fleet.leader;
+  if (!l) return 0;
+  let r = l.stats.radius;
+  for (const m of fleet.members) r = Math.max(r, Math.hypot(m.x - l.x, m.y - l.y) + m.stats.radius);
+  return r;
+}
+
+/** What an enemy ship fights with: energy guns (it holds off), missiles (it fires and backs off), or plain guns (fly-bys). */
+function tacticOf(ship: Ship): 'standoff' | 'skirmish' | 'flyby' {
+  const guns = gunsOf(ship);
+  if (guns.some((g) => g.type === 'energy')) return 'standoff';
+  if (guns.some((g) => g.type === 'explosive')) return 'skirmish';
+  return 'flyby';
+}
+
+/**
+ * An enemy leader (its fleet follows in formation) moving by its guns (CONFIG.enemyTactics):
+ * gun ships make fly-by passes beside your fleet; energy ships hold at their range, fanned out
+ * around you; missile ships close in to fire, then back off while their missiles reload. Never
+ * closer than the two fleets' edges plus a margin, so they don't fly into your formation.
+ */
+function flyTactics(state: GameState, ship: Ship, target: Ship, speed: number, accel: number, dt: number) {
+  const A = CONFIG.enemyTactics;
+  const tactic = tacticOf(ship);
+  const reach = ship.stats.range * (tactic === 'skirmish' ? CONFIG.guns.types.explosive.enemyTargetRange : 1);
+  // Your whole fleet, not just the ship it targets: its formation's edge.
+  const them = target.fleet.leader ?? target;
+  const clear = fleetRadius(target.fleet) + fleetRadius(ship.fleet) + A.margin;
+  if (tactic === 'flyby') {
+    // A run past them: aim for a point beside and beyond them; once well past, turn for a run the other way.
+    let run = ship.run;
+    const ux = run ? Math.cos(run.dir) : 0;
+    const uy = run ? Math.sin(run.dir) : 0;
+    const past = run ? (ship.x - them.x) * ux + (ship.y - them.y) * uy : Infinity;
+    if (!run || past > A.overshoot * reach) {
+      run = ship.run = { dir: Math.atan2(them.y - ship.y, them.x - ship.x), side: run ? -run.side : ship.id % 2 ? 1 : -1 };
+    }
+    const cx = Math.cos(run.dir);
+    const cy = Math.sin(run.dir);
+    const pass = Math.max(clear, A.passDistance * reach);
+    const ahead = A.overshoot * reach + 60;
+    const wx = them.x + cx * ahead - cy * pass * run.side;
+    const wy = them.y + cy * ahead + cx * pass * run.side;
+    const d = Math.hypot(wx - ship.x, wy - ship.y) || 1;
+    steer(ship, ((wx - ship.x) / d) * speed, ((wy - ship.y) / d) * speed, accel, dt);
+    return;
+  }
+  ship.run = undefined;
+  let dist: number;
+  let bearing = Math.atan2(ship.y - them.y, ship.x - them.x);
+  if (tactic === 'standoff') {
+    dist = Math.max(clear, A.standoff * reach);
+    // Fan out: edge away from other energy ships holding off around the same fleet.
+    const fan = (A.fanAngle * Math.PI) / 180;
+    for (const o of state.ships) {
+      if (o === ship || o.team !== ship.team || o.dead || !o.fleet || o.fleet.leader !== o || o.elite || tacticOf(o) !== 'standoff') continue;
+      const ob = Math.atan2(o.y - them.y, o.x - them.x);
+      const diff = wrapAngle(bearing - ob);
+      if (Math.abs(diff) < fan) bearing += Math.sign(diff || (ship.id < o.id ? 1 : -1)) * (fan - Math.abs(diff)) * Math.min(1, dt * 2);
+    }
+  } else {
+    // How far through reloading its missile guns are: just fired = 1, ready = 0.
+    let reload = 0;
+    gunsOf(ship).forEach((g, i) => {
+      if (g.type === 'explosive') reload = Math.max(reload, clamp((ship.gunTimers[i] ?? 0) / (g.interval * CONFIG.enemyFireCooldownMultiplier), 0, 1));
+    });
+    dist = Math.max(clear, (A.fireDistance + (A.reloadDistance - A.fireDistance) * reload) * reach);
+  }
+  // Onto its spot, keeping up with them.
+  const sx = them.x + Math.cos(bearing) * dist;
+  const sy = them.y + Math.sin(bearing) * dist;
+  let vx = them.vx + (sx - ship.x) * A.stiffness;
+  let vy = them.vy + (sy - ship.y) * A.stiffness;
+  const v = Math.hypot(vx, vy);
+  if (v > speed) {
+    vx *= speed / v;
+    vy *= speed / v;
+  }
+  steer(ship, vx, vy, accel, dt);
 }
 
 /**

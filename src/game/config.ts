@@ -1896,8 +1896,33 @@ export const CONFIG = {
   allyLeadsTargets: true,
   /** Enemies aim ahead too (false = straight at you, so moving sideways dodges). */
   enemyLeadsTargets: false,
-  /** Lone enemies try to stay about this far from their target. */
+  /** Elites (and enemies with no plan of their own) try to stay about this far from their target, circling. */
   enemyPreferredDistance: 160,
+
+  /**
+   * How enemies fight by their guns (2026-11-20, the user's request): gun ships make fly-by
+   * attacks past your fleet, energy ships hold off at their range fanned out around you, missile
+   * ships fire, then back off while they reload. Fleets move as their leader does. Swarms and elites
+   * keep their own ways. "Reach" = the ship's gun range (missile ships: their longer missile range).
+   */
+  enemyTactics: {
+    /** Fly-by (gun ships): they pass beside your fleet this far out (share of their reach), never closer than both fleets' edges plus `margin`. */
+    passDistance: 0.45,
+    /** How far past you a fly-by goes before it turns for the next pass (share of their reach). */
+    overshoot: 0.9,
+    /** Energy ships hold this far off (share of their reach). */
+    standoff: 0.85,
+    /** Energy ships fan out: they keep at least this many degrees apart around you. */
+    fanAngle: 25,
+    /** Missile ships close in to this share of their reach to fire, */
+    fireDistance: 0.85,
+    /** and back off to this share while their missiles reload. */
+    reloadDistance: 1.4,
+    /** Space kept between the edges of the two fleets (game pixels). */
+    margin: 50,
+    /** How firmly they move onto their spot (energy and missile ships): per second. */
+    stiffness: 1.5,
+  },
 
   // == Wrecks ==
   /** true = the first enemy you destroy in a run always leaves a wreck. */

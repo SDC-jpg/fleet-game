@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-20
+- Enemies fight smarter instead of diving into your fleet: gun ships make fly-by attacks past you, energy ships hold back at range and spread out around you, and missile ships fire, then back off while they reload.
 - Badly damaged ships spit sparks from their wounds below half health, and trail smoke below a quarter.
 - Hits knock pieces off ships, missiles leave burnt craters and shove the ships they hit (small ships get thrown, big ones barely budge, and your own ship only a little).
 - Energy weapons burn ships: hits flare white-hot and cool to scorch marks, beams reach into the hull and leave glowing lines as they sweep, the Laser scorches a line right across ships it pierces, and strong burns smoke.
