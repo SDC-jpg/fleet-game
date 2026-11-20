@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-19
+- The Leviathan's beam and charge ball (test keys B and N) now have a soft blue glow.
 - Missiles (yours and the enemy's) now burn for 4 seconds instead of 2 and turn more slowly, so they fly wider, longer arcs.
 - Enemy missile ships open fire from twice as far away.
 - Mines now wait 12 seconds before fizzling out (was 6).

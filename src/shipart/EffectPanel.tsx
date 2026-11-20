@@ -4,9 +4,10 @@
 // art folder, or a zip of PNG frames (unpacked by the dev server).
 
 import { useState } from 'react';
-import { NumberField } from './fields';
+import { NumberField, SliderField } from './fields';
 import { ASSET_ROOT, type Assets, type ManifestEntry } from '../engine/assets';
 import { FlipbookFields } from './fields';
+import { DEFAULT_GLOW, GLOW_MODES, GLOW_MODE_LABELS, type Glow } from '../engine/glow';
 
 export function EffectPanel({
   assets,
@@ -16,6 +17,7 @@ export function EffectPanel({
   windowsRoot,
   artFiles,
   onChangeEntries,
+  onChangeGlow,
   onFilesChanged,
 }: {
   assets: Assets;
@@ -29,6 +31,8 @@ export function EffectPanel({
   artFiles: string[];
   /** Change manifest entries (by sprite name). */
   onChangeEntries: (names: string[], fn: (e: ManifestEntry) => ManifestEntry) => void;
+  /** Change these sprites' glow (undefined = none). Quick slider moves make one undo step. */
+  onChangeGlow: (names: string[], fn: (g: Glow | undefined) => Glow | undefined) => void;
   /** New files were added to the art folder (a zip import): refresh the file list. */
   onFilesChanged: () => void;
 }) {
@@ -41,6 +45,8 @@ export function EffectPanel({
   const s = assets.get(sprite);
   const files = assets.filesOf(sprite);
   const f0 = s.frames[0];
+  const glow = entry?.glow;
+  const editGlow = (fn: (g: Glow | undefined) => Glow | undefined) => onChangeGlow(allTiers ? tiers : [sprite], fn);
 
   /** Keep the anchor only if the frame size stays the same (a new size gets the centre). */
   const keepAnchor = (e: ManifestEntry, w: number, h: number) =>
@@ -59,7 +65,7 @@ export function EffectPanel({
     }
     const n = Math.max(1, Math.round(pickFrames));
     const w = Math.floor(img.width / n);
-    onChangeEntries([sprite], (e) => ({ file: pick, frameWidth: w, frameHeight: img.height, frames: n, fps: e.fps, loop: e.loop, ...keepAnchor(e, w, img.height) }));
+    onChangeEntries([sprite], (e) => ({ file: pick, frameWidth: w, frameHeight: img.height, frames: n, fps: e.fps, loop: e.loop, glow: e.glow, ...keepAnchor(e, w, img.height) }));
     setMessage(`Now using ${pick} (${n} frame${n === 1 ? '' : 's'} of ${w}×${img.height}). Save to keep it.`);
   };
 
@@ -89,7 +95,7 @@ export function EffectPanel({
       const out = await res.json();
       if (!res.ok) throw new Error(out.error);
       await waitForFiles(out.files);
-      onChangeEntries([sprite], (e) => ({ files: out.files, fps: e.fps, loop: e.loop, ...keepAnchor(e, out.width, out.height) }));
+      onChangeEntries([sprite], (e) => ({ files: out.files, fps: e.fps, loop: e.loop, glow: e.glow, ...keepAnchor(e, out.width, out.height) }));
       onFilesChanged();
       setMessage(`Imported ${out.files.length} frames (${out.width}×${out.height}) into ${out.files[0].replace(/\/[^/]*$/, '/')}. Save to keep using them.`);
     } catch (e) {
@@ -132,6 +138,70 @@ export function EffectPanel({
               Only this tier
             </button>
           </div>
+        )}
+      </fieldset>
+
+      <fieldset disabled={readOnly || !entry}>
+        <div className="sa-sub">Glow{tiers.length > 1 ? (allTiers ? ' (all tiers)' : ' (this tier)') : ''}</div>
+        {!glow ? (
+          <div className="sa-row">
+            <button onClick={() => editGlow(() => ({ ...DEFAULT_GLOW }))} title="A soft glow behind this effect, following its outline">
+              + Glow
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="sa-row">
+              <label title="Switch the glow off without losing its settings">
+                <input type="checkbox" checked={!glow.hidden} onChange={(e) => editGlow((g) => ({ ...g!, hidden: e.target.checked ? undefined : true }))} /> Show
+              </label>
+              <button onClick={() => editGlow(() => undefined)}>Remove glow</button>
+            </div>
+            <div className="sa-row">
+              <span>Colour</span>
+              <input type="color" value={glow.color} onChange={(e) => editGlow((g) => ({ ...g!, color: e.target.value }))} />
+              <span>Mode</span>
+              <select value={glow.mode} onChange={(e) => editGlow((g) => ({ ...g!, mode: e.target.value as Glow['mode'] }))}>
+                {GLOW_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {GLOW_MODE_LABELS[m]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <SliderField
+              label="Opacity"
+              value={glow.opacity}
+              min={0}
+              max={1}
+              step={0.01}
+              reset={DEFAULT_GLOW.opacity}
+              format={(v) => `${Math.round(v * 100)}%`}
+              onChange={(v) => editGlow((g) => ({ ...g!, opacity: v }))}
+            />
+            <SliderField
+              label="Spread"
+              value={glow.spread}
+              min={0}
+              max={30}
+              step={0.5}
+              reset={DEFAULT_GLOW.spread}
+              format={(v) => `${v} px`}
+              title="How far the glow stays solid around the image before it fades (game pixels; double-click to reset)"
+              onChange={(v) => editGlow((g) => ({ ...g!, spread: v }))}
+            />
+            <SliderField
+              label="Softness"
+              value={glow.softness}
+              min={0}
+              max={60}
+              step={0.5}
+              reset={DEFAULT_GLOW.softness}
+              format={(v) => `${v} px`}
+              title="How far it fades out beyond that (game pixels; double-click to reset)"
+              onChange={(v) => editGlow((g) => ({ ...g!, softness: v }))}
+            />
+          </>
         )}
       </fieldset>
 

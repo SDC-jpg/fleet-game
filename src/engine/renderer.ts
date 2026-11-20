@@ -24,6 +24,7 @@ import { frameAt, type Frame, type Sprite } from './assets';
 import { angleStep, rotatedFrame, stepAngle } from './rotsprite';
 import { shrunkFrame } from './shrink';
 import type { CrtFilter, CrtParams } from './crt';
+import { GlowLayers, type Glow } from './glow';
 
 export type RotationMode = 'grid' | 'hires' | 'rotsprite';
 export const ROTATION_MODES: RotationMode[] = ['grid', 'hires', 'rotsprite'];
@@ -72,6 +73,9 @@ export class PixelRenderer {
     return !f || f.w * f.h <= this.rotSpriteMaxArea;
   }
 
+  /** Soft glows behind effects that have one (glow.ts), on their own canvases over this one. */
+  readonly glow: GlowLayers;
+
   /** true = fill the canvas's parent element instead of the whole window (used by the ShipArt tool). */
   private fitParent: boolean;
 
@@ -80,6 +84,7 @@ export class PixelRenderer {
     this.fitParent = fitParent;
     this.sctx = screen.getContext('2d')!;
     this.ctx = this.buffer.getContext('2d')!;
+    this.glow = new GlowLayers(screen);
     this.resize();
   }
 
@@ -177,6 +182,7 @@ export class PixelRenderer {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.globalAlpha = 1;
     this.ctx.clearRect(0, 0, bw, bh);
+    this.glow.begin();
   }
 
   /**
@@ -206,7 +212,7 @@ export class PixelRenderer {
     ctx.setTransform(1, 0, 0, 1, Math.round((x - this.originX) * ws), Math.round((y - this.originY) * ws));
     if (angle !== 0) ctx.rotate(angle);
     if (flipX || flipY) ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-    this.blit(f, sprite.anchorX, sprite.anchorY, k);
+    this.blit(f, sprite.anchorX, sprite.anchorY, k, sprite.glow);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
   }
@@ -214,10 +220,11 @@ export class PixelRenderer {
   /**
    * Draw a frame (anchored at the current origin) `k` times its art size. Shrunk by a
    * tier size step while the detail factor is settled, it uses a crisp shrunk copy
-   * (shrink.ts) instead of smoothing the art down.
+   * (shrink.ts) instead of smoothing the art down. With a `glow`, it's also remembered for the glow layer.
    */
-  private blit(f: Frame, anchorX: number, anchorY: number, k: number) {
+  private blit(f: Frame, anchorX: number, anchorY: number, k: number, glow?: Glow) {
     const ctx = this.ctx;
+    if (glow) this.glow.add(glow, f, ctx.getTransform().scale(k, k), anchorX, anchorY, ctx.globalAlpha);
     const copyAt = this.crispSize(k);
     if (copyAt) {
       const c = shrunkFrame(f, copyAt);
@@ -346,7 +353,7 @@ export class PixelRenderer {
     ctx.translate(ox * ws, oy * ws);
     if (localAngle !== 0) ctx.rotate(localAngle);
     if (flipX || flipY) ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
-    this.blit(f, sprite.anchorX, sprite.anchorY, ws * scale);
+    this.blit(f, sprite.anchorX, sprite.anchorY, ws * scale, sprite.glow);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
   }
@@ -446,6 +453,7 @@ export class PixelRenderer {
 
   /** Copy the buffer to the screen, enlarged (through the CRT effect when it's on). */
   end() {
+    this.glow.render(this.bufferScale, this.screenScale);
     if (this.crt?.params.enabled && this.crt.filter.render(this.buffer, this.bufferScale, this.crt.params)) return;
     this.crt?.filter.hide();
     this.sctx.imageSmoothingEnabled = false;

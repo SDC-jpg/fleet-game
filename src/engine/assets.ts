@@ -1,6 +1,8 @@
 // Loads public/assets/manifest.json and the images it lists.
 // The rest of the game asks for art by name (e.g. "vfx.explosion"), never by file path.
 
+import type { Glow } from './glow';
+
 /** One entry in manifest.json. Only `file` or `files` is required. */
 export interface ManifestEntry {
   file?: string;
@@ -12,6 +14,8 @@ export interface ManifestEntry {
   loop?: boolean;
   anchorX?: number;
   anchorY?: number;
+  /** A soft glow behind it (glow.ts; set in ShipArt's Effects section). */
+  glow?: Glow;
 }
 
 /** One animation frame: which image, and which rectangle of it. */
@@ -30,6 +34,8 @@ export interface Sprite {
   loop: boolean;
   anchorX: number;
   anchorY: number;
+  /** A soft glow behind it, if it has one (glow.ts). */
+  glow?: Glow;
 }
 
 export const ASSET_ROOT = `${import.meta.env.BASE_URL}assets/`;
@@ -115,6 +121,7 @@ export class Assets {
       loop: entry.loop ?? true,
       anchorX: entry.anchorX ?? frames[0].w / 2,
       anchorY: entry.anchorY ?? frames[0].h / 2,
+      glow: entry.glow,
     });
   }
 
@@ -168,6 +175,14 @@ export class Assets {
     this.entries.set(name, entry);
     this.problems = this.problems.filter((p) => !p.startsWith(name + ':'));
     await this.loadSprite(name, entry);
+    for (const key of this.recolorCache.keys()) if (key.startsWith(name + '|')) this.recolorCache.delete(key);
+  }
+
+  /** Change only a sprite's glow (ShipArt's sliders): no reload of its images. */
+  setGlow(name: string, entry: ManifestEntry) {
+    this.entries.set(name, entry);
+    const s = this.sprites.get(name);
+    if (s) s.glow = entry.glow;
     for (const key of this.recolorCache.keys()) if (key.startsWith(name + '|')) this.recolorCache.delete(key);
   }
 

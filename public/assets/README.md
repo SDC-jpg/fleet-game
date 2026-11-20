@@ -107,7 +107,18 @@ http://localhost:5173/shipart.html. The published copy
 - **Effects** (rollout section): every `vfx.*` image plays in the big preview
   over the stars, with buttons for its tier versions. The purple panel sets its
   Speed (FPS) and Loop, for all tiers or only the one shown; Save writes them
-  into `manifest.json`.
+  into `manifest.json`. The Leviathan's beam images (`leviathan.beam`,
+  `beam-start`, `charge-ball`, `beam-impact`, `beam-warning`) are listed there too.
+- **Glow** (purple panel, Effects): **+ Glow** puts a soft glow behind the
+  effect that follows its outline, like Photoshop's Outer Glow: **Colour**,
+  **Mode** (Color Dodge or Linear Dodge), **Opacity**, **Spread** (how far it
+  stays solid around the image, in game pixels) and **Softness** (how far it
+  fades out beyond that). **Show** switches it off without losing the settings.
+  For all tiers or only the one shown, like the flipbook settings; Save writes
+  it into `manifest.json` (`"glow"` on the effect's line). The glow is smooth,
+  drawn at screen resolution over the pixel art, and sits behind the image (it's
+  cut away where the image is). With the CRT screen effect on, the glow lies on
+  top of it (not curved with the picture).
 - **Changing an effect's image** (purple panel, "Image source", per tier):
   - **Use another PNG**: pick any image in the art folder and say how many
     frames sit side by side in it.

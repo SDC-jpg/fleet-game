@@ -42,6 +42,7 @@ import { screenEffect } from '../game/screenEffect';
 import { leviathanLayout } from '../game/leviathan';
 import { LeviathanPanel, bossPieceKind, bossPieceSprite, type BossPiece } from './LeviathanPanel';
 import type { BossHead } from './bossPreview';
+import type { Glow } from '../engine/glow';
 
 /** Editing and saving only work with the dev server (npm run dev). */
 const READ_ONLY = !import.meta.env.DEV;
@@ -78,6 +79,8 @@ const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 type Patch = Record<string, ManifestEntry>;
 /** One undo step: the layouts and the unsaved manifest changes as they were. */
 type Snapshot = { data: ArtLayoutsFile; patch: Patch };
+/** Boss effects listed under Effects too (the Leviathan's beam attack), so they can get a glow and flipbook settings. */
+const BOSS_EFFECTS = ['boss.leviathan.charge-ball', 'boss.leviathan.beam-start', 'boss.leviathan.beam', 'boss.leviathan.beam-impact', 'boss.leviathan.beam-warning'];
 /** "vfx.explosion.t3" → "vfx.explosion". */
 const effectBaseOf = (name: string) => name.replace(/\.t\d+$/, '');
 /** "parts/thruster-boost-1.png" → "thruster-boost-1" (a frame folder "parts/thruster-boost-3/" → "thruster-boost-3"). */
@@ -303,6 +306,32 @@ export function ShipArt() {
     setPatch(next);
     setDirty(true);
   };
+  /** When the glow was last changed: changes in quick succession (a slider drag) make one undo step. */
+  const lastGlowEdit = useRef(0);
+  /** Change effects' glow (manifest "glow"): shown at once without reloading the images, saved with Save. */
+  const changeGlow = (names: string[], fn: (g: Glow | undefined) => Glow | undefined) => {
+    const current = dataRef.current;
+    if (!assets || !current || READ_ONLY) return;
+    const now = performance.now();
+    if (now - lastGlowEdit.current > 600) setHistory((h) => [...h.slice(-99), { data: current, patch: patchRef.current }]);
+    lastGlowEdit.current = now;
+    const next = { ...patchRef.current };
+    for (const name of names) {
+      const entry = next[name] ?? assets.entryOf(name);
+      if (!entry) continue;
+      baselineRef.current[name] ??= assets.entryOf(name)!;
+      const e = { ...entry };
+      const glow = fn(entry.glow ? { ...entry.glow } : undefined);
+      if (glow) e.glow = glow;
+      else delete e.glow;
+      next[name] = e;
+      assets.setGlow(name, e);
+    }
+    patchRef.current = next;
+    setPatch(next);
+    setDirty(true);
+    setArtVersion((v) => v + 1);
+  };
   /** Change the Leviathan's body settings (art.json `bosses.leviathan`). */
   const changeBoss = (fn: (l: Partial<LeviathanLayout>) => void, noUndo = false) =>
     change((d) => fn(((d.bosses ??= {}).leviathan ??= {})), noUndo, true);
@@ -375,7 +404,10 @@ export function ShipArt() {
   }, []);
 
   /** Every effect (each "vfx.*" sprite, tier versions grouped under one name). */
-  const effects = useMemo(() => (assets ? [...new Set(assets.names().filter((n) => n.startsWith('vfx.')).map(effectBaseOf))].sort() : []), [assets]);
+  const effects = useMemo(
+    () => (assets ? [...new Set(assets.names().filter((n) => n.startsWith('vfx.') || BOSS_EFFECTS.includes(n)).map(effectBaseOf))].sort() : []),
+    [assets],
+  );
   /** The tier versions of the effect shown, and the one being shown. */
   const effectTiers = effectBase && assets ? [effectBase, ...[2, 3, 4, 5, 6].map((t) => `${effectBase}.t${t}`)].filter((n) => assets.has(n)) : [];
   const effect = effectBase && assets ? tierSprite(assets, effectBase, effectTier) : null;
@@ -942,7 +974,7 @@ export function ShipArt() {
                   setBoss(null);
                 }}
               >
-                {e.replace(/^vfx\./, '')}
+                {e.replace(/^(vfx|boss)\./, '')}
               </button>
             ))}
           </div>
@@ -1039,6 +1071,7 @@ export function ShipArt() {
           windowsRoot={windowsRoot}
           artFiles={files}
           onChangeEntries={changeEntries}
+          onChangeGlow={changeGlow}
           onFilesChanged={() =>
             fetch('/__shipart/files', { cache: 'no-store' })
               .then((r) => r.json())
