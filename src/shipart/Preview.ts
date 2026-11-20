@@ -58,6 +58,11 @@ export interface PreviewSettings {
   bossStraight: number;
   /** Bumped by the Beam button. */
   bossBeam: number;
+  /** Ships: the 3D tilt prototype (engine/tilt.ts): bank and pitch in degrees, light stepped to the palette, and Swing (rocks between ± those angles). */
+  bank: number;
+  pitch: number;
+  tiltLight: boolean;
+  swing: boolean;
   readOnly: boolean;
 }
 
@@ -295,7 +300,7 @@ export class Preview {
       if (age < length) r.drawSprite(sprite, w.x, w.y, 0, age);
     }
     if (st.kind.id === 'laser') this.drawLaser(state, tier, st.team);
-    else if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, this.time, pointId ? 0.35 : 1);
+    else if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, this.time, pointId ? 0.35 : 1, true, 1, this.tilt());
     // Gun images (turrets) on top, at rest.
     for (const g of this.guns())
       if (g.image && this.assets.has(fileSprite(g.image)))
@@ -324,6 +329,16 @@ export class Preview {
     this.boss.draw(r, this.assets, this.time);
     r.end();
     this.drawGuides();
+  }
+
+  /** Ships: the 3D tilt now (Swing rocks it: bank and pitch on different rhythms), or none. */
+  private tilt() {
+    const st = this.settings;
+    if (st.kind.section !== 'ships' || (!st.bank && !st.pitch)) return undefined;
+    const rad = Math.PI / 180;
+    const k = st.swing ? Math.sin(this.time * 1.3) : 1;
+    const kp = st.swing ? Math.sin(this.time * 0.8 + 1) : 1;
+    return { bank: st.bank * rad * k, pitch: st.pitch * rad * kp, light: st.tiltLight };
   }
 
   /** Mouse position in the world (boss preview). */

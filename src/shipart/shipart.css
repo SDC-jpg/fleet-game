@@ -477,3 +477,13 @@
   border: 1px solid #556;
   background: none;
 }
+
+/* 3D volume prototype controls (toolbar) */
+.sa-tilt label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sa-tilt input[type='range'] {
+  width: 80px;
+}

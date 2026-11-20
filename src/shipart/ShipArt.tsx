@@ -43,6 +43,7 @@ import { leviathanLayout } from '../game/leviathan';
 import { LeviathanPanel, bossPieceKind, bossPieceSprite, type BossPiece } from './LeviathanPanel';
 import type { BossHead } from './bossPreview';
 import type { Glow } from '../engine/glow';
+import { VolumePanel } from './VolumePanel';
 
 /** Editing and saving only work with the dev server (npm run dev). */
 const READ_ONLY = !import.meta.env.DEV;
@@ -155,6 +156,11 @@ export function ShipArt() {
   const [crt, setCrt] = useState(() => loadSetting('shipart.crt') === 'on');
   const [fxOpen, setFxOpen] = useState(false);
   // How rotated ships are drawn; shared with the game (same browser setting).
+  /** 3D volume prototype (engine/tilt.ts): bank and pitch (degrees), light, swing. Preview only. */
+  const [bank, setBank] = useState(0);
+  const [pitch, setPitch] = useState(0);
+  const [tiltLight, setTiltLight] = useState(true);
+  const [swing, setSwing] = useState(false);
   const [rotation, setRotation] = useState<RotationMode>(() => {
     const r = loadSetting(ROTATION_SETTING) as RotationMode | null;
     return r && ROTATION_MODES.includes(r) ? r : 'grid';
@@ -321,6 +327,8 @@ export function ShipArt() {
     setPatch(next);
     setDirty(true);
   };
+  /** When the volume sliders last changed (quick changes = one undo step). */
+  const lastVolumeEdit = useRef(0);
   /** When the glow was last changed: changes in quick succession (a slider drag) make one undo step. */
   const lastGlowEdit = useRef(0);
   /** Change effects' glow (manifest "glow"): shown at once without reloading the images, saved with Save. */
@@ -456,6 +464,10 @@ export function ShipArt() {
       bossFin,
       bossStraight,
       bossBeam,
+      bank,
+      pitch,
+      tiltLight,
+      swing,
       readOnly: READ_ONLY,
     };
 
@@ -588,7 +600,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossFin, bossStraight, bossBeam, patch]);
+  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossFin, bossStraight, bossBeam, patch, bank, pitch, tiltLight, swing]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -900,6 +912,27 @@ export function ShipArt() {
             Guides
           </button>
         </div>
+        {kind.section === 'ships' && !effect && !shownBoss && (
+          <div className="sa-group sa-tilt" title="3D volume prototype: the ship banked (along its length) and pitched (along its width) as a 3D hull">
+            3D
+            <label title="Bank: roll along its length (right side down for +). Double-click: 0">
+              Bank
+              <input type="range" min={-35} max={35} step={1} value={bank} onChange={(e) => setBank(Number(e.target.value))} onDoubleClick={() => setBank(0)} />
+              <span className="sa-slider-value">{bank}°</span>
+            </label>
+            <label title="Pitch: nose up (+) or down. Double-click: 0">
+              Pitch
+              <input type="range" min={-15} max={15} step={1} value={pitch} onChange={(e) => setPitch(Number(e.target.value))} onDoubleClick={() => setPitch(0)} />
+              <span className="sa-slider-value">{pitch}°</span>
+            </label>
+            <button className={swing ? 'on' : ''} onClick={() => setSwing(!swing)} title="Rock back and forth between ± the bank and pitch">
+              Swing
+            </button>
+            <button className={tiltLight ? 'on' : ''} onClick={() => setTiltLight(!tiltLight)} title="Light from the top left: the side tilting toward it steps to lighter colours of its own palette, the other side darker">
+              Light
+            </button>
+          </div>
+        )}
         <div className="sa-group" title="How rotated ships are drawn (the game uses the same choice)">
           Rotation
           {ROTATION_MODES.map((m) => (
@@ -1197,6 +1230,22 @@ export function ShipArt() {
               }}
               onChange={changeGuns}
               onReset={() => change((d) => delete d[section][subject].guns)}
+            />
+          )}
+          {section === 'ships' && (
+            <VolumePanel
+              shape={layout.volume}
+              onChange={(v) => {
+                // Slider drags in quick succession make one undo step.
+                const now = performance.now();
+                const quick = now - lastVolumeEdit.current < 600;
+                lastVolumeEdit.current = now;
+                change((d) => {
+                  const l = d[section][subject];
+                  if (v) l.volume = v;
+                  else delete l.volume;
+                }, quick);
+              }}
             />
           )}
           {section === 'ships' && (

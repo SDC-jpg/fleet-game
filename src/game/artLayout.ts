@@ -14,6 +14,7 @@
 // +x is forward (ships and objects face right in their art), +y is down.
 
 import { ASSET_ROOT, type Assets } from '../engine/assets';
+import type { VolumeShape } from '../engine/tilt';
 
 /** States a ship can be drawn in. Mounts and base images can differ per state. */
 export const SHIP_STATES = ['idle', 'move', 'boost'] as const;
@@ -114,6 +115,8 @@ export interface ArtLayout {
   hitShape?: HitCircle[];
   /** Fingerprint of the image's outline when the hit shape was fitted (ShipArt asks to fit again when it changes). */
   hitShapeArt?: string;
+  /** Ships only: its guessed 3D shape for banking and pitching (engine/tilt.ts). Missing = DEFAULT_VOLUME. */
+  volume?: VolumeShape;
 }
 
 /** One circle of a ship's hit shape, in the ship's pixels from its centre (facing right). */

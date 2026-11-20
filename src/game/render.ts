@@ -12,6 +12,7 @@ import { gunsOf, shipArtBase } from './guns';
 import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
 import { HALF_SIDE_HEAD_SPRITE, MOUTH_OPEN_HEAD_SPRITE, PIECE_SPRITES, beamOrigin, beamThickness, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
 import { orbTell } from './leviathanAttacks';
+import { DEFAULT_VOLUME, tiltedSpot, tiltedSprite } from '../engine/tilt';
 import { pieceGone } from './leviathanDeath';
 import { introText, riftOpening, type BossIntro } from './leviathanIntro';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
@@ -850,6 +851,8 @@ export function drawLayoutArt(
   drawBase = true,
   /** Draw it this much bigger, mounts included (a tier using a smaller tier's art, see tierArt). */
   scale = 1,
+  /** Ships: banked and pitched (radians) as a 3D hull (engine/tilt.ts, shape from layout.volume), parts following; light = shading stepped to its palette. */
+  tilt?: { bank: number; pitch: number; light: boolean },
 ) {
   const baseFile = layout?.base[state] ?? layout?.base.idle;
   const mounts = layout?.mounts ?? [];
@@ -862,6 +865,11 @@ export function drawLayoutArt(
     baseSprite = teamSprite(assets, small, team);
     baseScale = scale * CONFIG.tiers.sizePerTier ** detailSteps;
   }
+  // Banked and pitched: a tilted copy of the hull, and the parts moved with it.
+  const flat = baseSprite;
+  const shape = layout?.volume ?? DEFAULT_VOLUME;
+  if (tilt) baseSprite = tiltedSprite(baseSprite, shape, tilt.bank, tilt.pitch, tilt.light);
+  const spot = (mx: number, my: number) => (tilt ? tiltedSpot(flat, shape, mx, my, tilt.bank, tilt.pitch) : { x: mx, y: my });
   // Art too big for RotSprite is drawn as in Grid, mounts too, so they stay put on it.
   const mode = r.rotation;
   if (mode === 'rotsprite' && !r.rotSpriteFits(baseSprite)) r.rotation = 'grid';
@@ -870,7 +878,8 @@ export function drawLayoutArt(
       const file = m.images[state];
       if (!file || m.behind !== behind) continue;
       const sprite = teamSprite(assets, fileSprite(file), team);
-      r.drawAttached(sprite, x, y, angle, m.x * scale, m.y * scale, (m.angle * Math.PI) / 180, time, alpha, m.scale * scale, m.flipX, m.flipY);
+      const p = spot(m.x, m.y);
+      r.drawAttached(sprite, x, y, angle, p.x * scale, p.y * scale, (m.angle * Math.PI) / 180, time, alpha, m.scale * scale, m.flipX, m.flipY);
     }
   };
   try {

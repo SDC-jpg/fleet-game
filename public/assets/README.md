@@ -145,6 +145,13 @@ http://localhost:5173/shipart.html. The published copy
   every ship image. When you change a ship's image (its outline, not just its
   colours), ShipArt asks "Autofit collision to the new art?" when you view it.
   Without circles a ship uses one round hit circle (dashed).
+- **Volume (3D)** (ships only; a prototype, preview only for now): the toolbar's **3D**
+  controls bank (roll along its length) and pitch (tip along its width) the ship as a 3D hull,
+  guessed from its outline: thick along the middle, thin at the edges. **Swing** rocks it back and
+  forth; **Light** lightens the side tilting toward the top-left light and darkens the other, using
+  only the colours already in the image (each colour moves along its own family of shades). The
+  **Volume (3D)** section shapes it per ship: **Height**, **Round** (wedge to round cross-section)
+  and **Spine** (higher = flatter wings, the middle standing out). Mounts move with the hull.
 - **Guns** (ships only, the Guns section): where each gun sits (drag its orange
   ring), which way it points, its size (the tier of shot it fires), weapon type,
   fixed or **turret** (turns on its own, faster than the hull, within the dashed
