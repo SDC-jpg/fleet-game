@@ -381,8 +381,7 @@ function makeMark(assets: Assets, look: DamageLook, f: Frame, anchorX: number, a
     }
   g.putImageData(out, 0, 0);
   const sprite: Sprite = { frames: [{ image: c, sx: 0, sy: 0, w, h: w }], fps: 0, loop: false, anchorX: R + 0.5, anchorY: R + 0.5 };
-  // A wound glows like its inside texture does (its glow in the manifest, set in ShipArt → Effects).
-  if (kind === 'wound' && assets.has(insideName)) sprite.glow = assets.get(insideName).glow;
+  // (No glow on marks: glow is drawn over everything, so a piece sliding over another couldn't hide it.)
   return { px, py, kind, strength, sprite, ox: px + 0.5 - anchorX, oy: py + 0.5 - anchorY };
 }
 

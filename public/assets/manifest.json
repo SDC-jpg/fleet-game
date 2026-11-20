@@ -45,7 +45,7 @@
     "boss.leviathan.head-side": { "file": "bosses/leviathan/head-side.png", "anchorX": 80, "anchorY": 140 },
     "boss.leviathan.head-halfside": { "file": "bosses/leviathan/head-halfside.png", "anchorX": 80, "anchorY": 140 },
     "boss.leviathan.head-side-mouth-open": { "file": "bosses/leviathan/head-side-mouth-open.png", "anchorX": 80, "anchorY": 140 },
-    "boss.leviathan.damage-inside": { "file": "bosses/leviathan/damage-inside.png", "glow": {"color":"#d040ff","mode":"linear-dodge","opacity":0.5,"spread":1.5,"softness":4} },
+    "boss.leviathan.damage-inside": { "file": "bosses/leviathan/damage-inside.png" },
     "boss.leviathan.damage-torn": { "file": "bosses/leviathan/damage-torn.png" },
     "boss.leviathan.damage-char": { "file": "bosses/leviathan/damage-char.png" },
     "boss.leviathan.damage-heat": { "file": "bosses/leviathan/damage-heat.png" },

@@ -897,7 +897,7 @@ export const CONFIG = {
       maxMarks: 6,
       /** Inside a torn mark: raw flesh (repeats across the piece). */
       torn: 'boss.leviathan.damage-torn',
-      /** Inside a wound's gash: glowing flesh (repeats; its glow is set in ShipArt → Effects). */
+      /** Inside a wound's gash: glowing flesh (repeats). */
       inside: 'boss.leviathan.damage-inside',
       /** Around a mark, and its burns: charred flesh (repeats). */
       char: 'boss.leviathan.damage-char',
