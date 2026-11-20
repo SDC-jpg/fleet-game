@@ -6,7 +6,7 @@
 
 import { CrtFilter, type CrtParams } from '../engine/crt';
 import { screenEffect } from '../game/screenEffect';
-import type { Assets } from '../engine/assets';
+import type { Assets, Sprite } from '../engine/assets';
 import { PixelRenderer, type RotationMode } from '../engine/renderer';
 import { CONFIG, SHIP_TYPES } from '../game/config';
 import { Particles } from '../game/particles';
@@ -18,6 +18,7 @@ import type { Team } from '../game/world';
 import { LeviathanPreview, type BossHead } from './bossPreview';
 import { bossPieceSprite, type BossPiece } from './LeviathanPanel';
 import type { SoundScene } from './soundInfo';
+import { drawDamage, type Damageable } from '../game/shipDamage';
 
 export interface PreviewSettings {
   data: ArtLayoutsFile;
@@ -65,6 +66,10 @@ export interface PreviewSettings {
   tiltLight: boolean;
   swing: boolean;
   readOnly: boolean;
+  /** Ships: damage marks (docs/SHIP-DAMAGE.md): its health (0–1), and Hit presses (bumped; `damageStrength` = that hit's damage ÷ max health). */
+  damageHp: number;
+  damageHit: number;
+  damageStrength: number;
   /** A sound's scene to show instead (ShipArt → Sounds): `play` is bumped to play it once; `cue` starts the sound, `loop` sets a looping sound's level. */
   sound: SoundPreview | null;
 }
@@ -148,6 +153,9 @@ export class Preview {
   private soundPlay = 0;
   private soundT = Infinity;
   private soundCued = true;
+  /** A pretend ship that carries the damage marks shown, and the last Hit press seen. */
+  private dummy: Damageable = { hp: 1, stats: { maxHp: 1 }, hits: [] };
+  private lastHit = 0;
   private assets: Assets;
   private events: PreviewEvents;
   settings: PreviewSettings;
@@ -318,7 +326,7 @@ export class Preview {
       if (age < length) r.drawSprite(sprite, w.x, w.y, 0, age);
     }
     if (st.kind.id === 'laser') this.drawLaser(state, tier, st.team);
-    else if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, this.time, pointId ? 0.35 : 1, true, 1, this.tilt());
+    else if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, this.time, pointId ? 0.35 : 1, true, 1, this.tilt(), this.damageDecor());
     // Gun images (turrets) on top, at rest.
     for (const g of this.guns())
       if (g.image && this.assets.has(fileSprite(g.image)))
@@ -431,6 +439,22 @@ export class Preview {
   private stopSound() {
     this.soundT = Infinity;
     this.soundCued = true;
+  }
+
+  /** Ships: their damage marks (toolbar Damage: Health slider, Hit), drawn over the hull like in the game. */
+  private damageDecor() {
+    const st = this.settings;
+    if (st.kind.section !== 'ships') return undefined;
+    const d = this.dummy;
+    d.hp = st.damageHp;
+    if (st.damageHit !== this.lastHit) {
+      this.lastHit = st.damageHit;
+      // A gun hit somewhere on it (the hull is found from there).
+      const size = this.assets.get(st.subject).frames[0];
+      d.hits!.push({ x: (Math.random() - 0.5) * size.w, y: (Math.random() - 0.5) * size.h, kind: 'gun', strength: st.damageStrength });
+    }
+    return (hull: Sprite, spot: (x: number, y: number) => { x: number; y: number }, k: number) =>
+      drawDamage(this.renderer, this.assets, d, tierOf(st.subject), hull, spot, this.x, this.y, this.angle, k, 1);
   }
 
   /** Ships: the 3D tilt now (Swing rocks it: bank and pitch on different rhythms), or none. */

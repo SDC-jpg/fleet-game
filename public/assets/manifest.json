@@ -89,6 +89,7 @@
     "vfx.flagship-explosion.t5": { "file": "vfx/flagship-explosion-t5.png", "frameWidth": 486, "frameHeight": 486, "frames": 12, "fps": 14, "loop": false },
     "vfx.debris": { "file": "vfx/debris.png", "frameWidth": 12, "frameHeight": 12, "frames": 6, "fps": 1, "loop": false },
     "vfx.shimmer": { "file": "vfx/shimmer.png", "frameWidth": 7, "frameHeight": 7, "frames": 5, "fps": 10, "loop": false },
+    "vfx.damage-innards": { "file": "vfx/damage-innards.png" },
     "vfx.hit": { "file": "vfx/hit.png", "frameWidth": 16, "frameHeight": 16, "frames": 4, "fps": 20, "loop": false },
     "vfx.hit.t2": { "file": "vfx/hit-t2.png", "frameWidth": 24, "frameHeight": 24, "frames": 4, "fps": 20, "loop": false },
     "vfx.hit.t3": { "file": "vfx/hit-t3.png", "frameWidth": 36, "frameHeight": 36, "frames": 4, "fps": 20, "loop": false },

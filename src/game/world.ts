@@ -8,6 +8,7 @@ import { eliteXp, enemyHealthMultiplier, isFleetWave, killXp, loneEnemyCount, ti
 export { tierCounts } from './curves';
 import { interceptMissiles } from './newSkills';
 import { gunsOf, type GunSpec } from './guns';
+import { recordHit, type DamageHit } from './damage';
 import { pointHitsShip, rayHitsShip } from './hitShape';
 import type { WeaponType } from './artLayout';
 import { drawCards, gainXp } from './progress';
@@ -105,6 +106,8 @@ export interface Ship {
   leviathan: LeviathanBody | null;
   /** Set for a Leviathan's parasite: latched onto one of your ships, or flying (leviathanAttacks.ts). */
   parasite: ParasiteState | null;
+  /** Hits waiting to become damage marks on its hull (damage.ts; the drawing side takes them). */
+  hits?: DamageHit[];
   /** Its 3D tilt for drawing (CONFIG.volume; radians, smoothed): bank into turns, pitch with speeding up and slowing; and last step's facing and forward speed, to measure them. */
   bank: number;
   pitch: number;
@@ -1805,6 +1808,8 @@ export function damageShip(state: GameState, s: Ship, amount: number, source: Da
   // (Not the Leviathan's own damage to enemy ships: that isn't yours.)
   if (s.team === 'enemy' && amount > 0 && !source.startsWith('leviathan')) state.stats.damageBySource[source] = (state.stats.damageBySource[source] ?? 0) + Math.min(amount, Math.max(0, s.hp));
   if (!(s.team === 'player' && state.invincible)) s.hp -= amount;
+  // Where it landed, for the marks on its hull (damage.ts).
+  if (at) recordHit(s, amount, source, at);
   if (s.hp <= 0) {
     s.dead = true;
     s.killedBy = source;
@@ -2774,6 +2779,16 @@ export function testKillEnemies(state: GameState, view: { x: number; y: number; 
   for (const s of state.ships)
     if (s.team === 'enemy' && s.x >= view.x && s.x <= view.x + view.w && s.y >= view.y && s.y <= view.y + view.h)
       s.dead = true;
+}
+
+/** Test key [: every ship on screen (both sides) takes a gun hit of 15% of its health at a random spot on it, never destroying it (damage marks, docs/SHIP-DAMAGE.md). */
+export function testDamageShips(state: GameState, view: { x: number; y: number; w: number; h: number }) {
+  for (const s of state.ships) {
+    if (s.dead || s.leviathan || s.parasite || s.x < view.x || s.x > view.x + view.w || s.y < view.y || s.y > view.y + view.h) continue;
+    const a = Math.random() * Math.PI * 2;
+    const d = Math.random() * s.stats.radius;
+    damageShip(state, s, Math.min(s.stats.maxHp * 0.15, s.hp - 1), 'gun', { x: s.x + Math.cos(a) * d, y: s.y + Math.sin(a) * d });
+  }
 }
 
 // ---------- Effects and sounds ----------

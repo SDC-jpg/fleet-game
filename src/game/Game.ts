@@ -39,6 +39,7 @@ import {
   testAddShips,
   testDestroyFleet,
   testKillEnemies,
+  testDamageShips,
   testSpawnElite,
   testSpawnLeviathan,
   testJumpToLeviathan,
@@ -872,6 +873,7 @@ export class Game {
     if (i.wasPressed('Minus', 'NumpadSubtract')) testRemoveShip(s);
     if (i.wasPressed('KeyG')) s.invincible = !s.invincible;
     if (i.wasPressed('KeyK')) testKillEnemies(s, this.renderer.view);
+    if (i.wasPressed('BracketLeft')) testDamageShips(s, this.renderer.view);
     if (i.wasPressed('KeyL')) gainXp(s, xpToNextLevel(s.level) - s.xp);
     if (i.wasPressed('KeyJ')) testGiveAllSkills(s);
     if (i.wasPressed('KeyI')) {

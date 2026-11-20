@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-20
+- Ships show battle damage: gun hits tear holes in the hull where they land (bigger for harder hits), badly hurt ships look wrecked, and repairs patch them up.
 - ShipArt has a new Sounds section: hear every sound with a little scene of where it plays in the game, drop in your own sound files to try them (in the preview, and in the game in your browser), then download them as one zip to send over.
 - Tier-2 enemy ships' thrusters now sit right on their new art.
 - Bigger ships tilt less as they turn, like heavier hulls: tier 3 half as much as tier 2, and half again each tier after.

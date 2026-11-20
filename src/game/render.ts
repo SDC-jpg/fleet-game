@@ -15,6 +15,7 @@ import { orbTell } from './leviathanAttacks';
 import { DEFAULT_VOLUME, snapTilt, tiltedSpot, tiltedSprite } from '../engine/tilt';
 import { pieceGone } from './leviathanDeath';
 import { introText, riftOpening, type BossIntro } from './leviathanIntro';
+import { drawDamage } from './shipDamage';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
@@ -597,7 +598,9 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
   if (s.hijacked > 0 && s.hijacked < 1 && Math.floor(s.hijacked * 10) % 2) alpha *= 0.4;
   // As a 3D hull, banking and pitching (CONFIG.volume); its parts and guns move with it.
   const vol = shipVolume(r, assets, layouts, s, volume && !s.ghost);
-  drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, null, time, alpha, true, scale, vol.tilt);
+  // Damage marks where it was hit (shipDamage.ts; not while cloaked).
+  const marks = CONFIG.damage.enabled && !s.ghost ? (hull: Sprite, spot: (x: number, y: number) => { x: number; y: number }, k: number) => drawDamage(r, assets, s, s.tier, hull, spot, s.x, s.y, s.angle, k, alpha) : undefined;
+  drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, null, time, alpha, true, scale, vol.tilt, marks);
   // Gun images (turrets) on top, turned to where each gun points.
   gunsOf(s).forEach((g, i) => {
     const p = vol.spot(g.x, g.y);
@@ -890,6 +893,8 @@ export function drawLayoutArt(
   scale = 1,
   /** Ships: banked and pitched (radians) as a 3D hull (engine/tilt.ts, shape from layout.volume), parts following; light = shading stepped to its palette. */
   tilt?: { bank: number; pitch: number; light: boolean; step?: number },
+  /** Drawn over the hull, under its front parts (damage marks): gets the hull image as drawn flat, `spot` (moves a point with a banking hull) and the drawn size. */
+  decor?: (hull: Sprite, spot: (x: number, y: number) => { x: number; y: number }, scale: number) => void,
 ) {
   const baseFile = layout?.base[state] ?? layout?.base.idle;
   const mounts = layout?.mounts ?? [];
@@ -925,6 +930,8 @@ export function drawLayoutArt(
   try {
     drawMounts(true);
     if (drawBase) r.drawRotated(baseSprite, x, y, angle, time, alpha, baseScale);
+    // Not on the detail steps' small versions (too small to see).
+    if (decor && drawBase && detailSteps === 0) decor(flat, spot, baseScale);
     drawMounts(false);
   } finally {
     r.rotation = mode;

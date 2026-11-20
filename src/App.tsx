@@ -68,7 +68,7 @@ export default function App() {
           <div>WASD move · Shift boost · Space dash · mouse aim · click fire · Q auto-fire · right-click defend · Esc pause & equipment · Tab run log · fly into wrecks to recruit</div>
           {TEST_KEYS_ENABLED && (
             <div>
-              Test keys: = / - add/remove ship · ] add 16 ships · T add a next-tier ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
+              Test keys: = / - add/remove ship · ] add 16 ships · [ hit ships on screen (damage marks) · T add a next-tier ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
               screen · X end run · L level up · J all skills · I drop 3 matching items · Y drop the next Merge Module · E spawn elite · H spawn swarm · V variants · {SECRET_TEST_KEYS && '0 jump to wave 27 (Leviathan next) · B Leviathan (Shift+B: no intro) · N its beam now · C ram · P energy ball · Z wound it · '}R reinforcements · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · F formation ({hud.formationMode === 'fill' ? 'Fill' : 'Original'}) · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
             </div>
           )}

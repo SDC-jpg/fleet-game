@@ -965,6 +965,39 @@ export const CONFIG = {
   },
 
   /**
+   * Damage marks (2026-11-20, docs/SHIP-DAMAGE.md; game/damage.ts, shipDamage.ts): hits leave marks
+   * on ships' hulls where they land (gun shots tear plating open). Just for looks.
+   */
+  damage: {
+    /** Marks on ships at all. */
+    enabled: true,
+    /** Hits remembered on a ship until they're drawn as marks (the latest ones). */
+    pendingHits: 8,
+    /** Most marks on a tier-1 ship. */
+    maxMarks: 6,
+    /** Each tier up allows this many more marks. */
+    marksPerTier: 3,
+    /** A mark's smallest radius, as a share of the ship's size (square root of its hull area). */
+    sizeMin: 0.05,
+    /** How much bigger a harder hit makes it: this share of the ship's size × the square root of the hit's strength (damage ÷ max health). */
+    sizePerStrength: 0.25,
+    /** Largest mark radius (art pixels). */
+    sizeMax: 9,
+    /** A new hit this close to a mark (× its radius) grows that mark instead of making another. */
+    mergeReach: 1.2,
+    /** How ragged a mark's edge is (0 = round). */
+    ragged: 0.45,
+    /** Torn edges: the hull's own colour darkened to this share. */
+    edgeShade: 0.45,
+    /** Marks at least this big (radius, art pixels) get a torn edge; smaller ones are all hole. */
+    edgeFrom: 2.5,
+    /** Marks follow health: below this share of its lost health in marks (strengths added up), a ship gets extra marks; repaired, marks above 1.2 × its lost health go. */
+    followHealth: 0.5,
+    /** Strength of an extra mark added to follow health. */
+    extraStrength: 0.08,
+  },
+
+  /**
    * Ship volume (2026-11-20, engine/tilt.ts): ships (yours and enemies) bank into turns and pitch as
    * they speed up or slow down, drawn as a 3D hull guessed from their outline (shape per ship in
    * ShipArt → Volume). Just for looks: hits and guns work as before. Settings → General switches it.

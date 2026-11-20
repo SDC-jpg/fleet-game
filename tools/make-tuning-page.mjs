@@ -266,7 +266,7 @@ for (const p of unwrap(findVariable('SKILLS').decl.initializer).properties) {
   const side = unwrap(p.initializer).properties?.find((q) => nameOf(q) === 'side');
   if (side) skillSide[nameOf(p)] = valueText(side.initializer).replace(/"/g, '');
 }
-const ART = ['teamColors', 'particles', 'audio', 'zoomSteps', 'detail', 'commander', 'crt', 'death', 'edgeMarkers'];
+const ART = ['teamColors', 'particles', 'damage', 'audio', 'zoomSteps', 'detail', 'commander', 'crt', 'death', 'edgeMarkers'];
 const WEAPONS = ['guns', 'shotInherit'];
 const OTHER = ['runSave'];
 const CATEGORIES = [
