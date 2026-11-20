@@ -4,14 +4,25 @@
 import { DEFAULT_VOLUME, type VolumeShape } from '../engine/tilt';
 import { SliderField } from './fields';
 
-export function VolumePanel({ shape, onChange }: { shape: VolumeShape | undefined; onChange: (v: VolumeShape | undefined) => void }) {
+export function VolumePanel({
+  shape,
+  onChange,
+  heading = true,
+  note = 'The 3D shape guessed from the outline, for banking and pitching (toolbar: 3D).',
+}: {
+  shape: VolumeShape | undefined;
+  onChange: (v: VolumeShape | undefined) => void;
+  /** false = no title (inside a folding section that has its own). */
+  heading?: boolean;
+  note?: string;
+}) {
   const v = shape ?? DEFAULT_VOLUME;
   const set = (patch: Partial<VolumeShape>) => onChange({ ...v, ...patch });
   return (
     <>
-      <h2>Volume (3D)</h2>
+      {heading && <h2>Volume (3D)</h2>}
       <div className="sa-note">
-        The 3D shape guessed from the outline, for banking and pitching (toolbar: 3D). {shape ? 'Own settings.' : 'Default settings.'}
+        {note} {shape ? 'Own settings.' : 'Default settings.'}
       </div>
       <SliderField
         label="Height"

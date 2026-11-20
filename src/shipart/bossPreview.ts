@@ -8,7 +8,7 @@ import type { Assets } from '../engine/assets';
 import type { PixelRenderer } from '../engine/renderer';
 import { CONFIG } from '../game/config';
 import type { ArtLayoutsFile, LeviathanLayout } from '../game/artLayout';
-import { finPiece, advanceBeam, beamOrigin, followHead, leviathanLayout, lookToward, startBeam, makeLeviathanBody, relayLeviathan, swimLeviathan, updateFins, type LeviathanBody, type LeviathanPiece } from '../game/leviathan';
+import { finPiece, advanceBeam, beamOrigin, followHead, leviathanLayout, lookToward, startBeam, makeLeviathanBody, relayLeviathan, swimLeviathan, updateFins, updatePieceRoll, type LeviathanBody, type LeviathanPiece } from '../game/leviathan';
 import { drawLeviathan, drawLeviathanBeam, finGeometry, leviathanPieceArt } from '../game/render';
 import { Particles } from '../game/particles';
 import { bossPieceKind, type BossPiece } from './LeviathanPanel';
@@ -128,6 +128,7 @@ export class LeviathanPreview {
     this.sparks.update(dt);
     // Fins move even while it holds still (they settle, and show edits at once).
     updateFins(this.body, dt);
+    updatePieceRoll(this.body, dt);
   }
 
   /** The fin whose joints pass within `near` of this world point, or null (the picked one first). */
@@ -166,7 +167,7 @@ export class LeviathanPreview {
   }
 
   draw(r: PixelRenderer, assets: Assets, time: number) {
-    drawLeviathan(r, assets, this.body, this.x, this.y, this.angle, time);
+    drawLeviathan(r, assets, this.body, this.x, this.y, this.angle, time, true);
     drawLeviathanBeam(r, assets, this.body, this, 2000, time);
     this.sparks.draw(r, assets);
   }

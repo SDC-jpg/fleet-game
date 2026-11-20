@@ -148,12 +148,20 @@ export function tiltPoint(x: number, y: number, z: number, bank: number, pitch: 
   return { x: x * cp - z1 * sp, y: y1, z: z1 * cp + x * sp };
 }
 
+/** Which way the art is drawn: facing right (ships) or up (the Leviathan's pieces). */
+export type Facing = 'right' | 'up';
+/** Image offset (from the anchor) → the art's own frame (x forward, y to its right). */
+const toOwn = (dx: number, dy: number, facing: Facing) => (facing === 'up' ? { x: -dy, y: dx } : { x: dx, y: dy });
+/** The art's own frame → image offset. */
+const toImage = (x: number, y: number, facing: Facing) => (facing === 'up' ? { x: y, y: -x } : { x, y });
+
 /** Where a point on the ship (e.g. a mount, `x`/`y` from the image's anchor) goes when the ship tilts. */
-export function tiltedSpot(sprite: Sprite, shape: VolumeShape, x: number, y: number, bank: number, pitch: number) {
+export function tiltedSpot(sprite: Sprite, shape: VolumeShape, x: number, y: number, bank: number, pitch: number, facing: Facing = 'right') {
   const f = sprite.frames[0];
   const H = heightsOf(f, shape);
-  const p = tiltPoint(x, y, heightAt(H, x + sprite.anchorX, y + sprite.anchorY), bank, pitch);
-  return { x: p.x, y: p.y };
+  const own = toOwn(x, y, facing);
+  const p = tiltPoint(own.x, own.y, heightAt(H, x + sprite.anchorX, y + sprite.anchorY), bank, pitch);
+  return toImage(p.x, p.y, facing);
 }
 
 // ---------- 3. Light, stepped to the palette ----------
@@ -241,12 +249,12 @@ export function tiltBudget(ms: number) {
 }
 
 /** A frame tilted (angles snapped to TILT_STEP), with where its anchor now sits in the copy. */
-function tiltedFrame(f: Frame, anchorX: number, anchorY: number, shape: VolumeShape, bank: number, pitch: number, light: boolean, step: number) {
+function tiltedFrame(f: Frame, anchorX: number, anchorY: number, shape: VolumeShape, bank: number, pitch: number, light: boolean, step: number, facing: Facing) {
   const bs = Math.round(bank / step);
   const ps = Math.round(pitch / step);
   let byKey = tiltCache.get(f);
   if (!byKey) tiltCache.set(f, (byKey = new Map()));
-  const key = `${step},${bs},${ps},${light ? 1 : 0}|${shape.height},${shape.round},${shape.spine}|${anchorX},${anchorY}`;
+  const key = `${step},${bs},${ps},${light ? 1 : 0},${facing}|${shape.height},${shape.round},${shape.spine}|${anchorX},${anchorY}`;
   const done = byKey.get(key);
   if (done) return done;
   // Out of time this frame: not made now (drawn flat; made on a later frame).
@@ -276,14 +284,18 @@ function tiltedFrame(f: Frame, anchorX: number, anchorY: number, shape: VolumeSh
         const n0 = [-gx, -gy, 1];
         const nl = Math.hypot(...n0);
         const n = n0.map((v) => v / nl);
-        const t = tiltPoint(n[0], n[1], n[2], bank, pitch);
-        delta = t.x * LIGHT[0] + t.y * LIGHT[1] + t.z * LIGHT[2] - (n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
+        const own = toOwn(n[0], n[1], facing);
+        const t = tiltPoint(own.x, own.y, n[2], bank, pitch);
+        const back = toImage(t.x, t.y, facing);
+        delta = back.x * LIGHT[0] + back.y * LIGHT[1] + t.z * LIGHT[2] - (n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
       }
       for (let sy = 0; sy < SUB; sy++)
         for (let sx = 0; sx < SUB; sx++) {
           const ux = px + (sx + 0.5) / SUB;
           const uy = py + (sy + 0.5) / SUB;
-          const p = tiltPoint(ux - anchorX, uy - anchorY, heightSmooth(H, ux, uy), bank, pitch);
+          const own = toOwn(ux - anchorX, uy - anchorY, facing);
+          const t = tiltPoint(own.x, own.y, heightSmooth(H, ux, uy), bank, pitch);
+          const p = { ...toImage(t.x, t.y, facing), z: t.z };
           const ox = Math.floor(p.x + anchorX) + m;
           const oy = Math.floor(p.y + anchorY) + m;
           if (ox < 0 || oy < 0 || ox >= W || oy >= Ht) continue;
@@ -326,13 +338,22 @@ function tiltedFrame(f: Frame, anchorX: number, anchorY: number, shape: VolumeSh
  * A sprite tilted by `bank` and `pitch` (radians, snapped to steps of `step` radians); the same
  * sprite when both are 0, or when its picture couldn't be made in this frame's time (tiltBudget).
  */
-export function tiltedSprite(sprite: Sprite, shape: VolumeShape, bank: number, pitch: number, light: boolean, step = TILT_STEP): Sprite {
+export function tiltedSprite(sprite: Sprite, shape: VolumeShape, bank: number, pitch: number, light: boolean, step = TILT_STEP, facing: Facing = 'right'): Sprite {
   if (Math.round(bank / step) === 0 && Math.round(pitch / step) === 0) return sprite;
-  const frames = sprite.frames.map((f) => tiltedFrame(f, sprite.anchorX, sprite.anchorY, shape, bank, pitch, light, step));
+  // The same tilted sprite object every time (other caches key on it, e.g. hit-flash silhouettes).
+  let bySprite = spriteCache.get(sprite);
+  if (!bySprite) spriteCache.set(sprite, (bySprite = new Map()));
+  const key = `${step},${Math.round(bank / step)},${Math.round(pitch / step)},${light ? 1 : 0},${facing}|${shape.height},${shape.round},${shape.spine}`;
+  const done = bySprite.get(key);
+  if (done) return done;
+  const frames = sprite.frames.map((f) => tiltedFrame(f, sprite.anchorX, sprite.anchorY, shape, bank, pitch, light, step, facing));
   if (frames.some((f) => !f)) return sprite;
   const ok = frames as (Frame & { ax: number; ay: number })[];
-  return { ...sprite, frames: ok, anchorX: ok[0].ax, anchorY: ok[0].ay };
+  const out = { ...sprite, frames: ok, anchorX: ok[0].ax, anchorY: ok[0].ay };
+  bySprite.set(key, out);
+  return out;
 }
+const spriteCache = new WeakMap<Sprite, Map<string, Sprite>>();
 
 /** The tilt actually drawn (snapped to `step`), so parts placed with tiltedSpot match the picture. */
 export const snapTilt = (a: number, step = TILT_STEP) => Math.round(a / step) * step;

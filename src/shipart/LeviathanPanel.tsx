@@ -8,10 +8,11 @@ import { DEFAULT_FIN_IMAGE, fileSprite, type LeviathanBulge, type LeviathanFin, 
 import { HALF_SIDE_HEAD_SPRITE, LEVIATHAN_DEFAULTS, MOUTH_OPEN_HEAD_SPRITE, PIECE_SPRITES, SIDE_HEAD_SPRITE, falloffWeight } from '../game/leviathan';
 import { NumberField, SliderField } from './fields';
 import { GradientList } from './GradientPanel';
+import { VolumePanel } from './VolumePanel';
 
 /** The panel's sections, and which are open when ShipArt hasn't remembered them yet. */
-export type BossSection = 'body' | 'bulges' | 'fins' | 'gradients' | 'pieces';
-const OPEN_AT_FIRST: Record<BossSection, boolean> = { body: true, bulges: false, fins: false, gradients: true, pieces: false };
+export type BossSection = 'body' | 'bulges' | 'fins' | 'gradients' | 'volume' | 'pieces';
+const OPEN_AT_FIRST: Record<BossSection, boolean> = { body: true, bulges: false, fins: false, gradients: true, volume: false, pieces: false };
 export const bossSectionKey = (id: BossSection) => `leviathan.${id}`;
 
 /** A section you can fold away by clicking its title. */
@@ -162,6 +163,8 @@ export function LeviathanPanel({
   open: Record<string, boolean>;
   onOpen: (key: string, open: boolean) => void;
 }) {
+  /** When the volume sliders last changed (quick changes = one undo step). */
+  const lastVolumeEdit = useRef(0);
   const isOpen = (id: BossSection) => open[bossSectionKey(id)] ?? OPEN_AT_FIRST[id];
   const section = (id: BossSection) => ({ open: isOpen(id), onToggle: () => onOpen(bossSectionKey(id), !isOpen(id)) });
   // Picking a fin or a piece in the preview opens its section, so its settings show.
@@ -418,6 +421,24 @@ export function LeviathanPanel({
               l.gradients = list;
             }, noUndo)
           }
+        />
+      </Section>
+
+      <Section title="Volume (3D)" {...section('volume')}>
+        <VolumePanel
+          heading={false}
+          note="The 3D shape guessed from each piece's outline: its pieces roll along their length as they pass through a bend (its head only while seen from above)."
+          shape={layout.volume}
+          onChange={(v) => {
+            // Slider drags in quick succession make one undo step.
+            const now = performance.now();
+            const quick = now - lastVolumeEdit.current < 600;
+            lastVolumeEdit.current = now;
+            onChange((l) => {
+              if (v) l.volume = v;
+              else delete l.volume;
+            }, quick);
+          }}
         />
       </Section>
 

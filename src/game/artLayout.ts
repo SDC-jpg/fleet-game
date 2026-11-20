@@ -158,6 +158,8 @@ export type LeviathanPieceKind = 'head' | 'segment' | 'antepenultimate' | 'penul
  * anchor in the manifest.
  */
 export interface LeviathanLayout {
+  /** Its guessed 3D shape for rolling (engine/tilt.ts; ShipArt → Volume), the same for every piece. Missing = DEFAULT_VOLUME. */
+  volume?: VolumeShape;
   /** How many repeating segments between the head and the last three pieces. */
   segments: number;
   /** Distance along its path from the head's pivot to the first segment's pivot. */

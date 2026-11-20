@@ -17,7 +17,7 @@ import type { SkillObj } from './moreSkills';
 import { startBossIntro, updateBossIntro, type BossIntro } from './leviathanIntro';
 import { startLeviathanDeath, updateLeviathanDeath } from './leviathanDeath';
 import { onLeviathanHit, parasiteSlow, updateLeviathanAttacks, updateOrbSpawning, updateParasite, type Blood, type Orb, type ParasiteState } from './leviathanAttacks';
-import { currentLeviathanLayout, followHead, makeLeviathanBody, updateBodyHits, updateFins, updateFlashes, updateLeviathanAI, type LeviathanBody } from './leviathan';
+import { currentLeviathanLayout, followHead, makeLeviathanBody, updateBodyHits, updateFins, updateFlashes, updateLeviathanAI, updatePieceRoll, type LeviathanBody } from './leviathan';
 
 export type Team = 'player' | 'enemy';
 export type Thrust = 'idle' | 'move' | 'boost';
@@ -1046,6 +1046,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
     if (s.leviathan) {
       followHead(s.leviathan, s.x, s.y, s.angle);
       updateFins(s.leviathan, dtOf(s));
+      updatePieceRoll(s.leviathan, dtOf(s));
       updateBodyHits(state, s, dtOf(s));
       updateFlashes(s.leviathan, dtOf(s));
     }

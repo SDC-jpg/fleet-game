@@ -26,6 +26,9 @@ export interface LeviathanPiece {
   x: number;
   y: number;
   angle: number;
+  /** Its roll along its length (radians, smoothed; CONFIG.volume.leviathan), and last step's angle to measure its turning. */
+  bank: number;
+  lastAngle: number | null;
 }
 
 export interface LeviathanBody {
@@ -221,7 +224,7 @@ function makePieces(L: LeviathanLayout): LeviathanPiece[] {
     if (i === 1) behind += L.headGap;
     else if (kind === 'tail') behind += L.tailGap;
     else if (i > 1) behind += L.spacing;
-    return { kind, behind, scale: scales[i], x: 0, y: 0, angle: 0 };
+    return { kind, behind, scale: scales[i], x: 0, y: 0, angle: 0, bank: 0, lastAngle: null };
   });
 }
 
@@ -661,6 +664,22 @@ export function updateBodyHits(state: GameState, ship: Ship, dt: number) {
       }
       break;
     }
+  }
+}
+
+/**
+ * Each piece rolls along its length as it turns (CONFIG.volume.leviathan): a bend rolls down the
+ * body like a wave as the pieces pass through it. Just for looks. Turning right = its right side dips.
+ */
+export function updatePieceRoll(body: LeviathanBody, dt: number) {
+  if (dt <= 0) return;
+  const V = CONFIG.volume.leviathan;
+  const k = Math.min(1, V.response * dt);
+  for (const p of body.pieces) {
+    const turn = p.lastAngle === null ? 0 : wrapAngle(p.angle - p.lastAngle) / dt;
+    p.lastAngle = p.angle;
+    const want = (clamp(turn * V.bankPerTurn, -V.maxBank, V.maxBank) * Math.PI) / 180;
+    p.bank += (want - p.bank) * k;
   }
 }
 

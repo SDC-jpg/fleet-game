@@ -563,7 +563,7 @@ export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, an
 /** Draws one ship, plus a small health bar under it if it's damaged. */
 function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number, symbol: boolean, volume = false) {
   if (s.absorbed) return; // already inside the ship it's merging into
-  if (s.leviathan) return drawLeviathan(r, assets, s.leviathan, s.x, s.y, s.angle, time);
+  if (s.leviathan) return drawLeviathan(r, assets, s.leviathan, s.x, s.y, s.angle, time, volume);
   // A Leviathan's parasite: its own little sprite (boss.leviathan.parasite, facing right).
   if (s.parasite) return r.drawRotated(assets.get('boss.leviathan.parasite'), s.x, s.y, s.angle, time + (s.id % 7) * 0.13);
   // Commander view (and ships too small after detail steps): a HUD symbol by tier, fixed size on screen.
@@ -624,7 +624,12 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
  * is on top. Its art faces up (the game's art faces right), so every piece turns a quarter more.
  * The side-view head shows while it turns (mirrored for the other direction).
  */
-export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanBody, x: number, y: number, angle: number, time: number) {
+export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanBody, x: number, y: number, angle: number, time: number, volume = false) {
+  // Its pieces roll as they turn (CONFIG.volume.leviathan; its head only while seen from above). Not in RotSprite mode.
+  const roll = volume && r.rotation !== 'rotsprite';
+  const shape = body.layout.volume ?? DEFAULT_VOLUME;
+  const step = (CONFIG.volume.leviathan.step * Math.PI) / 180;
+  const rolled = (sprite: Sprite, p: LeviathanPiece) => (roll && (p.kind !== 'head' || body.view === 0) ? tiltedSprite(sprite, shape, p.bank, 0, false, step, 'up') : sprite);
   const tint = bodyTint(assets, body);
   // Fins by piece: drawn just under or over their piece, so they keep its place in the layering.
   const fins = new Map<LeviathanPiece, number[]>();
@@ -645,10 +650,10 @@ export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanB
     const py = p.kind === 'head' ? y : p.y;
     const pa = p.kind === 'head' ? angle : p.angle;
     const flip = p.kind === 'head' && mirror;
-    r.drawAttached(sprite, px, py, pa, 0, 0, Math.PI / 2, time, 1, p.scale, flip);
+    r.drawAttached(rolled(sprite, p), px, py, pa, 0, 0, Math.PI / 2, time, 1, p.scale, flip);
     // A hit flash: a light silhouette of the piece over it, fading out (CONFIG.leviathan.flash).
     const flash = body.flash[index] ?? 0;
-    if (flash > 0.02) r.drawAttached(silhouette(art.sprite, CONFIG.leviathan.flash.color), px, py, pa, 0, 0, Math.PI / 2, time, Math.min(1, flash), p.scale, flip);
+    if (flash > 0.02) r.drawAttached(rolled(silhouette(art.sprite, CONFIG.leviathan.flash.color), p), px, py, pa, 0, 0, Math.PI / 2, time, Math.min(1, flash), p.scale, flip);
     for (const i of own) if (body.layout.fins[i].front) drawFin(r, assets, body, i, time, tint);
   });
 }
