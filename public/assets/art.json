@@ -468,8 +468,8 @@
       "mounts": [
         {
           "category": "thruster",
-          "x": -29,
-          "y": -7,
+          "x": -31,
+          "y": -5,
           "angle": 0,
           "flipX": false,
           "flipY": false,
@@ -488,8 +488,8 @@
         },
         {
           "category": "thruster",
-          "x": -29,
-          "y": 7,
+          "x": -31,
+          "y": 5,
           "angle": 0,
           "flipX": false,
           "flipY": false,
