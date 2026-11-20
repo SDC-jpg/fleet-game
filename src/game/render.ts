@@ -15,7 +15,7 @@ import { orbTell } from './leviathanAttacks';
 import { DEFAULT_VOLUME, snapTilt, tiltedSpot, tiltedSprite } from '../engine/tilt';
 import { pieceGone } from './leviathanDeath';
 import { introText, riftOpening, type BossIntro } from './leviathanIntro';
-import { drawDamage, hullDepth, type DecorTilt } from './shipDamage';
+import { drawDamage, drawDebrisChips, hullDepth, type DecorTilt } from './shipDamage';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
@@ -274,6 +274,8 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     r.drawSprite(ring, flagship.x, flagship.y, 0, meterTime(ring, state.boostStamina), state.boostLocked ? 0.45 : 1, false, scale);
     drawShip(r, assets, extras.layouts, flagship, state.time, false, !!view?.volume);
   }
+  // Pieces knocked off ships by hits (shipDamage.ts).
+  drawDebrisChips(r, state.time);
 
   // The Leviathan's charged beam (warning line, charge ball, beam), over the ships, and the sparks rushing into the ball.
   for (const s of state.ships) if (s.leviathan?.attack && !s.dead) drawLeviathanBeam(r, assets, s.leviathan, s, state.beamReach, state.time);

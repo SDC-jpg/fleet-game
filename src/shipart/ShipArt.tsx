@@ -169,7 +169,7 @@ export function ShipArt() {
   const [damageHp, setDamageHp] = useState(1);
   const [damageHit, setDamageHit] = useState(0);
   const [damageStrength, setDamageStrength] = useState(0.1);
-  const [damageKind, setDamageKind] = useState<'gun' | 'energy' | 'laser'>('gun');
+  const [damageKind, setDamageKind] = useState<'gun' | 'energy' | 'laser' | 'missile'>('gun');
   const [rotation, setRotation] = useState<RotationMode>(() => {
     const r = loadSetting(ROTATION_SETTING) as RotationMode | null;
     return r && ROTATION_MODES.includes(r) ? r : 'grid';
@@ -1002,7 +1002,8 @@ export function ShipArt() {
                 ['Big hit', 0.25, 'gun', 'A heavy gun hit (25% of its health)'],
                 ['Energy', 0.1, 'energy', 'An energy bolt (10%): a white-hot burn cooling to scorch, smoking if strong'],
                 ['Laser', 0.15, 'laser', 'The Laser skill (15%): it goes right through, burning a line across the hull'],
-              ] as [string, number, 'gun' | 'energy' | 'laser', string][]
+                ['Missile', 0.2, 'missile', 'A missile (20%): a hole ringed by a burn, and debris (the push is only in the game)'],
+              ] as [string, number, 'gun' | 'energy' | 'laser' | 'missile', string][]
             ).map(([text, k, kind, tip]) => (
               <button
                 key={text}

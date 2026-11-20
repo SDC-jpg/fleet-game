@@ -18,7 +18,7 @@ import type { Team } from '../game/world';
 import { LeviathanPreview, type BossHead } from './bossPreview';
 import { bossPieceSprite, type BossPiece } from './LeviathanPanel';
 import type { SoundScene } from './soundInfo';
-import { drawDamage, emitDamageSmoke, type Damageable, type DecorTilt } from '../game/shipDamage';
+import { drawDamage, drawDebrisChips, emitDamageSmoke, type Damageable, type DecorTilt } from '../game/shipDamage';
 
 export interface PreviewSettings {
   data: ArtLayoutsFile;
@@ -71,7 +71,7 @@ export interface PreviewSettings {
   damageHit: number;
   damageStrength: number;
   /** What that hit was: a gun shot, an energy bolt, or the Laser (straight through). */
-  damageKind: 'gun' | 'energy' | 'laser';
+  damageKind: 'gun' | 'energy' | 'laser' | 'missile';
   /** A sound's scene to show instead (ShipArt → Sounds): `play` is bumped to play it once; `cue` starts the sound, `loop` sets a looping sound's level. */
   sound: SoundPreview | null;
 }
@@ -329,6 +329,7 @@ export class Preview {
     }
     if (st.kind.id === 'laser') this.drawLaser(state, tier, st.team);
     else if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, this.time, pointId ? 0.35 : 1, true, 1, this.tilt(), this.damageDecor());
+    drawDebrisChips(r, this.time);
     // Gun images (turrets) on top, at rest.
     for (const g of this.guns())
       if (g.image && this.assets.has(fileSprite(g.image)))
@@ -456,9 +457,9 @@ export class Preview {
     if (st.damageHit !== this.lastHit) {
       this.lastHit = st.damageHit;
       const size = this.assets.get(st.subject).frames[0];
-      if (st.damageKind === 'gun') {
+      if (st.damageKind === 'gun' || st.damageKind === 'missile') {
         // A gun hit somewhere on it (the hull is found from there).
-        d.hits!.push({ x: (Math.random() - 0.5) * size.w, y: (Math.random() - 0.5) * size.h, kind: 'gun', strength: st.damageStrength });
+        d.hits!.push({ x: (Math.random() - 0.5) * size.w, y: (Math.random() - 0.5) * size.h, kind: st.damageKind, strength: st.damageStrength });
       } else {
         // From outside, heading in across it (the Laser right through, off the middle a little).
         const a = Math.random() * Math.PI * 2;

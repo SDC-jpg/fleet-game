@@ -19,6 +19,52 @@ export interface Damageable {
   hp: number;
   stats: { maxHp: number };
   hits?: DamageHit[];
+  /** How fast it's moving (its debris keeps some of it). */
+  vx?: number;
+  vy?: number;
+}
+
+/** A piece of a ship knocked off by a hit: a few pixels cut from its own image, tumbling away. */
+interface Chip {
+  sprite: Sprite;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  angle: number;
+  spin: number;
+  scale: number;
+  age: number;
+  life: number;
+}
+let chips: Chip[] = [];
+let chipsTime = 0;
+
+/** Cut a piece about `size` pixels across out of the image around (px, py) (only its solid pixels). */
+function cutChip(f: Frame, px: number, py: number, size: number): Sprite | null {
+  const src = pixelsOf(f);
+  const n = Math.max(1, Math.round(size));
+  const x0 = px - Math.floor(n / 2);
+  const y0 = py - Math.floor(n / 2);
+  const c = document.createElement('canvas');
+  c.width = c.height = n;
+  const g = c.getContext('2d')!;
+  const out = g.createImageData(n, n);
+  let any = false;
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      const ix = x0 + x;
+      const iy = y0 + y;
+      if (ix < 0 || iy < 0 || ix >= f.w || iy >= f.h) continue;
+      const i = (iy * f.w + ix) * 4;
+      // Ragged: a corner pixel now and then is missing.
+      if (src[i + 3] === 0 || (n > 2 && (x === 0 || x === n - 1) && (y === 0 || y === n - 1) && Math.random() < 0.5)) continue;
+      out.data.set(src.subarray(i, i + 4), (y * n + x) * 4);
+      any = true;
+    }
+  if (!any) return null;
+  g.putImageData(out, 0, 0);
+  return { frames: [{ image: c, sx: 0, sy: 0, w: n, h: n }], fps: 0, loop: false, anchorX: n / 2, anchorY: n / 2 };
 }
 
 interface Mark {
@@ -371,6 +417,10 @@ export function drawDamage(
     if (!p) continue;
     if (h.kind !== 'energy') {
       addMark(assets, m, sprite, tier, p.px, p.py, h.kind, h.strength);
+      // Missiles also burn a ring around their hole.
+      if (h.kind === 'missile') addHeat(f, (m.heat ??= makeHeat(f, sprite.anchorX, sprite.anchorY)), p.px, p.py, Math.max(D.burnMin, radiusFor(f, h.strength) * D.missileBurnSize), D.missileHeat);
+      // Pieces knocked off, flying back the way the shot came from.
+      knockDebris(f, sprite, p.px, p.py, h, s, x, y, angle, scale);
       continue;
     }
     // Energy burns: a white-hot spot cooling to scorch; the Laser burns a line right across.
@@ -400,7 +450,7 @@ export function drawDamage(
   const lost = Math.max(0, 1 - s.hp / s.stats.maxHp);
   const total = () => m.marks.reduce((n, k) => n + k.strength, 0) + (m.heat?.strength ?? 0);
   while (m.marks.length && total() > lost * 1.2 + 0.01) m.marks.shift();
-  if (m.heat && total() > lost * 1.2 + 0.01) m.heat = null;
+  if (m.heat && (total() > lost * 1.2 + 0.01 || lost < 0.02)) m.heat = null;
   if (total() < lost * D.followHealth && m.marks.length < maxMarks(tier)) {
     const p = randomHullPixel(f);
     if (p) addMark(assets, m, sprite, tier, p.px, p.py, 'gun', D.extraStrength);
@@ -423,6 +473,62 @@ export function drawDamage(
     const p = spot(k.ox, k.oy);
     r.drawAttached(k.sprite, x, y, angle, p.x * scale, p.y * scale, 0, 0, alpha, scale);
   }
+  r.rotation = mode;
+}
+
+/** Debris from a gun or missile hit at (px, py) on the image (chance and amount by its strength). */
+function knockDebris(f: Frame, sprite: Sprite, px: number, py: number, h: DamageHit, s: Damageable, x: number, y: number, angle: number, scale: number) {
+  const D = CONFIG.damage;
+  const chance = h.strength * D.debrisChance * (h.kind === 'missile' ? D.missileDebris : 1);
+  if (Math.random() >= chance) return;
+  const count = Math.min(D.debrisMax, 1 + Math.floor(h.strength * D.debrisPerStrength * Math.random()));
+  // Back the way the shot came (or straight out from the middle).
+  const back = h.dx !== undefined && h.dy !== undefined ? Math.atan2(-h.dy, -h.dx) : Math.atan2(py + 0.5 - sprite.anchorY, px + 0.5 - sprite.anchorX);
+  const c = Math.cos(angle);
+  const n = Math.sin(angle);
+  const lx = (px + 0.5 - sprite.anchorX) * scale;
+  const ly = (py + 0.5 - sprite.anchorY) * scale;
+  for (let i = 0; i < count && chips.length < D.debrisMaxPieces; i++) {
+    const size = D.debrisSize[0] + (D.debrisSize[1] - D.debrisSize[0]) * Math.min(1, h.strength * 4) * Math.random();
+    const chip = cutChip(f, px + Math.round((Math.random() - 0.5) * 2), py + Math.round((Math.random() - 0.5) * 2), size);
+    if (!chip) continue;
+    const a = angle + back + (Math.random() - 0.5) * 2.2;
+    const v = D.debrisSpeed[0] + Math.random() * (D.debrisSpeed[1] - D.debrisSpeed[0]);
+    chips.push({
+      sprite: chip,
+      x: x + lx * c - ly * n,
+      y: y + lx * n + ly * c,
+      vx: Math.cos(a) * v + (s.vx ?? 0) * D.debrisMomentum,
+      vy: Math.sin(a) * v + (s.vy ?? 0) * D.debrisMomentum,
+      angle: angle + Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 2 * D.debrisSpin * Math.PI * 2,
+      scale,
+      age: 0,
+      life: D.debrisLife[0] + Math.random() * (D.debrisLife[1] - D.debrisLife[0]),
+    });
+  }
+}
+
+/** Move and draw the debris knocked off ships (after the ships), on the game's clock; they fade at the end. */
+export function drawDebrisChips(r: PixelRenderer, time: number) {
+  // A new run (the clock went back): none left.
+  if (time < chipsTime) chips = [];
+  const dt = Math.min(0.1, Math.max(0, time - chipsTime));
+  chipsTime = time;
+  if (!chips.length) return;
+  const keep = Math.max(0, 1 - 0.6 * dt);
+  for (const k of chips) {
+    k.age += dt;
+    k.x += k.vx * dt;
+    k.y += k.vy * dt;
+    k.vx *= keep;
+    k.vy *= keep;
+    k.angle += k.spin * dt;
+  }
+  chips = chips.filter((k) => k.age < k.life);
+  const mode = r.rotation;
+  if (mode === 'rotsprite') r.rotation = 'grid';
+  for (const k of chips) r.drawSprite(k.sprite, k.x, k.y, k.angle, 0, Math.min(1, (k.life - k.age) / 0.4), false, k.scale);
   r.rotation = mode;
 }
 

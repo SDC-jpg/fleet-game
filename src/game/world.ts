@@ -1928,6 +1928,8 @@ function updateBullets(state: GameState, playerDt: number, enemyDt: number) {
       damageShip(state, s, b.damage, b.source, b);
       b.life = 0;
       if (b.homing > 0) {
+        // The blast shoves the ship along the missile's way: hard for a small ship, barely for a big one.
+        missilePush(state, s, b);
         // Missiles burst in a small round explosion of their own.
         const e = addEffect(state, 'vfx.missile-hit', b.x, b.y, Math.random() * Math.PI * 2, b.tier);
         // It appears at the missile's impact point (placed in ShipArt).
@@ -1943,6 +1945,21 @@ function updateBullets(state: GameState, playerDt: number, enemyDt: number) {
     }
   }
   state.bullets = state.bullets.filter((b) => b.life > 0);
+}
+
+/**
+ * A missile's blast pushes the ship it hits along the missile's way (CONFIG.damage.push): by how
+ * hard it hit (its damage ÷ the ship's max health, so a big ship barely moves), less for the ship
+ * you fly. The Leviathan isn't moved by anything.
+ */
+function missilePush(state: GameState, s: Ship, b: Bullet) {
+  const P = CONFIG.damage.push;
+  if (s.dead || s.leviathan || s.merge) return;
+  const v = Math.hypot(b.vx, b.vy);
+  if (v <= 0) return;
+  const k = P.speed * Math.min(1, b.damage / s.stats.maxHp / P.fullAt) * (s === controlledShip(state) ? P.flagship : 1);
+  s.vx += (b.vx / v) * k;
+  s.vy += (b.vy / v) * k;
 }
 
 /** A dead missile bounces off any ship it touches (either side), doing no damage. */

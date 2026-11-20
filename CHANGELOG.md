@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-20
+- Hits knock pieces off ships, missiles leave burnt craters and shove the ships they hit (small ships get thrown, big ones barely budge, and your own ship only a little).
 - Energy weapons burn ships: hits flare white-hot and cool to scorch marks, beams reach into the hull and leave glowing lines as they sweep, the Laser scorches a line right across ships it pierces, and strong burns smoke.
 - Ships show battle damage: gun hits tear holes in the hull where they land (bigger for harder hits), badly hurt ships look wrecked, and repairs patch them up.
 - ShipArt has a new Sounds section: hear every sound with a little scene of where it plays in the game, drop in your own sound files to try them (in the preview, and in the game in your browser), then download them as one zip to send over.

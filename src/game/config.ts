@@ -1015,6 +1015,32 @@ export const CONFIG = {
     smokeSpots: 3,
     /** Smoke particles from a burn (per second for a tier-1 ship, more for bigger ones; speed, spread, life, drag as for thruster particles). */
     smoke: { sprite: 'vfx.particle.smoke', perSecond: 8, speed: 12, angle: 360, life: 1.4, drag: 1 },
+    /** Missile hits: a torn mark ringed by a burn this warm (0–1 of white hot). */
+    missileHeat: 1,
+    /** The burn ring's radius as a multiple of the hole's. */
+    missileBurnSize: 1.6,
+    /** Missile blasts push the ship they hit along the missile's way (game pixels per second), most for hits taking at least `fullAt` of its max health; the ship you fly is pushed `flagship` × as much. */
+    push: { speed: 140, fullAt: 0.25, flagship: 0.35 },
+    /** Debris knocked off by gun hits: chance per hit = this × its strength (damage ÷ max health). */
+    debrisChance: 5,
+    /** Missile hits knock debris off this many times as often. */
+    missileDebris: 1.5,
+    /** Debris pieces per hit: 1, plus up to this many per unit of strength. */
+    debrisPerStrength: 12,
+    /** Most debris pieces from one hit. */
+    debrisMax: 6,
+    /** A debris piece's size (art pixels across): the smallest, and the most for the hardest hits. */
+    debrisSize: [1, 3],
+    /** How fast debris flies off (game pixels per second, random between these). */
+    debrisSpeed: [30, 110],
+    /** How long a debris piece lasts (seconds, random between these). */
+    debrisLife: [0.8, 1.8],
+    /** How fast debris spins (turns per second, at most). */
+    debrisSpin: 2,
+    /** How much of the ship's own speed its debris keeps. */
+    debrisMomentum: 0.7,
+    /** Most debris pieces at once. */
+    debrisMaxPieces: 300,
   },
 
   /**
