@@ -453,7 +453,8 @@ export function drawDamage(
   const total = () => m.marks.reduce((n, k) => n + k.strength, 0) + (m.heat?.strength ?? 0);
   while (m.marks.length && total() > lost * 1.2 + 0.01) m.marks.shift();
   if (m.heat && (total() > lost * 1.2 + 0.01 || lost < 0.02)) m.heat = null;
-  if (total() < lost * D.followHealth && m.marks.length < maxMarks(tier)) {
+  // (Only if the extra mark wouldn't be too much for its health at once: else it would come and go every frame.)
+  if (total() < lost * D.followHealth && total() + D.extraStrength <= lost * 1.2 && m.marks.length < maxMarks(tier)) {
     const p = randomHullPixel(f);
     if (p) addMark(assets, m, sprite, tier, p.px, p.py, 'gun', D.extraStrength);
   }
