@@ -4,7 +4,7 @@
   "name": "Custom2",
   "look": {
     "hud": false,
-    "curvature": 0.05,
+    "curvature": 0,
     "aberration": 3.25,
     "bloom": 1.25,
     "bloomRadius": 17,
