@@ -1,7 +1,7 @@
 // The Leviathan (boss, first version): a head and a chain of body segments that follow exactly
 // the path the head flew, like train cars on a track. It's one Ship (the head) with a body:
 // one shared health pool, and shots hit it anywhere along the body (its hit circles, see
-// hitShape.ts). For now it only flies: it circles its target and lunges at it now and then.
+// hitShape.ts). It circles its target, rams it, fires its charged beam, and its body knocks ships away.
 // How it behaves: CONFIG.leviathan. How its body is put together: art.json `bosses.leviathan`
 // (ShipArt → Bosses), defaults below. Art: boss.leviathan.* (drawn facing up), drawn in render.ts.
 // The body code doesn't need the game, so ShipArt's preview uses it too.
@@ -10,7 +10,7 @@ import { clamp, turnToward, wrapAngle } from '../engine/math';
 import { CONFIG } from './config';
 import { DEFAULT_FIN_IMAGE, type ArtLayoutsFile, type HitCircle, type LeviathanBulge, type LeviathanFin, type LeviathanLayout, type LeviathanPieceKind } from './artLayout';
 import type { GameState, Ship } from './world';
-import { addSound, controlledShip, damageShip, findNearestEnemy } from './world';
+import { addEffect, addSound, controlledShip, damageShip, findNearestEnemy } from './world';
 import { rayHitsShip } from './hitShape';
 
 export type PieceKind = LeviathanPieceKind;
@@ -42,9 +42,12 @@ export interface LeviathanBody {
   viewTimer: number;
   /** The head is partway through a change of view (top → half-side → side), so the next step comes sooner (viewStepTime). */
   viewStepping: boolean;
-  /** Seconds until the next lunge, and seconds left of the current one. */
-  lungeIn: number;
-  lunging: number;
+  /** Seconds until it may ram again, and the ram in progress (CONFIG.leviathan.ram). */
+  ramIn: number;
+  ram: RamState | null;
+  /** Each piece's hit flash now (0–1, fading), and flashes still to come (a wound's ripple). */
+  flash: number[];
+  flashQueue: { piece: number; strength: number; delay: number }[];
   /** Which way it circles its target (1 or −1). */
   circleDir: number;
   /** Each fin's joints (same order as layout.fins). */
@@ -54,6 +57,21 @@ export interface LeviathanBody {
   /** Its charged beam in progress, or null; and seconds until it may start the next one. */
   attack: LeviathanAttack | null;
   beamIn: number;
+  /** Seconds of combat until its next energy ball (leviathanAttacks.ts). */
+  orbIn: number;
+  /** Wounds so far (each 1/CONFIG.leviathan.wounds.count of its health). */
+  wounds: number;
+  /** Ships its body hit recently, with seconds until they can be hurt by it again (CONFIG.leviathan.body.cooldown). */
+  contact: Map<Ship, number>;
+}
+
+/** A ram in progress: warning (slowing, flashing), charging straight at where its target was, then a wide turn. */
+export interface RamState {
+  phase: 'warn' | 'charge' | 'recover';
+  t: number;
+  /** Where it charges (its target's position when the charge started). */
+  aimX: number;
+  aimY: number;
 }
 
 /** The charged beam in progress (CONFIG.leviathan.beam). */
@@ -208,13 +226,18 @@ export function makeLeviathanBody(x: number, y: number, angle: number, L = gameL
     view: 0,
     viewTimer: 0,
     viewStepping: false,
-    lungeIn: CONFIG.leviathan.lungeEvery,
+    ramIn: CONFIG.leviathan.ram.every,
+    ram: null,
+    flash: [],
+    flashQueue: [],
     attack: null,
     beamIn: CONFIG.leviathan.beam.firstDelay,
-    lunging: 0,
     circleDir: Math.random() < 0.5 ? 1 : -1,
     fins: L.fins.map(newFinState),
     time: 0,
+    contact: new Map(),
+    orbIn: CONFIG.leviathan.orbs.every,
+    wounds: 0,
   };
   placePieces(body, x, y, angle);
   return body;
@@ -278,7 +301,7 @@ export function swimLeviathan(body: LeviathanBody, head: { angle: number; vx: nu
   const before = head.angle;
   head.angle = turnToward(head.angle, want, turnRate * dt);
   const now = Math.hypot(head.vx, head.vy);
-  const v = now + clamp(speed - now, -C.lungeSpeed * dt, C.lungeSpeed * dt);
+  const v = now + clamp(speed - now, -C.accel * dt, C.accel * dt);
   head.vx = Math.cos(head.angle) * v;
   head.vy = Math.sin(head.angle) * v;
   const rate = dt > 0 ? wrapAngle(head.angle - before) / dt : 0;
@@ -316,45 +339,111 @@ function stepView(body: LeviathanBody, wantView: HeadView, dt: number) {
 
 /**
  * Its flying in the game (called in place of the usual enemy AI): it always swims forward,
- * turning at a limited rate. It circles its target, and every few seconds lunges straight at it.
+ * turning at a limited rate. It circles its target, rams it every few seconds, and fires its beam.
  */
 export function updateLeviathanAI(state: GameState, ship: Ship, dt: number) {
   const C = CONFIG.leviathan;
   const body = ship.leviathan!;
-  if (ship.frozen > 0) return;
+  // Frozen, it's slowed, never stopped (its movement too: world.ts).
+  if (ship.frozen > 0) dt *= C.freezeSlow;
   const flagship = controlledShip(state);
   const watched = flagship && flagship.team !== ship.team && !flagship.dead ? flagship : null;
   ship.thrust = 'move';
-  // Its charged beam takes over while it lasts.
-  if (updateBeamAttack(state, ship, body, watched, dt)) return;
+  // Its charged beam takes over while it lasts (and never starts during a ram).
+  if (!body.ram && updateBeamAttack(state, ship, body, watched, dt)) return;
   const target = findNearestEnemy(state, ship, Infinity);
+  if (updateRam(state, ship, body, target, dt)) return lookToward(body, ship, watched, dt);
   let want = ship.angle;
-  let speed = C.speed;
-  let turnRate = C.turnRate;
-  body.lungeIn -= dt;
-  if (body.lunging > 0) body.lunging -= dt;
-  else if (body.lungeIn <= 0 && target) {
-    body.lunging = C.lungeTime;
-    body.lungeIn = C.lungeEvery;
-  }
   if (target) {
     const dx = target.x - ship.x;
     const dy = target.y - ship.y;
     const d = Math.hypot(dx, dy);
     const toward = Math.atan2(dy, dx);
-    if (body.lunging > 0) {
-      want = toward;
-      speed = C.lungeSpeed;
-      turnRate = C.lungeTurnRate;
-    } else {
-      // Far away: straight in. At the circling distance: sideways (around it). Closer: veers away a little.
-      const off = (Math.PI / 2) * clamp(2 - d / C.circleDistance, 0, 1.3);
-      want = toward + off * body.circleDir;
-    }
+    // Far away: straight in. At the circling distance: sideways (around it). Closer: veers away a little.
+    const off = (Math.PI / 2) * clamp(2 - d / C.circleDistance, 0, 1.3);
+    want = toward + off * body.circleDir;
   }
-  swimLeviathan(body, ship, want, speed, turnRate, dt);
+  swimLeviathan(body, ship, want, C.speed, C.turnRate, dt);
   // Its head keeps watching your flagship.
   lookToward(body, ship, watched, dt);
+}
+
+/** Is it ramming right now (charging: its head hits harder)? */
+export const isCharging = (body: LeviathanBody) => body.ram?.phase === 'charge';
+
+/** The ram (CONFIG.leviathan.ram). Returns true while it's in control. */
+function updateRam(state: GameState, ship: Ship, body: LeviathanBody, target: Ship | null, dt: number) {
+  const C = CONFIG.leviathan;
+  const R = C.ram;
+  if (!body.ram) {
+    body.ramIn -= dt;
+    if (body.ramIn > 0 || !target || Math.hypot(target.x - ship.x, target.y - ship.y) > R.range) return false;
+    body.ram = { phase: 'warn', t: 0, aimX: target.x, aimY: target.y };
+    flashPiece(body, 0, R.warnFlash, true);
+    addSound(state, 'sfx.leviathan-roar', ship, 1, 1, true);
+  }
+  const ram = body.ram;
+  ram.t += dt;
+  if (ram.phase === 'warn') {
+    // Nearly stops, turns to face its target, and pulls its head back.
+    if (target) {
+      ram.aimX = target.x;
+      ram.aimY = target.y;
+    }
+    swimLeviathan(body, ship, Math.atan2(ram.aimY - ship.y, ram.aimX - ship.x), R.warnSpeed, C.turnRate * 1.5, dt);
+    ship.x -= Math.cos(ship.angle) * R.pullBack * dt;
+    ship.y -= Math.sin(ship.angle) * R.pullBack * dt;
+    if (ram.t >= R.warnTime) {
+      ram.phase = 'charge';
+      ram.t = 0;
+      // Full speed at once: it bursts forward.
+      ship.vx = Math.cos(ship.angle) * R.speed;
+      ship.vy = Math.sin(ship.angle) * R.speed;
+    }
+  } else if (ram.phase === 'charge') {
+    // Straight at where its target was; once past that point it keeps going straight.
+    const dx = ram.aimX - ship.x;
+    const dy = ram.aimY - ship.y;
+    const ahead = dx * Math.cos(ship.angle) + dy * Math.sin(ship.angle) > 0;
+    swimLeviathan(body, ship, ahead ? Math.atan2(dy, dx) : ship.angle, R.speed, R.steer, dt);
+    if (ram.t >= R.time || (!ahead && ram.t > 0.3)) {
+      ram.phase = 'recover';
+      ram.t = 0;
+    }
+  } else {
+    // A wide swing round, easing back to cruising speed.
+    const want = target ? Math.atan2(target.y - ship.y, target.x - ship.x) : ship.angle;
+    swimLeviathan(body, ship, want, C.speed, R.recoverTurnRate, dt);
+    if (ram.t >= R.recoverTime) {
+      body.ram = null;
+      body.ramIn = R.every;
+    }
+  }
+  return true;
+}
+
+// ---------- Hit flashes (CONFIG.leviathan.flash) ----------
+
+/** Flash a piece (index from the head); `ripple`: the flash also spreads, weaker and later, to its neighbours. */
+export function flashPiece(body: LeviathanBody, index: number, strength: number, ripple = false) {
+  body.flash[index] = Math.max(body.flash[index] ?? 0, strength);
+  if (!ripple) return;
+  const F = CONFIG.leviathan.flash;
+  for (let k = 1; k <= F.rippleReach; k++)
+    for (const j of [index - k, index + k])
+      if (j >= 0 && j < body.pieces.length) body.flashQueue.push({ piece: j, strength: strength * F.rippleFalloff ** k, delay: k * F.rippleDelay });
+}
+
+/** Flashes fade; rippling ones arrive when due. */
+export function updateFlashes(body: LeviathanBody, dt: number) {
+  const F = CONFIG.leviathan.flash;
+  for (let i = 0; i < body.flash.length; i++) body.flash[i] = Math.max(0, (body.flash[i] ?? 0) - F.fade * dt);
+  body.flashQueue = body.flashQueue.filter((q) => {
+    q.delay -= dt;
+    if (q.delay > 0) return true;
+    body.flash[q.piece] = Math.max(body.flash[q.piece] ?? 0, q.strength);
+    return false;
+  });
 }
 
 // ---------- The charged beam (CONFIG.leviathan.beam) ----------
@@ -472,7 +561,8 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
     const dx = Math.cos(f.angle);
     const dy = Math.sin(f.angle);
     for (const s of state.ships) {
-      if (s.team === ship.team || s.dead || s.merge) continue;
+      // It burns everything in its way, enemy ships too (it's a beast).
+      if (s === ship || s.leviathan || s.parasite || s.dead || s.merge) continue;
       const hit = rayHitsShip(s, f.x, f.y, dx, dy, (B.width / 2) * thick);
       if (hit === null || hit > state.beamReach) continue;
       damageShip(state, s, s.stats.maxHp * B.damagePerSecond * dt, 'leviathan-beam');
@@ -482,6 +572,57 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
     }
   }
   return true;
+}
+
+// ---------- Its body hits (CONFIG.leviathan.body) ----------
+
+/**
+ * Every ship touching a piece (either side) is pushed out of it and knocked away, with part of
+ * the body's speed, and hurt (once per cooldown per ship). Nothing pushes the Leviathan back.
+ */
+export function updateBodyHits(state: GameState, ship: Ship, dt: number) {
+  const K = CONFIG.leviathan.body;
+  const body = ship.leviathan!;
+  for (const [s, left] of body.contact) {
+    if (left - dt <= 0 || s.dead) body.contact.delete(s);
+    else body.contact.set(s, left - dt);
+  }
+  const R = body.layout.hitRadius;
+  const pieces = body.pieces;
+  const speed = Math.hypot(ship.vx, ship.vy);
+  // Quick test first: ships far from the whole body are skipped.
+  const reach = pieces[pieces.length - 1].behind + 150;
+  for (const s of state.ships) {
+    if (s === ship || s.dead || s.merge || s.absorbed || s.leviathan || s.parasite || s.immune > 0) continue;
+    if ((s.x - ship.x) ** 2 + (s.y - ship.y) ** 2 > reach * reach) continue;
+    for (let i = 0; i < pieces.length; i++) {
+      const p = pieces[i];
+      const pr = R[p.kind] * p.scale;
+      const r = pr + s.stats.radius;
+      const dx = s.x - p.x;
+      const dy = s.y - p.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 >= r * r) continue;
+      const d = Math.sqrt(d2);
+      // Out from the piece's middle (dead centre: out to its side).
+      const nx = d > 0.01 ? dx / d : -Math.sin(p.angle);
+      const ny = d > 0.01 ? dy / d : Math.cos(p.angle);
+      s.x = p.x + nx * r;
+      s.y = p.y + ny * r;
+      if (!body.contact.has(s)) {
+        // Its head ramming hits much harder.
+        const ram = i === 0 && isCharging(body);
+        const knock = ram ? CONFIG.leviathan.ram.headKnockback : K.knockback;
+        s.vx += nx * knock + Math.cos(p.angle) * speed * K.carry;
+        s.vy += ny * knock + Math.sin(p.angle) * speed * K.carry;
+        damageShip(state, s, s.stats.maxHp * (ram ? CONFIG.leviathan.ram.headDamage : K.damage), ram ? 'leviathan-ram' : 'leviathan-body');
+        body.contact.set(s, K.cooldown);
+        addEffect(state, 'boss.leviathan.bump', p.x + nx * pr, p.y + ny * pr, Math.atan2(ny, nx));
+        addSound(state, 'sfx.leviathan-bump', s, 1);
+      }
+      break;
+    }
+  }
 }
 
 /** After the head moved to (x, y): remember its path, and put every piece on it. */

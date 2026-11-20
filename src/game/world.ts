@@ -14,7 +14,8 @@ import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 import type { SkillObj } from './moreSkills';
-import { currentLeviathanLayout, followHead, makeLeviathanBody, updateFins, updateLeviathanAI, type LeviathanBody } from './leviathan';
+import { onLeviathanHit, parasiteSlow, updateLeviathanAttacks, updateOrbSpawning, updateParasite, type Blood, type Orb, type ParasiteState } from './leviathanAttacks';
+import { currentLeviathanLayout, followHead, makeLeviathanBody, updateBodyHits, updateFins, updateFlashes, updateLeviathanAI, type LeviathanBody } from './leviathan';
 
 export type Team = 'player' | 'enemy';
 export type Thrust = 'idle' | 'move' | 'boost';
@@ -100,6 +101,8 @@ export interface Ship {
   elite: EliteInfo | null;
   /** Set for a Leviathan (boss): its body, which follows the head (this ship). See leviathan.ts. */
   leviathan: LeviathanBody | null;
+  /** Set for a Leviathan's parasite: latched onto one of your ships, or flying (leviathanAttacks.ts). */
+  parasite: ParasiteState | null;
   /** What dealt the hit that destroyed it (see DamageSource). */
   killedBy?: DamageSource;
   /** Enemies: came as part of a fleet formation (not a lone fighter). */
@@ -216,6 +219,8 @@ export interface Bullet {
   spin?: number;
   /** What fired it, for the kills-by-weapon stats (missing = a ship's gun). */
   source?: DamageSource;
+  /** The ship whose gun fired it (its shots never hit parasites latched onto it). */
+  owner?: Ship;
   /** Point Defense Cannon round: it only hits enemy missiles (shooting them down), never ships. */
   interceptor?: boolean;
 }
@@ -505,6 +510,11 @@ export interface GameState {
   mines: Mine[];
   /** Things the newer skills left in the world for a moment (crescents, ion balls, lances...). */
   skillObjs: SkillObj[];
+  /** The Leviathan's energy balls and blood shots (leviathanAttacks.ts). */
+  orbs: Orb[];
+  blood: Blood[];
+  /** Your fleet was dashing last step (a new dash shakes parasites off). */
+  parasitesShaken: boolean;
   /** Whether elites come this run (CONFIG.elite.enabled, or the test key O). */
   elitesEnabled: boolean;
   /** Elites spawned so far this run (each new one gets more skills). */
@@ -658,6 +668,9 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     beamReach: 4000,
     mines: [],
     skillObjs: [],
+    orbs: [],
+    blood: [],
+    parasitesShaken: false,
     elitesEnabled: CONFIG.elite.enabled,
     formationMode: CONFIG.formationMode,
     elitesSpawned: 0,
@@ -705,7 +718,7 @@ export function symbolTierMax(state: GameState) {
  * detail steps that it would be smaller than a tier-1 ship. Elites always stay ships.
  */
 export const drawnAsSymbol = (state: GameState, s: Ship, max = symbolTierMax(state)) =>
-  !s.elite && !s.leviathan && (s.tier <= max || s.tier - detailSteps(state) < 1);
+  !s.elite && !s.leviathan && !s.parasite && (s.tier <= max || s.tier - detailSteps(state) < 1);
 
 /** How much smaller the world is drawn for the detail steps (1 = normal). */
 export const detailFactor = (state: GameState) => CONFIG.tiers.sizePerTier ** -detailSteps(state);
@@ -798,6 +811,7 @@ function addShip(
     shieldTime: 0,
     elite: null,
     leviathan: null,
+    parasite: null,
     quirk: {
       phaseX: Math.random() * Math.PI * 2,
       phaseY: Math.random() * Math.PI * 2,
@@ -973,17 +987,22 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   updateMerges(state, dt);
   separateShips(state, dt);
 
+  const fleetSlow = parasiteSlow(state);
   for (const s of state.ships) {
     // Frozen enemies hang still (Freeze skill). Your frozen ships can still move, but not shoot.
+    // A Leviathan is only slowed (CONFIG.leviathan.freezeSlow).
+    const slowed = s.leviathan && s.frozen > 0 ? CONFIG.leviathan.freezeSlow : 1;
     if (s.frozen > 0) {
       s.frozen = Math.max(0, s.frozen - dt);
-      if (s.team === 'enemy') {
+      if (s.team === 'enemy' && !s.leviathan) {
         s.vx = s.vy = 0;
         continue;
       }
     }
-    s.x += s.vx * dtOf(s);
-    s.y += s.vy * dtOf(s);
+    // Parasites latched onto your ships slow your whole fleet.
+    const k = slowed * (s.team === 'player' ? fleetSlow : 1);
+    s.x += s.vx * dtOf(s) * k;
+    s.y += s.vy * dtOf(s) * k;
     for (let i = 0; i < s.gunTimers.length; i++) s.gunTimers[i] -= dtOf(s);
   }
   // A Leviathan's body follows where its head went.
@@ -991,10 +1010,13 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
     if (s.leviathan) {
       followHead(s.leviathan, s.x, s.y, s.angle);
       updateFins(s.leviathan, dtOf(s));
+      updateBodyHits(state, s, dtOf(s));
+      updateFlashes(s.leviathan, dtOf(s));
     }
 
   updateEnergyBeams(state, dt, edt);
   updateBullets(state, dt, edt);
+  updateLeviathanAttacks(state, edt);
   removeDeadShips(state);
   updateWrecks(state, dt);
   updateLoot(state, dt);
@@ -1257,7 +1279,11 @@ function chevronSpot(spot: { x: number; y: number }, past: LeaderSample) {
 }
 
 function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
-  if (ship.leviathan) return updateLeviathanAI(state, ship, dt);
+  if (ship.leviathan) {
+    updateOrbSpawning(state, ship, ship.leviathan, dt);
+    return updateLeviathanAI(state, ship, dt);
+  }
+  if (ship.parasite) return updateParasite(state, ship, dt);
   const t = typeOf(ship);
   const speed = t.maxSpeed * CONFIG.enemySpeedMultiplier;
   const target = findNearestEnemy(state, ship, Infinity);
@@ -1302,7 +1328,7 @@ function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
  */
 export function hijackShip(state: GameState, s: Ship, duration: number) {
   // Reinforcements on their way (immune) can't be taken over.
-  if (s.hijacked > 0 || s.merge || s.dead || s.immune > 0 || s.leviathan) return;
+  if (s.hijacked > 0 || s.merge || s.dead || s.immune > 0 || s.leviathan || s.parasite) return;
   const from = s.team;
   leaveFleet(state, s);
   // On its own, it flies and fights like a lone enemy fighter does (updateEnemyLeader).
@@ -1381,7 +1407,8 @@ function separateShips(state: GameState, dt: number) {
     for (let j = i + 1; j < ships.length; j++) {
       const a = ships[i];
       const b = ships[j];
-      if (a.team !== b.team || a.merge || b.merge) continue;
+      // A Leviathan is never pushed (its body hits knock ships away instead: leviathan.ts updateBodyHits).
+      if (a.team !== b.team || a.merge || b.merge || a.leviathan || b.leviathan || a.parasite || b.parasite) continue;
       // Your ships can pass over/under each other (as if at different heights).
       if (a.team === 'player' && !CONFIG.playerShipsCollide) continue;
       const minD = a.stats.radius + b.stats.radius;
@@ -1672,6 +1699,7 @@ function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: nu
     radius: st.bulletRadius,
     homing: 0,
     target: null,
+    owner: ship,
   });
 }
 
@@ -1679,7 +1707,7 @@ function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: nu
  * Damage a ship: a Shield soaks it up first, then health. Your ships take no
  * damage in invincible test mode. Returns true if this destroyed it.
  */
-export function damageShip(state: GameState, s: Ship, amount: number, source: DamageSource = 'gun') {
+export function damageShip(state: GameState, s: Ship, amount: number, source: DamageSource = 'gun', at?: { x: number; y: number }) {
   if (s.dead) return false;
   // Reinforcements on their way (and just after joining) can't be hurt.
   if (s.immune > 0) return false;
@@ -1689,12 +1717,15 @@ export function damageShip(state: GameState, s: Ship, amount: number, source: Da
     amount -= absorbed;
   }
   // Damage dealt to enemies, by what dealt it (weapon comparison stats).
-  if (s.team === 'enemy' && amount > 0) state.stats.damageBySource[source] = (state.stats.damageBySource[source] ?? 0) + Math.min(amount, Math.max(0, s.hp));
+  // (Not the Leviathan's own damage to enemy ships: that isn't yours.)
+  if (s.team === 'enemy' && amount > 0 && !source.startsWith('leviathan')) state.stats.damageBySource[source] = (state.stats.damageBySource[source] ?? 0) + Math.min(amount, Math.max(0, s.hp));
   if (!(s.team === 'player' && state.invincible)) s.hp -= amount;
   if (s.hp <= 0) {
     s.dead = true;
     s.killedBy = source;
   }
+  // A Leviathan's hit piece flashes; every 1/20 of its health is a wound (leviathanAttacks.ts).
+  if (s.leviathan && amount > 0) onLeviathanHit(state, s, at);
   return s.dead;
 }
 
@@ -1798,7 +1829,9 @@ function updateBullets(state: GameState, playerDt: number, enemyDt: number) {
       if (s.team === b.team || s.dead || s.merge) continue;
       // The ship's hit shape (its circles from ShipArt, or one round circle).
       if (!pointHitsShip(s, b.x, b.y, b.radius)) continue;
-      damageShip(state, s, b.damage, b.source);
+      // A ship's own shots don't hit the parasites on it.
+      if (s.parasite?.host && s.parasite.host === b.owner) continue;
+      damageShip(state, s, b.damage, b.source, b);
       b.life = 0;
       if (b.homing > 0) {
         // Missiles burst in a small round explosion of their own.
@@ -1848,6 +1881,7 @@ export const eliteAlertTime = (state: GameState) =>
 /** An enemy's class, for the kill stats: "elite", "swarm", "fleet" or "lone". New kinds of enemies go here. */
 function enemyClass(s: Ship) {
   if (s.leviathan) return 'leviathan';
+  if (s.parasite) return 'parasite';
   if (s.elite) return 'elite';
   if (s.fleet.swarm) return 'swarm';
   return s.inFleet ? 'fleet' : 'lone';
@@ -1870,13 +1904,21 @@ function removeDeadShips(state: GameState) {
       // A Leviathan bursts all along its body.
       for (const p of s.leviathan.pieces) addEffect(state, 'vfx.explosion', p.x, p.y, Math.random() * Math.PI * 2, 3);
       addSound(state, 'sfx.flagship-explosion', s, 1, 1, true);
+    } else if (s.parasite) {
+      // A parasite pops in a purple splash.
+      addEffect(state, 'boss.leviathan.blood-hit', s.x, s.y, Math.random() * Math.PI * 2, 1, 1.5);
+      addSound(state, 'sfx.hit', s, 1);
     } else {
       addEffect(state, 'vfx.explosion', s.x, s.y, Math.random() * Math.PI * 2, s.tier);
       addSound(state, 'sfx.explosion', s, s.tier);
     }
     // A hijacked ship still counts for the side it came from (yours: a loss; an enemy: XP and drops).
     const wasEnemy = (s.hijackedFrom ?? s.team) === 'enemy';
-    if (wasEnemy) {
+    // An enemy ship the Leviathan destroyed isn't your kill: no XP, stats or item (a wreck may still drop).
+    const byBeast = wasEnemy && (s.killedBy ?? '').startsWith('leviathan');
+    if (wasEnemy && byBeast) {
+      // nothing for you
+    } else if (wasEnemy) {
       const st = state.stats;
       const value = tierValue(s.tier);
       st.kills++;
@@ -1891,11 +1933,12 @@ function removeDeadShips(state: GameState) {
       // XP by the enemy's tier (CONFIG.levels.xpByTier), less if it's smaller than the ship you fly (xpLowerTierFactor).
       // An elite gives more, but never more than CONFIG.elite.xpMaxLevels levels' worth.
       const yourTier = controlledShip(state)?.tier ?? 1;
-      gainXp(state, s.elite || s.leviathan ? eliteXp(s.tier, yourTier, state.level) : killXp(s.tier, yourTier));
+      const xp = s.elite || s.leviathan ? eliteXp(s.tier, yourTier, state.level) : killXp(s.tier, yourTier);
+      gainXp(state, s.parasite ? xp * CONFIG.leviathan.parasites.xp : xp);
       // Levelled up: the cards wait until this kill's explosion has finished playing.
       if (state.pendingLevels > levels)
         state.cardWaitUntil = Math.max(state.cardWaitUntil, state.time + state.effectDuration('vfx.explosion', s.tier));
-      if (!s.elite && !s.leviathan) maybeDropItem(state, s);
+      if (!s.elite && !s.leviathan && !s.parasite) maybeDropItem(state, s);
     } else {
       state.stats.losses++;
       state.stats.lossValue += tierValue(s.tier);
@@ -1905,7 +1948,8 @@ function removeDeadShips(state: GameState) {
     const firstKill = wasEnemy && state.stats.kills === 1 && CONFIG.firstKillWreck;
     let wreckChance = firstKill ? 1 : CONFIG.wreckChance * CONFIG.tiers.wreckChancePerTier ** (s.tier - 1);
     let wreckTier = s.tier;
-    if (s.leviathan) {
+    if (s.parasite) wreckChance = 0;
+    else if (s.leviathan) {
       // A Leviathan is a creature: no wreck, but an item with elite odds.
       dropItem(state, s, rarityWeights('elite'));
       wreckChance = 0;
@@ -2525,6 +2569,18 @@ function spawnLeviathan(state: GameState, near: Ship, distance: number) {
   fleet.leader = ship;
   state.enemyFleets.push(fleet);
   addSound(state, 'sfx.alert', near, 1, 1, true);
+}
+
+/** A Leviathan's parasite at (x, y) (leviathanAttacks.ts): a tiny creature, its own leader. */
+export function spawnParasite(state: GameState, x: number, y: number, angle: number) {
+  const P = CONFIG.leviathan.parasites;
+  const ship = addShip(state, 'enemy', 'fighter', 1, newFleet('enemy'), x, y, angle);
+  ship.stats = { ...ship.stats, radius: ship.stats.radius * P.size, maxHp: Math.max(1, ship.stats.maxHp * P.health) };
+  ship.hp = ship.stats.maxHp;
+  ship.parasite = { host: null, ox: 0, oy: 0, oa: 0, stunned: 0 };
+  ship.fleet.leader = ship;
+  state.enemyFleets.push(ship.fleet);
+  return ship;
 }
 
 /** Spawns a Leviathan right away (test key B). */

@@ -344,7 +344,8 @@ function repulse(state: GameState, ship: Ship, sk: OwnedSkill) {
   const mods = modsOf(state, ship, sk);
   const radius = R.radius * ship.stats.size * mods.size;
   for (const s of state.ships) {
-    if (s.team === ship.team || s.dead || s.merge) continue;
+    // A Leviathan is never pushed (it always swims on).
+    if (s.team === ship.team || s.dead || s.merge || s.leviathan) continue;
     const d = Math.sqrt(distSq(s.x, s.y, ship.x, ship.y));
     if (d > radius + s.stats.radius) continue;
     const a = d > 0 ? Math.atan2(s.y - ship.y, s.x - ship.x) : wrapAngle(ship.angle);

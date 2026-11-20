@@ -80,7 +80,18 @@ type Patch = Record<string, ManifestEntry>;
 /** One undo step: the layouts and the unsaved manifest changes as they were. */
 type Snapshot = { data: ArtLayoutsFile; patch: Patch };
 /** Boss effects listed under Effects too (the Leviathan's beam attack), so they can get a glow and flipbook settings. */
-const BOSS_EFFECTS = ['boss.leviathan.charge-ball', 'boss.leviathan.beam-start', 'boss.leviathan.beam', 'boss.leviathan.beam-impact', 'boss.leviathan.beam-warning'];
+const BOSS_EFFECTS = [
+  'boss.leviathan.charge-ball',
+  'boss.leviathan.beam-start',
+  'boss.leviathan.beam',
+  'boss.leviathan.beam-impact',
+  'boss.leviathan.beam-warning',
+  'boss.leviathan.bump',
+  'boss.leviathan.orb',
+  'boss.leviathan.orb-pulse',
+  'boss.leviathan.blood',
+  'boss.leviathan.blood-hit',
+];
 /** "vfx.explosion.t3" → "vfx.explosion". */
 const effectBaseOf = (name: string) => name.replace(/\.t\d+$/, '');
 /** "parts/thruster-boost-1.png" → "thruster-boost-1" (a frame folder "parts/thruster-boost-3/" → "thruster-boost-3"). */

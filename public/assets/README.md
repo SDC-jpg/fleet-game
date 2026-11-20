@@ -343,6 +343,15 @@ They're your beam image shrunk to game pixels (your mockup was at zoom 3; the be
 out is the **mouth** point: ShipArt → Bosses → Leviathan → Pieces → a side head (Forward, Out, Beam angle: 0 = along the nose; a
 gold cross in the preview), and the toolbar's **Beam** button plays the attack once. Sounds:
 `sfx.leviathan-charge` and `sfx.leviathan-beam` (a loop), placeholders.
+**Its other attacks** (all placeholders in purple, made by `node tools/make-leviathan-art.mjs`;
+each listed in ShipArt → Effects except the parasite, so you can set its flipbook and glow):
+`bump.png` (its body hitting a ship: a burst, play once), `orb.png` (an energy ball, about the
+charge ball's size, looping), `orb-pulse.png` (its pulse: a ring growing to the edge of the 140 px
+image = the pulse's reach, play once), `blood.png` (a blood shot, looping) and `blood-hit.png`
+(blood splashing on a ship, and a parasite popping), `parasite.png` (a parasite, half a tier-1
+ship, facing right, 2 frames). Its hit flash is a light purple silhouette of the piece itself (no
+image). Sounds: `sfx.leviathan-bump`, `-roar` (before a ram), `-orb`, `-pulse`, `-wound`,
+`sfx.parasite-latch`, `sfx.parasite-shake`, placeholders.
 **Gradients** colour the body from head to tail, like a Photoshop gradient overlay: colour stops
 on a bar (click to add, drag to move, drag down off the bar to remove; each with its own colour,
 opacity and location), a blend mode (Multiply, Screen, Color Dodge, Linear Dodge (Add), Soft

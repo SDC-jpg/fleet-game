@@ -532,16 +532,138 @@ export const CONFIG = {
     speed: 140,
     /** How fast it can turn while cruising (radians per second); with the speed, this sets how tight it curves. */
     turnRate: 1.6,
-    /** It circles its target at about this distance, then lunges. */
+    /** It circles its target at about this distance between attacks. */
     circleDistance: 280,
-    /** Seconds between lunges straight at its target. */
-    lungeEvery: 6,
-    /** Seconds a lunge lasts. */
-    lungeTime: 1.4,
-    /** Speed during a lunge. */
-    lungeSpeed: 340,
-    /** Turn rate during a lunge. */
-    lungeTurnRate: 2.4,
+    /** How quickly it speeds up or slows down (pixels per second, each second). */
+    accel: 340,
+    /**
+     * Ram: it slows and pulls its head back (flashing, roaring), then charges straight at where your
+     * fleet was, its head hitting much harder, then swings round in a wide turn. Never during its beam.
+     */
+    ram: {
+      /** Seconds between rams (counted while it isn't attacking). */
+      every: 6,
+      /** It only rams a target within this distance of its head. */
+      range: 900,
+      /** Seconds of warning before it charges. */
+      warnTime: 0.6,
+      /** Its speed while warning (it nearly stops, turning to face its target). */
+      warnSpeed: 30,
+      /** How fast its head pulls back while warning (pixels per second). */
+      pullBack: 50,
+      /** Charging speed. */
+      speed: 430,
+      /** Most seconds a charge lasts. */
+      time: 1.1,
+      /** Its turn rate while charging (low: it charges almost straight, so you can dodge). */
+      steer: 0.35,
+      /** Seconds of the wide turn after a charge, back to cruising speed. */
+      recoverTime: 1.6,
+      /** Turn rate during that recovery (lower than cruising: a wide swing). */
+      recoverTurnRate: 0.8,
+      /** Damage from its head while charging, as a share of the ship's full health (its body's normal hit: body.damage). */
+      headDamage: 0.3,
+      /** Knock from its head while charging (pixels per second). */
+      headKnockback: 520,
+      /** How bright its head flashes when the warning starts (0–1). */
+      warnFlash: 0.8,
+    },
+    /**
+     * Energy balls: every few seconds of combat it lets go of a crackling ball that drifts toward your
+     * fleet (wandering a little) and pulses, hurting every ship near it (either side). They can't be
+     * hurt (shots pass through) and stay until the Leviathan dies.
+     */
+    orbs: {
+      /** Seconds of combat between balls. */
+      every: 6,
+      /** "Combat" = your flagship within this distance of its head. */
+      combatRange: 1100,
+      /** Most balls at once. */
+      max: 10,
+      /** How fast a ball drifts toward your fleet (pixels per second; your ships fly 150). */
+      speed: 70,
+      /** How much its path wanders either side of straight at you (radians). */
+      wander: 0.9,
+      /** How quickly the wander changes (cycles per second). */
+      wanderSpeed: 0.35,
+      /** Seconds between pulses. */
+      pulseEvery: 2,
+      /** Seconds before a pulse that the ball swells and flickers (the warning). */
+      pulseTell: 0.4,
+      /** Reach of a pulse from the ball's middle (game pixels; the pulse ring's art is drawn for 70). */
+      radius: 70,
+      /** Damage per pulse to every ship it reaches, as a share of that ship's full health. */
+      damage: 0.08,
+    },
+    /**
+     * Wounds: every time it loses 1/count of its health, the blow that did it sprays purple blood
+     * shots in all directions from where it landed (hurting either side), its piece flashes with a
+     * ripple, and parasites burst out, except from its head or tail (blood only).
+     */
+    wounds: {
+      /** Wounds over its whole health (20 = one every 5%). */
+      count: 20,
+      /** Blood shots per wound. */
+      bloodShots: 24,
+      /** Their speed (pixels per second), ± bloodSpeedRandom of it. */
+      bloodSpeed: 260,
+      bloodSpeedRandom: 0.35,
+      /** Seconds each blood shot flies. */
+      bloodLife: 1.4,
+      /** Damage per blood shot that hits, as a share of the ship's full health. */
+      bloodDamage: 0.05,
+      /** A blood shot's size for hitting ships (game pixels). */
+      bloodRadius: 4,
+      /** Parasites per wound (a random number between these). */
+      parasitesMin: 15,
+      parasitesMax: 20,
+    },
+    /**
+     * Parasites: little creatures that burst from its wounds and latch onto your ships, slowing your
+     * whole fleet (more parasites = slower). Dashing shakes them loose. They can be shot like any enemy
+     * (not by the ship carrying them).
+     */
+    parasites: {
+      /** Most parasites alive at once (more wounds add none while at this). */
+      max: 80,
+      /** Their hit size, as a share of a tier-1 ship's. */
+      size: 0.5,
+      /** Their health, as a share of a tier-1 enemy's (with the wave's health growth). */
+      health: 0.5,
+      /** Flying speed (pixels per second). */
+      speed: 230,
+      /** How quickly they change speed and direction (pixels per second, each second). */
+      accel: 600,
+      /** Speed they burst out of a wound at. */
+      burstSpeed: 200,
+      /** Your fleet's speed drops by this share per latched parasite... */
+      slowPerParasite: 0.03,
+      /** ...but never by more than this. */
+      maxSlow: 0.5,
+      /** A dash flings latched parasites off at this speed... */
+      shakeSpeed: 260,
+      /** ...and they tumble, harmless, for this many seconds before coming back. */
+      stunTime: 1.2,
+      /** XP for destroying one, as a share of a tier-1 enemy's (there can be hundreds per fight). */
+      xp: 0.25,
+    },
+    /** Hit flashes on its pieces (drawn as a light silhouette over the piece, fading out). */
+    flash: {
+      /** Flash on a piece hit by any shot (0–1). */
+      hit: 0.35,
+      /** Flash on the piece hit by a wound (every 1/20 of its health), rippling into its neighbours. */
+      wound: 1,
+      /** How fast flashes fade (per second). */
+      fade: 5,
+      /** A wound's flash ripples this many pieces each way... */
+      rippleReach: 3,
+      /** ...weaker by this much per piece... */
+      rippleFalloff: 0.55,
+      /** ...and this many seconds later per piece. */
+      rippleDelay: 0.05,
+      /** The flash colour (purple-white). */
+      color: "#f0d8ff",
+    },
     /** Its head watches your flagship: straight (top view) while the flagship is within this many degrees of straight ahead. */
     frontViewAngle: 20,
     /** Past frontViewAngle and up to this many degrees off straight ahead it shows the half-side head; further round (to its side or behind), the side head. */
@@ -613,8 +735,24 @@ export const CONFIG = {
     finSway: 7,
     /** Sways per second. */
     finSwaySpeed: 0.6,
-    /** Health = this × the wave's enemy fleet value × a tier-1 enemy's health (like elites, which use 8). */
-    healthPerFleetValue: 30,
+    /** Health = this × the wave's enemy fleet value × a tier-1 enemy's health (like elites, which use 8). 150 since 2026-11-19 (was 30, the user: × 5). */
+    healthPerFleetValue: 150,
+    /** Frozen (Freeze skill), it's never stopped: it swims, turns and attacks at this share of its normal pace. */
+    freezeSlow: 0.5,
+    /**
+     * Its body hits: any ship touching any piece (either side; it's a beast) is pushed out and knocked
+     * away, and takes damage (once per `cooldown` per ship). Nothing pushes it back: it always swims on.
+     */
+    body: {
+      /** Damage per hit, as a share of the ship's full health (shields absorb it first). */
+      damage: 0.1,
+      /** Seconds before the same ship can be hurt by its body again (it's still pushed out meanwhile). */
+      cooldown: 0.5,
+      /** How hard a hit knocks the ship away from the piece (pixels per second added to its speed). */
+      knockback: 260,
+      /** Share of the body's own speed (along the piece) added to the knock, so a passing body sweeps ships along. */
+      carry: 0.6,
+    },
     /** Tier it counts as (XP for destroying it and its damage later). */
     tier: 4,
   },

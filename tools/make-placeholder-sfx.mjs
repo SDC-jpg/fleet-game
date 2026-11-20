@@ -264,6 +264,85 @@ function leviathanCharge() {
   });
 }
 
+/** Leviathan's body hitting a ship: a heavy, dull thud. */
+function leviathanBump() {
+  const r = rng(93);
+  const lp = lowpass();
+  const sub = oscillator('sine');
+  return render(0.35, (t, k) => {
+    const thud = sub(sweep(110, 40, k)) * (1 - k) ** 2;
+    const crunch = lp(r() * 2 - 1, sweep(1800, 300, k)) * (1 - k) ** 4 * 0.8;
+    return (thud + crunch) * 0.9;
+  });
+}
+
+/** Leviathan about to ram: a rising, growling roar. */
+function leviathanRoar() {
+  const r = rng(94);
+  const lp = lowpass();
+  const growl = oscillator('saw');
+  const growl2 = oscillator('saw');
+  return render(0.9, (t, k) => {
+    const f = sweep(60, 120, k) * (1 + 0.06 * Math.sin(t * 2 * Math.PI * 28));
+    const tone = lp(growl(f) + growl2(f * 1.5), 1400) * 0.45;
+    const breath = lp(r() * 2 - 1, 2200) * 0.35;
+    return (tone + breath) * Math.min(1, t * 8) * (1 - k * k);
+  });
+}
+
+/** An energy ball appearing: a crackling zap that settles into a hum. */
+function leviathanOrb() {
+  const r = rng(95);
+  const lp = lowpass();
+  const hum = oscillator('square');
+  return render(0.6, (t, k) => {
+    const crackle = r() < 0.08 * (1 - k) ? (r() * 2 - 1) * 1.2 : 0;
+    const tone = lp(hum(sweep(400, 160, k)), 1200) * 0.3 * (1 - k);
+    return crackle * 0.6 + tone;
+  });
+}
+
+/** An energy ball's pulse: a short electric whump. */
+function leviathanPulse() {
+  const r = rng(96);
+  const lp = lowpass();
+  const sub = oscillator('sine');
+  return render(0.4, (t, k) => {
+    const whump = sub(sweep(220, 60, k)) * (1 - k) ** 2 * 0.8;
+    const fizz = lp(r() * 2 - 1, sweep(5000, 800, k)) * (1 - k) ** 3 * 0.4;
+    return whump + fizz;
+  });
+}
+
+/** A wound: a wet burst (the blood spraying out). */
+function leviathanWound() {
+  const r = rng(97);
+  const lp = lowpass();
+  const sub = oscillator('sine');
+  return render(0.7, (t, k) => {
+    const burst = lp(r() * 2 - 1, sweep(3000, 400, k)) * (1 - k) ** 2;
+    const gurgle = sub(90 + 30 * Math.sin(t * 2 * Math.PI * 18)) * (1 - k) * 0.5;
+    return (burst + gurgle) * 0.8;
+  });
+}
+
+/** A parasite latching on: a small squelchy click. */
+function parasiteLatch() {
+  const r = rng(98);
+  const lp = lowpass();
+  return render(0.15, (t, k) => lp(r() * 2 - 1, sweep(4000, 600, k)) * (1 - k) ** 3 * 0.7);
+}
+
+/** Parasites shaken loose (dash): a quick rattling whoosh. */
+function parasiteShake() {
+  const r = rng(99);
+  const lp = lowpass();
+  return render(0.4, (t, k) => {
+    const rattle = Math.sin(t * 2 * Math.PI * 30) > 0.6 ? 1 : 0.3;
+    return lp(r() * 2 - 1, sweep(600, 3500, k)) * rattle * Math.sin(Math.PI * k) * 0.6;
+  });
+}
+
 /** Leviathan's beam (loop): a deep roar with a crackling hiss and a slow throb. */
 function leviathanBeam() {
   const r = rng(92);
@@ -633,6 +712,13 @@ const FILES = {
   'laser-sear.wav': laserSear,
   'leviathan-charge.wav': leviathanCharge,
   'leviathan-beam.wav': leviathanBeam,
+  'leviathan-bump.wav': leviathanBump,
+  'leviathan-roar.wav': leviathanRoar,
+  'leviathan-orb.wav': leviathanOrb,
+  'leviathan-pulse.wav': leviathanPulse,
+  'leviathan-wound.wav': leviathanWound,
+  'parasite-latch.wav': parasiteLatch,
+  'parasite-shake.wav': parasiteShake,
   // The user's choice (2026-11-16): boosting uses the same hum, a little louder (manifest volume).
   'engine-boost.wav': engineMove,
   'time-dilation.wav': timeDilation,

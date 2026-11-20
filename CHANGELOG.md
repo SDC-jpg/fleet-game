@@ -5,6 +5,8 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-19
+- The Leviathan (test key B) now fights: its body knocks ships aside and hurts them, it rams your fleet after a roar, it lets go of crackling energy balls that drift after you and pulse, and every heavy wound sprays glowing blood and parasites that latch onto your ships and slow your fleet (dash to shake them off). Hit its head or tail for blood without parasites.
+- The Leviathan has five times the health, can't be pushed around or stopped (Freeze only slows it), and hurts enemy ships too.
 - The Leviathan's beam and charge ball (test keys B and N) now have a soft blue glow.
 - Missiles (yours and the enemy's) now burn for 4 seconds instead of 2 and turn more slowly, so they fly wider, longer arcs.
 - Enemy missile ships open fire from twice as far away.

@@ -3,6 +3,12 @@
   "files": {
     "backgrounds/stars-far.png": "9093b7a7aa3fb14a5f0658b0257a218f9db9fb39",
     "backgrounds/stars-near.png": "3ab960bbfe2af51d02ebab7dc019c648d92bbab5",
+    "bosses/leviathan/blood-hit.png": "183cce583439f9634e57312fe387a7188bf1de3a",
+    "bosses/leviathan/blood.png": "e6a1e003be8d399b7ce7dcb19c60ea35fb8f1e4f",
+    "bosses/leviathan/bump.png": "749359cf98d3a4384efb1e1062c705d21a3b01ac",
+    "bosses/leviathan/orb-pulse.png": "ff2d3352b72e0e0e9c5b338aca12e291a23e1a39",
+    "bosses/leviathan/orb.png": "5bdc91bcda92a4c21ecae4b5525ed3e5d370b8c7",
+    "bosses/leviathan/parasite.png": "57ec6181c0fd283a227419f09fd0b1fc822f72fd",
     "parts/flame-missile-t2.png": "f65fc824e51fd7869dd62c70b218b00879c633a9",
     "parts/flame-missile-t3.png": "79dd895e66812ab93e4fd79ff198e552faf005af",
     "parts/flame-missile-t4.png": "1d03aafe3d76328ecb986156e3e39e075ea332db",

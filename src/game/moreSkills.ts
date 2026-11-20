@@ -899,7 +899,8 @@ function podTarget(state: GameState, pod: SkillObj): Ship | null {
 
 function updateWell(state: GameState, o: SkillObj, dt: number) {
   for (const s of state.ships) {
-    if (s.team === o.team || s.dead || s.merge) continue;
+    // A Leviathan is never pulled (it always swims on).
+    if (s.team === o.team || s.dead || s.merge || s.leviathan) continue;
     // The ship the player flies is never pulled (an elite's well only pulls your other ships).
     if (s === state.playerFleet.leader) continue;
     const dx = o.x - s.x;
@@ -920,7 +921,8 @@ function updateScrambleWave(state: GameState, o: SkillObj, dt: number) {
   const dx = Math.cos(o.angle);
   const dy = Math.sin(o.angle);
   for (const s of state.ships) {
-    if (s.team === o.team || s.dead || s.merge || o.hit!.has(s)) continue;
+    // Nor a Leviathan (it always swims on).
+    if (s.team === o.team || s.dead || s.merge || s.leviathan || o.hit!.has(s)) continue;
     // Never the ship the player flies: you always keep control.
     if (s === state.playerFleet.leader) continue;
     const along = (s.x - o.x) * dx + (s.y - o.y) * dy;
@@ -1023,7 +1025,8 @@ function blockAtWall(state: GameState, o: SkillObj, dt: number) {
     const a = pts[i];
     const b = pts[i + 1];
     for (const s of state.ships) {
-      if (s.team === o.team || s.dead || s.merge) continue;
+      // A Leviathan swims straight through walls.
+      if (s.team === o.team || s.dead || s.merge || s.leviathan) continue;
       const q = closestOnSegment(s.x, s.y, a, b);
       const dx = s.x - q.x;
       const dy = s.y - q.y;

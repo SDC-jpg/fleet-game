@@ -11,6 +11,7 @@ import { DEFAULT_FIN_IMAGE, fileSprite, shipPointToWorld, type ArtLayout, type A
 import { gunsOf, shipArtBase } from './guns';
 import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
 import { HALF_SIDE_HEAD_SPRITE, MOUTH_OPEN_HEAD_SPRITE, PIECE_SPRITES, beamOrigin, beamThickness, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
+import { orbTell } from './leviathanAttacks';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
@@ -195,6 +196,15 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
 
   // The Leviathan's charged beam (warning line, charge ball, beam), over the ships, and the sparks rushing into the ball.
   for (const s of state.ships) if (s.leviathan?.attack && !s.dead) drawLeviathanBeam(r, assets, s.leviathan, s, state.beamReach, state.time);
+  // Its energy balls (swelling and flickering before each pulse) and blood shots.
+  const orb = assets.get('boss.leviathan.orb');
+  for (const o of state.orbs) {
+    const tell = orbTell(o);
+    const flicker = tell > 0 && Math.floor(state.time * 20) % 2 === 0 ? 0.7 : 1;
+    r.drawSprite(orb, o.x, o.y, 0, o.age, flicker, false, 1 + 0.25 * tell);
+  }
+  const blood = assets.get('boss.leviathan.blood');
+  for (const b of state.blood) r.drawSprite(blood, b.x, b.y, 0, b.age, clamp((b.life - b.age) / 0.2, 0, 1));
   extras.topParticles?.draw(r, assets);
 
   // Shield bubbles over shielded ships (fading in their last second), and over reinforcements while they can't be hurt.
@@ -318,7 +328,7 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
   for (const w of state.wrecks) drawEdgeArrow(r, wreckArrow, w.x, w.y, state.time);
   const enemyArrow = assets.get('ui.arrow.enemy');
   const eliteArrow = assets.get('ui.arrow.elite');
-  for (const s of state.ships) if (s.team === 'enemy') drawEdgeArrow(r, s.elite ? eliteArrow : enemyArrow, s.x, s.y, state.time);
+  for (const s of state.ships) if (s.team === 'enemy' && !s.parasite) drawEdgeArrow(r, s.elite ? eliteArrow : enemyArrow, s.x, s.y, state.time);
   // Loot: a dot in its rarity's colour, on a ring further in than the arrows (a clear gap past the
   // biggest arrow), so they never overlap. A quality-of-life drop's dot pulses gently, so it's noticed.
   const E = CONFIG.edgeMarkers;
@@ -466,6 +476,8 @@ export function drawBeam(r: PixelRenderer, seg: Sprite, x: number, y: number, an
 function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, time: number, symbol: boolean) {
   if (s.absorbed) return; // already inside the ship it's merging into
   if (s.leviathan) return drawLeviathan(r, assets, s.leviathan, s.x, s.y, s.angle, time);
+  // A Leviathan's parasite: its own little sprite (boss.leviathan.parasite, facing right).
+  if (s.parasite) return r.drawRotated(assets.get('boss.leviathan.parasite'), s.x, s.y, s.angle, time + (s.id % 7) * 0.13);
   // Commander view (and ships too small after detail steps): a HUD symbol by tier, fixed size on screen.
   if (symbol) {
     r.drawSprite(symbolSprite(assets, shipArtBase(s), s.tier), s.x, s.y, 0, time, 1, true);
@@ -529,17 +541,47 @@ export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanB
     const p = finPiece(body, fin);
     fins.set(p, [...(fins.get(p) ?? []), i]);
   });
-  for (const p of body.pieces) {
+  body.pieces.forEach((p, index) => {
     const own = fins.get(p) ?? [];
     for (const i of own) if (!body.layout.fins[i].front) drawFin(r, assets, body, i, time, tint);
     const art = leviathanPieceArt(assets, body, p.kind);
     const { mirror } = art;
     // Gradients (ShipArt → Bosses): each image row gets the colour of where it falls along the body.
     const sprite = tint ? tintedSprite(art.sprite, tint.gradients, tint.sig, tint.rows(p.behind, p.scale, art.sprite.anchorY)) : art.sprite;
-    if (p.kind === 'head') r.drawAttached(sprite, x, y, angle, 0, 0, Math.PI / 2, time, 1, p.scale, mirror);
-    else r.drawAttached(sprite, p.x, p.y, p.angle, 0, 0, Math.PI / 2, time, 1, p.scale);
+    const px = p.kind === 'head' ? x : p.x;
+    const py = p.kind === 'head' ? y : p.y;
+    const pa = p.kind === 'head' ? angle : p.angle;
+    const flip = p.kind === 'head' && mirror;
+    r.drawAttached(sprite, px, py, pa, 0, 0, Math.PI / 2, time, 1, p.scale, flip);
+    // A hit flash: a light silhouette of the piece over it, fading out (CONFIG.leviathan.flash).
+    const flash = body.flash[index] ?? 0;
+    if (flash > 0.02) r.drawAttached(silhouette(art.sprite, CONFIG.leviathan.flash.color), px, py, pa, 0, 0, Math.PI / 2, time, Math.min(1, flash), p.scale, flip);
     for (const i of own) if (body.layout.fins[i].front) drawFin(r, assets, body, i, time, tint);
+  });
+}
+
+/** A sprite's silhouette in one colour (same frames and anchor), made once per sprite and colour. */
+const silhouettes = new WeakMap<Sprite, Map<string, Sprite>>();
+function silhouette(sprite: Sprite, color: string): Sprite {
+  let byColor = silhouettes.get(sprite);
+  if (!byColor) silhouettes.set(sprite, (byColor = new Map()));
+  let out = byColor.get(color);
+  if (!out) {
+    const frames = sprite.frames.map((f) => {
+      const c = document.createElement('canvas');
+      c.width = f.w;
+      c.height = f.h;
+      const g = c.getContext('2d')!;
+      g.drawImage(f.image, f.sx, f.sy, f.w, f.h, 0, 0, f.w, f.h);
+      g.globalCompositeOperation = 'source-in';
+      g.fillStyle = color;
+      g.fillRect(0, 0, f.w, f.h);
+      return { image: c, sx: 0, sy: 0, w: f.w, h: f.h };
+    });
+    out = { ...sprite, frames, glow: undefined };
+    byColor.set(color, out);
   }
+  return out;
 }
 
 /**

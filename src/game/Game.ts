@@ -39,6 +39,7 @@ import {
   testKillEnemies,
   testSpawnElite,
   testSpawnLeviathan,
+  damageShip,
   testSpawnSwarm,
   testSpawnVariants,
   sendReinforcements,
@@ -854,6 +855,15 @@ export class Game {
     if (i.wasPressed('KeyV')) testSpawnVariants(s, this.spawnDistance());
     if (i.wasPressed('KeyB')) testSpawnLeviathan(s, this.spawnDistance());
     if (i.wasPressed('KeyN')) for (const l of s.ships) if (l.leviathan && !l.leviathan.attack) l.leviathan.beamIn = 0;
+    // C: ram now. P: an energy ball now. Z: a wound now (1/20 of its health, on a piece in its middle, so parasites come out).
+    if (i.wasPressed('KeyC')) for (const l of s.ships) if (l.leviathan && !l.leviathan.ram) l.leviathan.ramIn = 0;
+    if (i.wasPressed('KeyP')) for (const l of s.ships) if (l.leviathan) l.leviathan.orbIn = 0;
+    if (i.wasPressed('KeyZ'))
+      for (const l of s.ships)
+        if (l.leviathan) {
+          const p = l.leviathan.pieces[Math.floor(l.leviathan.pieces.length / 2)];
+          damageShip(s, l, l.stats.maxHp / CONFIG.leviathan.wounds.count + 1, 'test', p);
+        }
     if (i.wasPressed('KeyR')) {
       const flagship = controlledShip(s);
       if (flagship) sendReinforcements(s, flagship, this.spawnDistance());
