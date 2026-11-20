@@ -13,7 +13,7 @@ import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameSta
 import { HALF_SIDE_HEAD_SPRITE, MOUTH_OPEN_HEAD_SPRITE, PIECE_SPRITES, beamOrigin, beamThickness, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
 import { orbTell } from './leviathanAttacks';
 import { pieceGone } from './leviathanDeath';
-import { riftOpening, type BossIntro } from './leviathanIntro';
+import { introText, riftOpening, type BossIntro } from './leviathanIntro';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
@@ -374,7 +374,10 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     r.drawSprite(fx.sprite, x, y, e.angle, e.age, 1, false, e.scale * fx.scale);
   }
 
-  // The Leviathan's entrance: a flash over everything as the rift tears open.
+  // The Leviathan's entrance: its words, typing across the top third (pixel font, inside the game picture).
+  const words = introText(state.bossIntro);
+  if (words) drawPixelText(r, assets, words.text, words.full, CONFIG.leviathan.intro, words.alpha);
+  // ...and a flash over everything as the rift tears open.
   const it = state.bossIntro;
   const I = CONFIG.leviathan.intro;
   if (it && it.t >= I.riftAt && it.t < I.riftAt + I.flashTime) r.fillView(I.glow, I.flash * (1 - (it.t - I.riftAt) / I.flashTime));
@@ -616,6 +619,48 @@ export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanB
     if (flash > 0.02) r.drawAttached(silhouette(art.sprite, CONFIG.leviathan.flash.color), px, py, pa, 0, 0, Math.PI / 2, time, Math.min(1, flash), p.scale, flip);
     for (const i of own) if (body.layout.fins[i].front) drawFin(r, assets, body, i, time, tint);
   });
+}
+
+/** The pixel font's letters, in the order of its image's cells (tools/make-pixel-font.mjs). */
+export const FONT_CHARS = ` ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?'"-:;()/+=%&*`;
+
+/**
+ * A line of text in the pixel font (ui.font.pixel: one cell per letter), centred across the
+ * screen at `textAt` of its height, inside the game picture. `typed` is drawn; `full` is the whole
+ * line, so the typed part doesn't shift while it grows. Each font pixel is a whole number of game
+ * pixels (about `textPixel` screen pixels on a 1080-tall screen), with a shadow under it.
+ */
+function drawPixelText(
+  r: PixelRenderer,
+  assets: Assets,
+  typed: string,
+  full: string,
+  look: { textPixel: number; textAt: number; textColor: string; textShadow: string },
+  alpha: number,
+) {
+  const font = assets.get('ui.font.pixel');
+  const { buffer, height } = r.scales;
+  const ws = r.worldScale;
+  const cell = font.frames[0].w;
+  // Buffer pixels per font pixel: whole, so the letters stay crisp.
+  const k = Math.max(1, Math.round((look.textPixel * height) / 1080 / buffer));
+  const v = r.view;
+  const width = full.length * cell * k;
+  const left = (v.w * ws - width) / 2;
+  const mid = v.h * ws * look.textAt;
+  const lit = { ...silhouette(font, look.textColor), glow: font.glow };
+  const shadow = silhouette(font, look.textShadow);
+  for (const [sprite, off] of [
+    [shadow, k],
+    [lit, 0],
+  ] as const)
+    [...typed].forEach((ch, i) => {
+      const index = FONT_CHARS.indexOf(ch);
+      if (index <= 0) return;
+      const bx = Math.round(left + (i + 0.5) * cell * k) + off;
+      const by = Math.round(mid) + off;
+      r.drawSprite(sprite, v.x + bx / ws, v.y + by / ws, 0, index / Math.max(1, font.fps), alpha, false, k / ws);
+    });
 }
 
 /** A sprite's silhouette in one colour (same frames and anchor), made once per sprite and colour. */

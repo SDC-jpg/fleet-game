@@ -14,7 +14,7 @@ import { renderGame, setDetailSteps, tierArt, tierSprite, type ViewOptions } fro
 import { setGunLayouts, shipArtBase } from './guns';
 import { setHitLayouts } from './hitShape';
 import { beamOrigin, setLeviathanLayout } from './leviathan';
-import { introText, startBossIntro, updateBossIntro } from './leviathanIntro';
+import { startBossIntro, updateBossIntro } from './leviathanIntro';
 import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { applyCard, cancelReplace, describeCard, gainXp, pickCard, replacedBy, testGiveAllSkills, type CardInfo } from './progress';
@@ -137,8 +137,6 @@ export interface HudInfo {
   reinforcementAlert: boolean;
   /** A Leviathan (boss) is alive: its health (0–1). null = none. */
   boss: number | null;
-  /** The Leviathan's entrance words (typed so far, the whole line, how visible), or null. */
-  intro: { text: string; full: string; alpha: number } | null;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -1165,7 +1163,6 @@ export class Game {
       swarmAlert: st.time - st.swarmAlertTime < CONFIG.swarm.alertSeconds,
       reinforcementAlert: st.time - st.reinforcementAlertTime < CONFIG.reinforcements.alertSeconds,
       boss: ((b) => (b ? b.hp / b.stats.maxHp : null))(st.ships.find((b) => b.leviathan && !b.dead)),
-      intro: introText(st.bossIntro),
       stats: { ...st.stats },
       history: st.history,
       invincible: st.invincible,

@@ -4,6 +4,9 @@ Player-facing changes, newest first. When a new version goes live, the lines
 added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
+## 2026-11-20
+- The Leviathan's warning words now type out in a pixel font, part of the picture like everything else.
+
 ## 2026-11-19
 - The Leviathan roars, mouth open, as it first comes into view and now and then during the fight, and it catches up fast if you try to leave it behind.
 - From wave 30, a Leviathan can now come for you: the chance grows each wave until it appears. Watch the sky: it announces itself.

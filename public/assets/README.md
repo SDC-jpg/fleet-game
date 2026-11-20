@@ -357,6 +357,10 @@ one frame each), `rift.png` (the tear in space opening over 6 frames; it closes 
 backwards), `explosion.png` (its death: purple explosions consuming each piece) and
 `shockwave.png` (rings racing out, drawn big). Its silhouette in the entrance is its own pieces
 in one dark colour, each glowing as it comes out of the rift (colours in CONFIG.leviathan.intro).
+Its words ("The fabric of space grows thin...") use the **pixel font** `ui/font-pixel.png`: one
+row of 6×10 cells, one letter each (space, A–Z, a–z, 0–9, then `.,!?'"-:;()/+=%&*`), white (the game
+colours them and adds a shadow and the manifest glow). Repaint the letters in your own style,
+keeping each in its cell; the line sits on row 8 of the cell, descenders below it.
 Sounds: `sfx.leviathan-thunder`, `sfx.leviathan-rift`. To look at them without waiting: the page
 address `?intro=7` starts the entrance 7 seconds in, `?boss=dying` plays its death at once (dev
 server only).

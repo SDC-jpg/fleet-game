@@ -684,6 +684,13 @@ export const CONFIG = {
      */
     intro: {
       text: "The fabric of space grows thin...",
+      /** The words are drawn with the pixel font (ui.font.pixel) inside the game picture (so the CRT effect covers them): this many screen pixels per font pixel on a 1080-tall screen (rounded to whole game pixels). */
+      textPixel: 4,
+      /** Where the words sit: share of the screen's height from the top to their middle. */
+      textAt: 0.24,
+      /** Their colour and their shadow's (one font pixel down and right). */
+      textColor: "#eadcff",
+      textShadow: "#24083f",
       /** Letters typed per second. */
       typeSpeed: 18,
       /** The words stay until this time, then fade out over textFade. */

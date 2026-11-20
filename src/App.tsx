@@ -89,14 +89,6 @@ export default function App() {
           </span>
         </div>
       )}
-      {/* The Leviathan's entrance: words typing across the top third of the screen. */}
-      {hud && hud.intro && (
-        <div className="boss-intro" style={{ opacity: hud.intro.alpha }}>
-          {/* The whole line takes its room from the start (the untyped rest is invisible), so the words don't shift as they type. */}
-          <span>{hud.intro.text}</span>
-          <span className="boss-intro-rest">{hud.intro.full.slice(hud.intro.text.length)}</span>
-        </div>
-      )}
       {/* A boss's health (placeholder look, separate so art can replace it). */}
       {hud && !hud.gameOver && hud.boss !== null && (
         <div className="boss-bar">
