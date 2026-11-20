@@ -1041,6 +1041,20 @@ export const CONFIG = {
     debrisMomentum: 0.7,
     /** Most debris pieces at once. */
     debrisMaxPieces: 300,
+    /** Below this share of its health a ship gives off sparks from its damaged spots now and then. */
+    sparksBelow: 0.5,
+    /** Spark bursts per second at nearly no health (fewer the healthier it is). */
+    sparkBursts: 2.5,
+    /** Sparks per burst (random between). */
+    sparkCount: [2, 5],
+    /** A spark particle (speed, spread, life, drag as for thruster particles). */
+    spark: { sprite: 'vfx.particle.spark', perSecond: 1, speed: 70, angle: 360, life: 0.35, drag: 2 },
+    /** Below this share of its health a ship trails steady smoke from its damaged spots. */
+    smokeBelow: 0.25,
+    /** That smoke's particles per second per spot (tier 1; more for bigger ships). */
+    lowSmoke: 6,
+    /** How many of its damaged spots smoke. */
+    lowSmokeSpots: 2,
   },
 
   /**

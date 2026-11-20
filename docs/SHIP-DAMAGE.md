@@ -1,4 +1,4 @@
-# Ship damage (plan, agreed 2026-11-20)
+# Ship damage (plan agreed 2026-11-20; steps 1–4 built the same day)
 
 Procedural damage on ships: marks that stick to the hull where hits land, debris, burns, smoke and
 sparks. Hand-painted damaged states of big ships' base images may come later (not part of this).

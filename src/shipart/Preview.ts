@@ -18,7 +18,7 @@ import type { Team } from '../game/world';
 import { LeviathanPreview, type BossHead } from './bossPreview';
 import { bossPieceSprite, type BossPiece } from './LeviathanPanel';
 import type { SoundScene } from './soundInfo';
-import { drawDamage, drawDebrisChips, emitDamageSmoke, type Damageable, type DecorTilt } from '../game/shipDamage';
+import { drawDamage, drawDebrisChips, emitDamageParticles, type Damageable, type DecorTilt } from '../game/shipDamage';
 
 export interface PreviewSettings {
   data: ArtLayoutsFile;
@@ -140,6 +140,8 @@ export class Preview {
   private crtParams: () => CrtParams;
   private overlay: HTMLCanvasElement;
   private particles = new Particles();
+  /** Particles drawn over the ship (damage sparks and smoke, like the game's). */
+  private topParticles = new Particles();
   private handle = 0;
   private last = performance.now();
   private time = 0;
@@ -330,6 +332,8 @@ export class Preview {
     if (st.kind.id === 'laser') this.drawLaser(state, tier, st.team);
     else if (!hidden) drawLayoutArt(r, this.assets, this.layout, st.subject, this.x, this.y, this.angle, state, team, this.time, pointId ? 0.35 : 1, true, 1, this.tilt(), this.damageDecor());
     drawDebrisChips(r, this.time);
+    this.topParticles.update(dt);
+    this.topParticles.draw(r, this.assets);
     // Gun images (turrets) on top, at rest.
     for (const g of this.guns())
       if (g.image && this.assets.has(fileSprite(g.image)))
@@ -453,7 +457,7 @@ export class Preview {
     // Where it is (for its burns' smoke).
     const v = this.speed();
     Object.assign(d, { x: this.x, y: this.y, angle: this.angle, vx: Math.cos(this.angle) * v, vy: Math.sin(this.angle) * v });
-    emitDamageSmoke(this.particles, d, 1 / 60);
+    emitDamageParticles(this.topParticles, d, 1 / 60);
     if (st.damageHit !== this.lastHit) {
       this.lastHit = st.damageHit;
       const size = this.assets.get(st.subject).frames[0];

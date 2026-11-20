@@ -1,6 +1,6 @@
 // Connects everything: input -> game rules -> drawing, plus info for the on-screen HUD.
 
-import { emitDamageSmoke } from './shipDamage';
+import { emitDamageParticles } from './shipDamage';
 import { ASSET_ROOT, spriteDuration, type Assets } from '../engine/assets';
 import { CrtFilter } from '../engine/crt';
 import { screenEffect } from './screenEffect';
@@ -1071,8 +1071,8 @@ export class Game {
       // A banking ship's thrusters move with its tilted hull.
       const spot = shipVolume(this.renderer, this.assets, this.layouts, s, this.volume3d).spot;
       this.particles.emitMounts(this.layouts, this.layouts.ships[base], s.thrust, s.x, s.y, s.angle, dt, s.vx, s.vy, scale, spot);
-      // Smoke from strong burns (damage marks, shipDamage.ts).
-      emitDamageSmoke(this.particles, s, dt);
+      // Smoke from strong burns, and sparks and smoke from badly hurt ships (shipDamage.ts).
+      emitDamageParticles(this.topParticles, s, dt);
     }
     // Objects with particle emitters (art.json): missiles (Inert until they fire up, then Fired),
     // gun shots, mines, wrecks, laser beams and elite laser warnings.

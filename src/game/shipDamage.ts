@@ -92,6 +92,8 @@ interface Marks {
   burn: number;
   /** The time it was last drawn (for cooling). */
   time: number;
+  /** Spots picked on its hull for sparks and smoke while it has no marks (damagedSpots). */
+  spots?: { ox: number; oy: number }[];
 }
 
 /** A ship's burns (energy hits): each hull pixel's heat (1 = white hot, cooling to 0) and scorch (0–1). */
@@ -551,18 +553,58 @@ export function hullDepth(s: Damageable & { x: number; y: number; angle: number 
   return p && p.depth < f.w + f.h ? p.depth * scale : 0;
 }
 
-/** Smoke from a ship's strong burns (Game.ts, with the thrusters' particles). */
-export function emitDamageSmoke(particles: Particles, s: Damageable & { x: number; y: number; angle: number; vx: number; vy: number }, dt: number) {
+/** Where a hurt ship sparks and smokes from: its marks, else a couple of spots picked on its hull (offsets from the anchor, art pixels). */
+function damagedSpots(m: Marks) {
+  if (m.marks.length) return m.marks.map((k) => ({ ox: k.ox, oy: k.oy }));
+  if (!m.spots) {
+    const f = m.frame;
+    m.spots = [];
+    for (let i = 0; i < 2; i++) {
+      const p = randomHullPixel(f);
+      if (p) m.spots.push({ ox: p.px + 0.5 - m.sprite.anchorX, oy: p.py + 0.5 - m.sprite.anchorY });
+    }
+  }
+  return m.spots;
+}
+
+/**
+ * A ship's damage particles (Game.ts, with the thrusters'): smoke from strong burns; below
+ * `sparksBelow` of its health, bursts of sparks from its damaged spots now and then (more often
+ * the lower it is); below `smokeBelow`, steady smoke from them.
+ */
+export function emitDamageParticles(particles: Particles, s: Damageable & { x: number; y: number; angle: number; vx: number; vy: number }, dt: number) {
   const m = shipMarks.get(s);
-  if (!m?.smoke.length) return;
+  if (!m) return;
   const D = CONFIG.damage;
   const c = Math.cos(s.angle);
   const n = Math.sin(s.angle);
-  for (const k of m.smoke) {
+  const at = (k: { ox: number; oy: number }) => {
     const ox = k.ox * m.scale;
     const oy = k.oy * m.scale;
-    particles.emit({ ...D.smoke, perSecond: D.smoke.perSecond * Math.sqrt(m.scale) }, s.x + ox * c - oy * n, s.y + ox * n + oy * c, Math.random() * Math.PI * 2, dt, s.vx, s.vy);
+    return { x: s.x + ox * c - oy * n, y: s.y + ox * n + oy * c };
+  };
+  const size = Math.sqrt(m.scale);
+  for (const k of m.smoke) {
+    const p = at(k);
+    particles.emit({ ...D.smoke, perSecond: D.smoke.perSecond * size }, p.x, p.y, Math.random() * Math.PI * 2, dt, s.vx, s.vy);
   }
+  const health = s.hp / s.stats.maxHp;
+  if (health >= D.sparksBelow || s.hp <= 0) return;
+  const spots = damagedSpots(m);
+  if (!spots.length) return;
+  // Sparks: bursts now and then, more often the lower its health.
+  const often = D.sparkBursts * (1 - health / D.sparksBelow);
+  if (Math.random() < often * dt) {
+    const p = at(spots[Math.floor(Math.random() * spots.length)]);
+    const count = D.sparkCount[0] + Math.floor(Math.random() * (D.sparkCount[1] - D.sparkCount[0] + 1));
+    particles.emit({ ...D.spark, perSecond: count }, p.x, p.y, Math.random() * Math.PI * 2, 1, s.vx, s.vy);
+  }
+  // Smoke: steady, from its worst spots.
+  if (health < D.smokeBelow)
+    for (const k of spots.slice(0, D.lowSmokeSpots)) {
+      const p = at(k);
+      particles.emit({ ...D.smoke, perSecond: D.lowSmoke * size }, p.x, p.y, Math.random() * Math.PI * 2, dt, s.vx, s.vy);
+    }
 }
 
 /** Forget a ship's marks (ShipArt's Repair button). */
