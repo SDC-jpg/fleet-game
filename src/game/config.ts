@@ -961,7 +961,13 @@ export const CONFIG = {
     pitchPerAccel: 2.5,
     /** How quickly the tilt follows (per second; lower = smoother, lazier). */
     response: 6,
-    /** The tilt is drawn in steps of this many degrees (each step's picture is made once and kept). */
+    /** From this tier on, each tier tilts this share of the tier before (the user, 2026-11-20: tier 3 half of tier 2, tier 4 half of tier 3...). */
+    smallerFromTier: 3,
+    perTier: 0.5,
+    /** ...but never less than this much bank and pitch (degrees). */
+    minBank: 3,
+    minPitch: 1,
+    /** The tilt is drawn in steps of this many degrees (each step's picture is made once and kept); finer for big tiers, so a few degrees still show (at least 3 steps each way). */
     step: 5,
     /** Light: the side tilting toward the light steps to lighter colours of its own palette (the user preferred it off). */
     light: false,

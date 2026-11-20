@@ -1384,6 +1384,22 @@ export function hijackShip(state: GameState, s: Ship, duration: number) {
 }
 
 /**
+ * The most a ship of this tier banks and pitches (degrees, CONFIG.volume): full up to tier 2, then
+ * each tier `perTier` of the one before, never below minBank / minPitch.
+ */
+export function tiltLimits(tier: number) {
+  const V = CONFIG.volume;
+  const k = V.perTier ** Math.max(0, tier - V.smallerFromTier + 1);
+  return { bank: Math.max(V.minBank, V.maxBank * k), pitch: Math.max(V.minPitch, V.maxPitch * k) };
+}
+
+/** The tilt drawing step for a tier (radians): CONFIG.volume.step, finer for big tiers (at least 3 steps each way). */
+export function tiltStep(tier: number) {
+  const most = tiltLimits(tier);
+  return (Math.min(CONFIG.volume.step, most.bank / 3, most.pitch) * Math.PI) / 180;
+}
+
+/**
  * Each ship's 3D tilt for drawing (CONFIG.volume): it banks into turns (turning right = its right
  * side dips) and pitches its nose up while speeding up, down while slowing. Just for looks.
  */
@@ -1399,8 +1415,13 @@ function updateShipTilt(state: GameState, dt: number) {
     const accel = (forward - s.lastForward) / dt;
     s.lastAngle = s.angle;
     s.lastForward = forward;
-    const bank = clamp(turn * V.bankPerTurn, -V.maxBank, V.maxBank) * rad;
-    const pitch = clamp((accel / 100) * V.pitchPerAccel, -V.maxPitch, V.maxPitch) * rad;
+    // How much of its full bank and pitch (−1..1); a slow-turning big ship reaches full bank at its own top turning speed.
+    const topTurn = Math.min(1, (s.stats.turnRate * V.bankPerTurn) / V.maxBank);
+    const bankShare = clamp((turn * V.bankPerTurn) / V.maxBank / topTurn, -1, 1);
+    const pitchShare = clamp(((accel / 100) * V.pitchPerAccel) / V.maxPitch, -1, 1);
+    const most = tiltLimits(s.tier);
+    const bank = bankShare * most.bank * rad;
+    const pitch = pitchShare * most.pitch * rad;
     s.bank += (bank - s.bank) * k;
     s.pitch += (pitch - s.pitch) * k;
   }

@@ -9,7 +9,7 @@ import type { Particles } from './particles';
 import { ownedSkill, pdcPositions } from './newSkills';
 import { DEFAULT_FIN_IMAGE, fileSprite, shipPointToWorld, type ArtLayout, type ArtLayoutsFile, type BossGradient } from './artLayout';
 import { gunsOf, shipArtBase } from './guns';
-import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
+import { tiltStep, controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
 import { HALF_SIDE_HEAD_SPRITE, MOUTH_OPEN_HEAD_SPRITE, PIECE_SPRITES, beamOrigin, beamThickness, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
 import { orbTell } from './leviathanAttacks';
 import { DEFAULT_VOLUME, snapTilt, tiltedSpot, tiltedSprite } from '../engine/tilt';
@@ -97,7 +97,7 @@ const NO_TILT = { tilt: undefined, spot: (x: number, y: number) => ({ x, y }) };
 export function shipVolume(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: Ship, on: boolean) {
   if (!on || r.rotation === 'rotsprite' || s.leviathan || s.parasite) return NO_TILT;
   const V = CONFIG.volume;
-  const step = (V.step * Math.PI) / 180;
+  const step = tiltStep(s.tier);
   if (Math.round(s.bank / step) === 0 && Math.round(s.pitch / step) === 0) return NO_TILT;
   const { name: base } = tierArt(assets, shipArtBase(s), s.tier, '', false);
   const layout = layouts.ships[base];
