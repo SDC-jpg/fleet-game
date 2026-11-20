@@ -91,6 +91,10 @@ const BOSS_EFFECTS = [
   'boss.leviathan.orb-pulse',
   'boss.leviathan.blood',
   'boss.leviathan.blood-hit',
+  'boss.leviathan.lightning',
+  'boss.leviathan.rift',
+  'boss.leviathan.explosion',
+  'boss.leviathan.shockwave',
 ];
 /** "vfx.explosion.t3" → "vfx.explosion". */
 const effectBaseOf = (name: string) => name.replace(/\.t\d+$/, '');
