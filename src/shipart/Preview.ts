@@ -18,7 +18,7 @@ import type { Team } from '../game/world';
 import { LeviathanPreview, type BossHead } from './bossPreview';
 import { bossPieceSprite, type BossPiece } from './LeviathanPanel';
 import type { SoundScene } from './soundInfo';
-import { drawDamage, type Damageable } from '../game/shipDamage';
+import { drawDamage, emitDamageSmoke, type Damageable, type DecorTilt } from '../game/shipDamage';
 
 export interface PreviewSettings {
   data: ArtLayoutsFile;
@@ -70,6 +70,8 @@ export interface PreviewSettings {
   damageHp: number;
   damageHit: number;
   damageStrength: number;
+  /** What that hit was: a gun shot, an energy bolt, or the Laser (straight through). */
+  damageKind: 'gun' | 'energy' | 'laser';
   /** A sound's scene to show instead (ShipArt → Sounds): `play` is bumped to play it once; `cue` starts the sound, `loop` sets a looping sound's level. */
   sound: SoundPreview | null;
 }
@@ -154,7 +156,7 @@ export class Preview {
   private soundT = Infinity;
   private soundCued = true;
   /** A pretend ship that carries the damage marks shown, and the last Hit press seen. */
-  private dummy: Damageable = { hp: 1, stats: { maxHp: 1 }, hits: [] };
+  private dummy: Damageable & { x: number; y: number; angle: number; vx: number; vy: number } = { hp: 1, stats: { maxHp: 1 }, hits: [], x: 0, y: 0, angle: 0, vx: 0, vy: 0 };
   private lastHit = 0;
   private assets: Assets;
   private events: PreviewEvents;
@@ -447,14 +449,35 @@ export class Preview {
     if (st.kind.section !== 'ships') return undefined;
     const d = this.dummy;
     d.hp = st.damageHp;
+    // Where it is (for its burns' smoke).
+    const v = this.speed();
+    Object.assign(d, { x: this.x, y: this.y, angle: this.angle, vx: Math.cos(this.angle) * v, vy: Math.sin(this.angle) * v });
+    emitDamageSmoke(this.particles, d, 1 / 60);
     if (st.damageHit !== this.lastHit) {
       this.lastHit = st.damageHit;
-      // A gun hit somewhere on it (the hull is found from there).
       const size = this.assets.get(st.subject).frames[0];
-      d.hits!.push({ x: (Math.random() - 0.5) * size.w, y: (Math.random() - 0.5) * size.h, kind: 'gun', strength: st.damageStrength });
+      if (st.damageKind === 'gun') {
+        // A gun hit somewhere on it (the hull is found from there).
+        d.hits!.push({ x: (Math.random() - 0.5) * size.w, y: (Math.random() - 0.5) * size.h, kind: 'gun', strength: st.damageStrength });
+      } else {
+        // From outside, heading in across it (the Laser right through, off the middle a little).
+        const a = Math.random() * Math.PI * 2;
+        const reach = Math.max(size.w, size.h) / 2;
+        const off = (Math.random() - 0.5) * reach * 0.6;
+        const dir = a + Math.PI;
+        d.hits!.push({
+          x: Math.cos(a) * reach - Math.sin(a) * off,
+          y: Math.sin(a) * reach + Math.cos(a) * off,
+          dx: Math.cos(dir),
+          dy: Math.sin(dir),
+          through: st.damageKind === 'laser',
+          kind: 'energy',
+          strength: st.damageStrength,
+        });
+      }
     }
-    return (hull: Sprite, spot: (x: number, y: number) => { x: number; y: number }, k: number) =>
-      drawDamage(this.renderer, this.assets, d, tierOf(st.subject), hull, spot, this.x, this.y, this.angle, k, 1);
+    return (hull: Sprite, spot: (x: number, y: number) => { x: number; y: number }, k: number, t?: DecorTilt) =>
+      drawDamage(this.renderer, this.assets, d, tierOf(st.subject), hull, spot, this.x, this.y, this.angle, k, 1, this.time, t);
   }
 
   /** Ships: the 3D tilt now (Swing rocks it: bank and pitch on different rhythms), or none. */

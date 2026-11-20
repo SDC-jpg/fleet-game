@@ -8,7 +8,7 @@ import { eliteXp, enemyHealthMultiplier, isFleetWave, killXp, loneEnemyCount, ti
 export { tierCounts } from './curves';
 import { interceptMissiles } from './newSkills';
 import { gunsOf, type GunSpec } from './guns';
-import { recordHit, type DamageHit } from './damage';
+import { recordHit, type DamageHit, type HitPoint } from './damage';
 import { pointHitsShip, rayHitsShip } from './hitShape';
 import type { WeaponType } from './artLayout';
 import { drawCards, gainXp } from './progress';
@@ -402,6 +402,8 @@ export interface EnergyBeam {
   length: number;
   /** Where it's burning something (a ship, a Shield bubble or a Force Wall), or null. */
   hit: { x: number; y: number } | null;
+  /** The ship it's burning (its hull, not just its hit circle, is drawn as where it ends: shipDamage.ts hullDepth), or null. */
+  target?: Ship | null;
 }
 
 /** A mine waiting for an enemy to come near. */
@@ -1669,6 +1671,7 @@ function traceEnergyBeam(state: GameState, b: EnergyBeam): Ship | null {
   }
   b.length = best;
   b.hit = best < state.beamReach ? { x: b.x + dx * best, y: b.y + dy * best } : null;
+  b.target = target;
   return target;
 }
 
@@ -1696,7 +1699,8 @@ export function updateEnergyBeams(state: GameState, dt: number, edt: number) {
     b.age += bdt;
     if (b.age >= D || s.dead || s.merge || s.absorbed || s.team !== b.team || s.frozen > 0) return false;
     const target = traceEnergyBeam(state, b);
-    if (target) damageShip(state, target, b.dps * bdt, b.source);
+    // (The point it burns, going the beam's way: the marks find the hull from there.)
+    if (target) damageShip(state, target, b.dps * bdt, b.source, b.hit ? { x: b.hit.x, y: b.hit.y, vx: Math.cos(b.angle), vy: Math.sin(b.angle) } : undefined);
     return true;
   });
 }
@@ -1795,7 +1799,7 @@ function addBullet(state: GameState, ship: Ship, x: number, y: number, angle: nu
  * Damage a ship: a Shield soaks it up first, then health. Your ships take no
  * damage in invincible test mode. Returns true if this destroyed it.
  */
-export function damageShip(state: GameState, s: Ship, amount: number, source: DamageSource = 'gun', at?: { x: number; y: number }) {
+export function damageShip(state: GameState, s: Ship, amount: number, source: DamageSource = 'gun', at?: HitPoint) {
   if (s.dead) return false;
   // Reinforcements on their way (and just after joining) can't be hurt.
   if (s.immune > 0) return false;
@@ -1809,7 +1813,7 @@ export function damageShip(state: GameState, s: Ship, amount: number, source: Da
   if (s.team === 'enemy' && amount > 0 && !source.startsWith('leviathan')) state.stats.damageBySource[source] = (state.stats.damageBySource[source] ?? 0) + Math.min(amount, Math.max(0, s.hp));
   if (!(s.team === 'player' && state.invincible)) s.hp -= amount;
   // Where it landed, for the marks on its hull (damage.ts).
-  if (at) recordHit(s, amount, source, at);
+  recordHit(s, amount, source, at);
   if (s.hp <= 0) {
     s.dead = true;
     s.killedBy = source;

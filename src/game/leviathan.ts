@@ -614,9 +614,9 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
       if (s === ship || s.leviathan || s.parasite || s.dead || s.merge) continue;
       const hit = rayHitsShip(s, f.x, f.y, dx, dy, (B.width / 2) * thick);
       if (hit === null || hit > state.beamReach) continue;
-      damageShip(state, s, s.stats.maxHp * B.damagePerSecond * dt, 'leviathan-beam');
-      // The impact shows where the beam's middle passes the ship.
+      // The impact shows where the beam's middle passes the ship (and it burns the hull there).
       const along = Math.max(hit, (s.x - f.x) * dx + (s.y - f.y) * dy);
+      damageShip(state, s, s.stats.maxHp * B.damagePerSecond * dt, 'leviathan-beam', { x: f.x + dx * along, y: f.y + dy * along, vx: dx, vy: dy });
       a.hits.push({ x: f.x + dx * along, y: f.y + dy * along });
     }
   }

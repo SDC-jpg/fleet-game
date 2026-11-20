@@ -202,7 +202,8 @@ function fireLaser(state: GameState, ship: Ship, sk: OwnedSkill) {
     // The beam (as wide as it's drawn) against the ship's hit shape, within the beam's length.
     const t = rayHitsShip(s, x0, y0, dx, dy, halfWidth);
     if (t === null || t > length) continue;
-    damageShip(state, s, damage, 'laser');
+    // It goes right through: a scorched line across the hull from where it went in (damage.ts).
+    damageShip(state, s, damage, 'laser', { x: x0 + dx * t, y: y0 + dy * t, vx: dx, vy: dy, through: true });
     addEffect(state, 'vfx.hit', s.x, s.y, 0, ship.tier + 1);
   }
   state.beams.push({ team: ship.team, tier: ship.tier, x: x0, y: y0, angle: a, length, width: mods.size, age: 0 });

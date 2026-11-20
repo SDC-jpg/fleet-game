@@ -995,6 +995,26 @@ export const CONFIG = {
     followHealth: 0.5,
     /** Strength of an extra mark added to follow health. */
     extraStrength: 0.08,
+    /** Energy burns: a spot's radius as a share of a torn mark's for the same hit. */
+    burnSize: 0.7,
+    /** Smallest burn radius (art pixels): a beam's touch. */
+    burnMin: 0.8,
+    /** The Laser's line across the hull: its half width as a share of a burn spot's radius. */
+    lineWidth: 0.5,
+    /** Seconds a white-hot burn takes to cool down to scorch. */
+    coolTime: 1.5,
+    /** How far scorch turns the hull toward the scorch texture (0–1). */
+    scorchMix: 0.85,
+    /** Burn strength (damage ÷ max health, added up over a moment) that makes a puff of smoke rise from the burn. */
+    smokeFrom: 0.08,
+    /** How fast that added-up burn fades (per second), so slow trickles never smoke. */
+    burnFade: 0.1,
+    /** Seconds a burn smokes. */
+    smokeTime: 3,
+    /** Most smoking spots on a ship at once. */
+    smokeSpots: 3,
+    /** Smoke particles from a burn (per second for a tier-1 ship, more for bigger ones; speed, spread, life, drag as for thruster particles). */
+    smoke: { sprite: 'vfx.particle.smoke', perSecond: 8, speed: 12, angle: 360, life: 1.4, drag: 1 },
   },
 
   /**

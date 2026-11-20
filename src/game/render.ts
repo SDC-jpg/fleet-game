@@ -15,7 +15,7 @@ import { orbTell } from './leviathanAttacks';
 import { DEFAULT_VOLUME, snapTilt, tiltedSpot, tiltedSprite } from '../engine/tilt';
 import { pieceGone } from './leviathanDeath';
 import { introText, riftOpening, type BossIntro } from './leviathanIntro';
-import { drawDamage } from './shipDamage';
+import { drawDamage, hullDepth, type DecorTilt } from './shipDamage';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
@@ -348,11 +348,15 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
       continue;
     }
     const { name, scale } = tierArt(assets, 'vfx.laser', b.tier);
-    drawBeam(r, teamSprite(assets, name, b.team), b.x, b.y, b.angle, b.length, scale, b.age, alpha);
+    // It reaches into the ship to its hull (not just the edge of its hit circle), where it burns it.
+    const depth = b.hit && b.target ? hullDepth(b.target, b.hit.x, b.hit.y, Math.cos(b.angle), Math.sin(b.angle)) : 0;
+    drawBeam(r, teamSprite(assets, name, b.team), b.x, b.y, b.angle, b.length + depth, scale, b.age, alpha);
     drawLayoutArt(r, assets, extras.layouts.objects[name], name, b.x, b.y, b.angle, 'beam', b.team, b.age, alpha, false, scale);
     if (b.hit) {
       const imp = tierArt(assets, 'vfx.laser-impact', b.tier);
-      r.drawSprite(teamSprite(assets, imp.name, b.team), b.hit.x, b.hit.y, b.angle + Math.PI, state.time, alpha, false, imp.scale);
+      const hx = b.hit.x + Math.cos(b.angle) * depth;
+      const hy = b.hit.y + Math.sin(b.angle) * depth;
+      r.drawSprite(teamSprite(assets, imp.name, b.team), hx, hy, b.angle + Math.PI, state.time, alpha, false, imp.scale);
     }
   }
 
@@ -599,7 +603,10 @@ function drawShip(r: PixelRenderer, assets: Assets, layouts: ArtLayoutsFile, s: 
   // As a 3D hull, banking and pitching (CONFIG.volume); its parts and guns move with it.
   const vol = shipVolume(r, assets, layouts, s, volume && !s.ghost);
   // Damage marks where it was hit (shipDamage.ts; not while cloaked).
-  const marks = CONFIG.damage.enabled && !s.ghost ? (hull: Sprite, spot: (x: number, y: number) => { x: number; y: number }, k: number) => drawDamage(r, assets, s, s.tier, hull, spot, s.x, s.y, s.angle, k, alpha) : undefined;
+  const marks =
+    CONFIG.damage.enabled && !s.ghost
+      ? (hull: Sprite, spot: (x: number, y: number) => { x: number; y: number }, k: number, t?: DecorTilt) => drawDamage(r, assets, s, s.tier, hull, spot, s.x, s.y, s.angle, k, alpha, time, t)
+      : undefined;
   drawLayoutArt(r, assets, layout, base, s.x, s.y, s.angle, s.thrust, null, time, alpha, true, scale, vol.tilt, marks);
   // Gun images (turrets) on top, turned to where each gun points.
   gunsOf(s).forEach((g, i) => {
@@ -894,7 +901,7 @@ export function drawLayoutArt(
   /** Ships: banked and pitched (radians) as a 3D hull (engine/tilt.ts, shape from layout.volume), parts following; light = shading stepped to its palette. */
   tilt?: { bank: number; pitch: number; light: boolean; step?: number },
   /** Drawn over the hull, under its front parts (damage marks): gets the hull image as drawn flat, `spot` (moves a point with a banking hull) and the drawn size. */
-  decor?: (hull: Sprite, spot: (x: number, y: number) => { x: number; y: number }, scale: number) => void,
+  decor?: (hull: Sprite, spot: (x: number, y: number) => { x: number; y: number }, scale: number, tilt?: DecorTilt) => void,
 ) {
   const baseFile = layout?.base[state] ?? layout?.base.idle;
   const mounts = layout?.mounts ?? [];
@@ -931,7 +938,8 @@ export function drawLayoutArt(
     drawMounts(true);
     if (drawBase) r.drawRotated(baseSprite, x, y, angle, time, alpha, baseScale);
     // Not on the detail steps' small versions (too small to see).
-    if (decor && drawBase && detailSteps === 0) decor(flat, spot, baseScale);
+    if (decor && drawBase && detailSteps === 0)
+      decor(flat, spot, baseScale, tilted ? { bank: snapTilt(tilt.bank, tilt.step), pitch: snapTilt(tilt.pitch, tilt.step), step: tilt.step, shape } : undefined);
     drawMounts(false);
   } finally {
     r.rotation = mode;

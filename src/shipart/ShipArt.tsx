@@ -169,6 +169,7 @@ export function ShipArt() {
   const [damageHp, setDamageHp] = useState(1);
   const [damageHit, setDamageHit] = useState(0);
   const [damageStrength, setDamageStrength] = useState(0.1);
+  const [damageKind, setDamageKind] = useState<'gun' | 'energy' | 'laser'>('gun');
   const [rotation, setRotation] = useState<RotationMode>(() => {
     const r = loadSetting(ROTATION_SETTING) as RotationMode | null;
     return r && ROTATION_MODES.includes(r) ? r : 'grid';
@@ -517,6 +518,7 @@ export function ShipArt() {
       damageHp,
       damageHit,
       damageStrength,
+      damageKind,
     };
 
   /** Change one Leviathan fin without an undo step (preview drags save one when they start). */
@@ -648,7 +650,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossFin, bossStraight, bossBeam, patch, bank, pitch, tiltLight, swing, soundBase, soundTier, soundPlay, lab, damageHp, damageHit, damageStrength]);
+  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossFin, bossStraight, bossBeam, patch, bank, pitch, tiltLight, swing, soundBase, soundTier, soundPlay, lab, damageHp, damageHit, damageStrength, damageKind]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -996,15 +998,18 @@ export function ShipArt() {
             </label>
             {(
               [
-                ['Hit', 0.06, 'A light gun hit (6% of its health) somewhere on it'],
-                ['Big hit', 0.25, 'A heavy gun hit (25% of its health)'],
-              ] as [string, number, string][]
-            ).map(([text, k, tip]) => (
+                ['Hit', 0.06, 'gun', 'A light gun hit (6% of its health) somewhere on it'],
+                ['Big hit', 0.25, 'gun', 'A heavy gun hit (25% of its health)'],
+                ['Energy', 0.1, 'energy', 'An energy bolt (10%): a white-hot burn cooling to scorch, smoking if strong'],
+                ['Laser', 0.15, 'laser', 'The Laser skill (15%): it goes right through, burning a line across the hull'],
+              ] as [string, number, 'gun' | 'energy' | 'laser', string][]
+            ).map(([text, k, kind, tip]) => (
               <button
                 key={text}
                 title={tip}
                 onClick={() => {
                   setDamageStrength(k);
+                  setDamageKind(kind);
                   setDamageHit((n) => n + 1);
                   setDamageHp((h) => Math.max(0.01, h - k));
                 }}

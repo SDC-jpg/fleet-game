@@ -56,6 +56,16 @@ function tile(rows, colours) {
   return encodePng(w, h, data);
 }
 
+/** Frames side by side from rows of letters (one list of rows per frame, all the same size). */
+function strip(frames, colours) {
+  const h = frames[0].length;
+  const fw = frames[0][0].length;
+  const w = fw * frames.length;
+  const data = new Uint8Array(w * h * 4);
+  frames.forEach((rows, f) => rows.forEach((row, y) => [...row].forEach((ch, x) => colours[ch] && data.set(colours[ch], (y * w + f * fw + x) * 4))));
+  return encodePng(w, h, data);
+}
+
 const ART = {
   // Exposed innards (gun hits: torn plating): dark hollow, struts, a pipe, a few glowing bits.
   'vfx/damage-innards.png': () =>
@@ -79,6 +89,24 @@ const ART = {
         '....p.......s...',
       ],
       { '.': '#16141c', s: '#3b3744', p: '#55687a', o: '#ff8a2a', y: '#ffd35a' },
+    ),
+  // Scorch (energy burns): sooty blacks and browns the hull turns toward.
+  'vfx/damage-scorch.png': () =>
+    tile(
+      ['abab', 'bcba', 'abac', 'cbab'],
+      { a: '#1a1512', b: '#2a201a', c: '#3a2c22' },
+    ),
+  // The heat ramp: a burn's colour from white hot (left) to cold (right).
+  'vfx/damage-heat.png': () => tile(['wyoOrRdk'], { w: '#ffffff', y: '#fff3a0', o: '#ffc040', O: '#ff8a20', r: '#f04818', R: '#b02010', d: '#5a1008', k: '#200806' }),
+  // A puff of smoke (3 frames, 4×4, growing and fading).
+  'vfx/particle-smoke.png': () =>
+    strip(
+      [
+        ['....', '.aa.', '.aa.', '....'],
+        ['.bb.', 'bbbb', 'bbbb', '.bb.'],
+        ['.c.c', 'c.c.', '.c.c', 'c.c.'],
+      ],
+      { a: [150, 150, 158, 220], b: [110, 110, 118, 170], c: [80, 80, 88, 110] },
     ),
 };
 
