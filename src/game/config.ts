@@ -639,13 +639,15 @@ export const CONFIG = {
       bloodSpeed: 260,
       bloodSpeedRandom: 0.35,
       /** Seconds each blood shot flies. */
-      bloodLife: 2.8,
+      bloodLife: 4,
       /** How quickly blood shots slow down (share of their speed lost per second; 0.6 until 2026-11-20, now they fly about twice as far). */
       bloodDrag: 0.02,
-      /** Damage per blood shot that hits, as a share of the ship's full health. */
+      /** Damage per blood burst to each ship it reaches, as a share of the ship's full health. */
       bloodDamage: 0.03,
       /** A blood shot's size for hitting ships (game pixels). */
       bloodRadius: 4,
+      /** When a blood shot hits a ship it bursts: every ship within this distance (game pixels, plus its own size) takes bloodDamage. */
+      bloodBlastRadius: 45,
       /** Parasites per wound (a random number between these). */
       parasitesMin: 15,
       parasitesMax: 20,

@@ -224,8 +224,14 @@ function updateBlood(state: GameState, dt: number) {
     b.vy *= keep;
     for (const s of state.ships) {
       if (spared(s) || !pointHitsShip(s, b.x, b.y, W.bloodRadius)) continue;
-      damageShip(state, s, s.stats.maxHp * W.bloodDamage, 'leviathan-blood');
-      addEffect(state, 'boss.leviathan.blood-hit', b.x, b.y, Math.random() * Math.PI * 2);
+      // It bursts: every ship within the blast takes the damage (either side).
+      for (const t of state.ships) {
+        if (spared(t)) continue;
+        const r = W.bloodBlastRadius + t.stats.radius;
+        if ((t.x - b.x) ** 2 + (t.y - b.y) ** 2 < r * r) damageShip(state, t, t.stats.maxHp * W.bloodDamage, 'leviathan-blood', b);
+      }
+      addEffect(state, 'boss.leviathan.explosion', b.x, b.y, Math.random() * Math.PI * 2, 1, (W.bloodBlastRadius * 2) / 64);
+      addSound(state, 'sfx.missile-hit', b, 1, 0.6);
       b.age = b.life;
       break;
     }
