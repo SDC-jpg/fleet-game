@@ -5,6 +5,7 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-19
+- The Leviathan roars, mouth open, as it first comes into view and now and then during the fight, and it catches up fast if you try to leave it behind.
 - From wave 30, a Leviathan can now come for you: the chance grows each wave until it appears. Watch the sky: it announces itself.
 - The Leviathan's death is now a spectacle: time slows as the final blow lands, then purple explosions tear along its body with pulses of light and shockwaves.
 - While a Leviathan is on the field, the camera pulls back so the whole fight fits on screen.

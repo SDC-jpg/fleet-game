@@ -536,6 +536,24 @@ export const CONFIG = {
     circleDistance: 280,
     /** How quickly it speeds up or slows down (pixels per second, each second). */
     accel: 340,
+    /** Off-screen, it catches up: beyond catchUpFrom from its target it swims faster, reaching catchUpSpeed catchUpOver further out (your ships fly 150, 330 boosting). */
+    catchUpFrom: 600,
+    catchUpOver: 400,
+    catchUpSpeed: 450,
+    /**
+     * Roars: it turns its head to the side toward your flagship, opens its mouth and roars (a little
+     * screen shake). Always when it first comes into view, then now and then while not attacking.
+     */
+    roar: {
+      /** Seconds a roar lasts (its head turns first, then the mouth opens). */
+      time: 1.4,
+      /** "In view": its head within this distance of your flagship (the fight's view is about 540 from the middle to the top). */
+      inView: 480,
+      /** Seconds between roars during the fight (random between the two). */
+      every: [12, 22] as [number, number],
+      /** Screen shake: strength in screen pixels. */
+      shake: 3,
+    },
     /**
      * Ram: it slows and pulls its head back (flashing, roaring), then charges straight at where your
      * fleet was, its head hitting much harder, then swings round in a wide turn. Never during its beam.

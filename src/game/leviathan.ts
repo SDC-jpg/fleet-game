@@ -43,6 +43,10 @@ export interface LeviathanBody {
   viewTimer: number;
   /** The head is partway through a change of view (top → half-side → side), so the next step comes sooner (viewStepTime). */
   viewStepping: boolean;
+  /** Seconds left of a roar (0 = not roaring), seconds until the next, and whether it has roared on first coming into view (CONFIG.leviathan.roar). */
+  roaring: number;
+  roarIn: number;
+  firstRoar: boolean;
   /** Seconds until it may ram again, and the ram in progress (CONFIG.leviathan.ram). */
   ramIn: number;
   ram: RamState | null;
@@ -231,6 +235,9 @@ export function makeLeviathanBody(x: number, y: number, angle: number, L = gameL
     view: 0,
     viewTimer: 0,
     viewStepping: false,
+    roaring: 0,
+    roarIn: CONFIG.leviathan.roar.every[0],
+    firstRoar: false,
     ramIn: CONFIG.leviathan.ram.every,
     ram: null,
     flash: [],
@@ -361,6 +368,7 @@ export function updateLeviathanAI(state: GameState, ship: Ship, dt: number) {
   const target = findNearestEnemy(state, ship, Infinity);
   if (updateRam(state, ship, body, target, dt)) return lookToward(body, ship, watched, dt);
   let want = ship.angle;
+  let speed = C.speed;
   if (target) {
     const dx = target.x - ship.x;
     const dy = target.y - ship.y;
@@ -369,10 +377,33 @@ export function updateLeviathanAI(state: GameState, ship: Ship, dt: number) {
     // Far away: straight in. At the circling distance: sideways (around it). Closer: veers away a little.
     const off = (Math.PI / 2) * clamp(2 - d / C.circleDistance, 0, 1.3);
     want = toward + off * body.circleDir;
+    // Off-screen it catches up fast.
+    speed += (C.catchUpSpeed - C.speed) * clamp((d - C.catchUpFrom) / C.catchUpOver, 0, 1);
   }
-  swimLeviathan(body, ship, want, C.speed, C.turnRate, dt);
-  // Its head keeps watching your flagship.
-  lookToward(body, ship, watched, dt);
+  swimLeviathan(body, ship, want, speed, C.turnRate, dt);
+  // A roar (turning its head to your flagship, mouth open); otherwise its head keeps watching your flagship.
+  if (!updateRoar(state, ship, body, watched, dt)) lookToward(body, ship, watched, dt);
+}
+
+/** Its roars (CONFIG.leviathan.roar): for sure when it first comes into view, then now and then. Returns true while roaring. */
+function updateRoar(state: GameState, ship: Ship, body: LeviathanBody, flagship: Ship | null, dt: number) {
+  const R = CONFIG.leviathan.roar;
+  if (body.roaring <= 0) {
+    body.roarIn -= dt;
+    const inView = !!flagship && Math.hypot(flagship.x - ship.x, flagship.y - ship.y) < R.inView;
+    const first = !body.firstRoar && inView;
+    if (!first && (body.roarIn > 0 || !inView)) return false;
+    body.firstRoar = true;
+    body.roaring = R.time;
+    body.roarIn = R.every[0] + Math.random() * (R.every[1] - R.every[0]);
+    addSound(state, 'sfx.leviathan-roar', ship, 1, 1, true);
+    state.shake = { time: CONFIG.death.shakeTime, strength: R.shake };
+  }
+  body.roaring = Math.max(0, body.roaring - dt);
+  // Its head turns fully to the side your flagship is on (the mouth opens once it's there: render.ts).
+  const side = flagship ? (wrapAngle(Math.atan2(flagship.y - ship.y, flagship.x - ship.x) - ship.angle) >= 0 ? 1 : -1) : Math.sign(body.view) || 1;
+  stepView(body, (2 * side) as HeadView, dt);
+  return true;
 }
 
 /** Is it ramming right now (charging: its head hits harder)? */

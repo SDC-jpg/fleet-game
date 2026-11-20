@@ -778,8 +778,8 @@ export function leviathanPieceArt(assets: Assets, body: LeviathanBody, kind: Pie
   if (kind !== 'head' || body.view === 0) return { sprite: assets.get(PIECE_SPRITES[kind]), mirror: false };
   // Both turning heads are drawn for one direction and mirrored for the other.
   const sprite = Math.abs(body.view) === 1 && assets.has(HALF_SIDE_HEAD_SPRITE) ? HALF_SIDE_HEAD_SPRITE : SIDE_HEAD_SPRITE;
-  // Mouth open while it charges and fires its beam.
-  const open = Math.abs(body.view) === 2 && body.attack && body.attack.phase !== 'aim' && assets.has(MOUTH_OPEN_HEAD_SPRITE);
+  // Mouth open while it charges and fires its beam, and while it roars.
+  const open = Math.abs(body.view) === 2 && ((body.attack && body.attack.phase !== 'aim') || body.roaring > 0) && assets.has(MOUTH_OPEN_HEAD_SPRITE);
   return { sprite: assets.get(open ? MOUTH_OPEN_HEAD_SPRITE : sprite), mirror: body.view > 0 !== body.layout.sideViewForRightTurns };
 }
 
