@@ -1,5 +1,8 @@
 // Loads the "sounds" section of public/assets/manifest.json and plays them.
 // The rest of the game asks for sounds by name (e.g. "sfx.explosion"), never by file.
+// Sounds replaced in ShipArt (soundReplacements.ts) are used instead when that's switched on.
+
+import { listReplacements, replacementsInGame } from './soundReplacements';
 
 /** One entry in the manifest's "sounds" section. Only `file` is required. */
 interface SoundEntry {
@@ -21,6 +24,8 @@ interface SoundEntry {
 
 interface LoadedSound {
   buffer: AudioBuffer;
+  /** The manifest's own file, while a replacement is used (see replace). */
+  original?: AudioBuffer;
   volume: number;
   pitchVariation: number;
   maxVoices: number;
@@ -37,6 +42,8 @@ export interface PlayOptions {
   pitch?: number;
   /** Left (-1) to right (1). */
   pan?: number;
+  /** Play it even if it's playing too often (ShipArt's play buttons). */
+  always?: boolean;
 }
 
 const ASSET_ROOT = `${import.meta.env.BASE_URL}assets/`;
@@ -76,6 +83,8 @@ export class Sounds {
       const res = await fetch(ASSET_ROOT + 'manifest.json', { cache: 'no-store' });
       const manifest = (await res.json()) as { sounds?: Record<string, SoundEntry> };
       await Promise.all(Object.entries(manifest.sounds ?? {}).map(([name, e]) => sounds.loadSound(name, e)));
+      // Replacements tried out in ShipArt, if this browser uses them in the game.
+      if (replacementsInGame()) for (const r of await listReplacements()) await sounds.replace(r.name, r.data);
     } catch (e) {
       sounds.problems.push(`sound: ${(e as Error).message}`);
     }
@@ -133,6 +142,50 @@ export class Sounds {
     }
   }
 
+  /** Switch sound on or off without remembering it (ShipArt always plays). */
+  setEnabled(on: boolean) {
+    this.enabled = on;
+    this.applyVolume();
+  }
+
+  /**
+   * Use other audio for a sound (a file's contents), or its own file again (null). Returns false
+   * if the browser can't decode it. Copies are kept, since decoding takes the data over.
+   */
+  async replace(name: string, data: ArrayBuffer | null): Promise<boolean> {
+    const s = this.sounds.get(name);
+    if (!s || !this.ctx) return false;
+    if (!data) {
+      if (s.original) s.buffer = s.original;
+      s.original = undefined;
+      return true;
+    }
+    try {
+      const buffer = await this.ctx.decodeAudioData(data.slice(0));
+      s.original ??= s.buffer;
+      s.buffer = buffer;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The replacement playing for a sound became its own file (written into the game): keep playing it, as its own. */
+  adopt(name: string) {
+    const s = this.sounds.get(name);
+    if (s) s.original = undefined;
+  }
+
+  /** Whether a sound plays a replacement now (see replace). */
+  isReplaced(name: string) {
+    return !!this.sounds.get(name)?.original;
+  }
+
+  /** A sound's length in seconds (0 if it's missing). */
+  duration(name: string) {
+    return this.sounds.get(name)?.buffer.duration ?? 0;
+  }
+
   /** True if the manifest has a sound with this name (and it loaded). */
   has(name: string) {
     return this.sounds.has(name);
@@ -187,7 +240,7 @@ export class Sounds {
     const volume = s.volume * (opts.volume ?? 1);
     if (volume <= 0.001) return;
     const now = ctx.currentTime;
-    if (s.playing >= s.maxVoices || now - s.lastStart < s.minGap) return;
+    if (!opts.always && (s.playing >= s.maxVoices || now - s.lastStart < s.minGap)) return;
 
     const source = ctx.createBufferSource();
     source.buffer = s.buffer;

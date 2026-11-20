@@ -44,6 +44,8 @@ import { LeviathanPanel, bossPieceKind, bossPieceSprite, type BossPiece } from '
 import type { BossHead } from './bossPreview';
 import type { Glow } from '../engine/glow';
 import { VolumePanel } from './VolumePanel';
+import { SoundPanel, soundForTier, soundList, useSoundLab } from './SoundPanel';
+import { SOUND_INFO } from './soundInfo';
 
 /** Editing and saving only work with the dev server (npm run dev). */
 const READ_ONLY = !import.meta.env.DEV;
@@ -63,6 +65,8 @@ interface SavedView {
   selected: number | null;
   open: Record<string, boolean>;
   boss?: 'leviathan' | null;
+  /** The sound shown (Sounds section), by its base name. */
+  sound?: string | null;
 }
 const VIEW_SETTING = 'shipart.view';
 const savedView: Partial<SavedView> = (() => {
@@ -192,6 +196,10 @@ export function ShipArt() {
   const [bossStraight, setBossStraight] = useState(0);
   /** Bumped by the Beam button (charge and fire once). */
   const [bossBeam, setBossBeam] = useState(0);
+  /** The sound shown (Sounds section) instead of art, by its base name ("sfx.explosion"), the tier it's played for, and Play presses. */
+  const [soundBase, setSoundBase] = useState<string | null>(savedView.sound ?? null);
+  const [soundTier, setSoundTier] = useState(1);
+  const [soundPlay, setSoundPlay] = useState(0);
   /** Bumped when reloaded art has finished loading, so panels showing its size and frames update. */
   const [artVersion, setArtVersion] = useState(0);
   const [dirty, setDirty] = useState(false);
@@ -201,6 +209,14 @@ export function ShipArt() {
   /** Rollout sections that are open, and the filter text. */
   const [open, setOpen] = useState<Record<string, boolean>>(savedView.open ?? { ships: true, objects: true });
   const [filter, setFilter] = useState('');
+  // The sounds load once the Sounds section is opened (or a sound was shown last time).
+  const lab = useSoundLab(!!open.sounds || soundBase !== null);
+  const soundInfo = soundBase ? SOUND_INFO[soundBase] : undefined;
+  /** Its preview zoom by tier, so the scene fits. */
+  const pickSoundTier = (t: number) => {
+    setSoundTier(t);
+    setZoom([4, 3, 2, 1][t - 1] ?? 1);
+  };
   /** The project folder on Windows, from the dev server (for "Copy folder path"). */
   const [windowsRoot, setWindowsRoot] = useState<string | null>(null);
   useEffect(() => {
@@ -245,9 +261,9 @@ export function ShipArt() {
   // Remember the view (once the art has loaded, so a startup fallback isn't saved over it too early).
   useEffect(() => {
     if (!assets) return;
-    const view: SavedView = { subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open, boss };
+    const view: SavedView = { subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open, boss, sound: soundBase };
     saveSetting(VIEW_SETTING, JSON.stringify(view));
-  }, [assets, subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open, boss]);
+  }, [assets, subject, states, zoom, spin, fly, team, guides, effectBase, effectTier, selected, open, boss, soundBase]);
 
   // Mouse wheel over the preview: zoom in (up) or out (down), one step at a time.
   useEffect(() => {
@@ -435,7 +451,31 @@ export function ShipArt() {
   );
   /** The tier versions of the effect shown, and the one being shown. */
   const effectTiers = effectBase && assets ? [effectBase, ...[2, 3, 4, 5, 6].map((t) => `${effectBase}.t${t}`)].filter((n) => assets.has(n)) : [];
-  const effect = effectBase && assets ? tierSprite(assets, effectBase, effectTier) : null;
+  const effect = effectBase && assets && !soundBase ? tierSprite(assets, effectBase, effectTier) : null;
+  /** The sound's scene for the preview (Sounds section): its sound starts on the scene's cue; looping sounds run while it says. */
+  const soundPreview = () => {
+    if (!soundBase || !lab) return null;
+    const tier = soundInfo?.tiered === false ? 1 : soundTier;
+    const play = soundForTier(lab.sounds, soundBase, tier);
+    return {
+      scene: soundInfo?.scene?.(tier) ?? { items: [], cue: 0.2, length: Math.max(1.2, lab.sounds.duration(play.name) + 0.4) },
+      tier,
+      play: soundPlay,
+      cue: () => {
+        if (!soundInfo?.loop) lab.sounds.play(play.name, { pitch: play.pitch, always: true });
+      },
+      loop: (level: number) => {
+        if (soundInfo?.loop) lab.sounds.setLoop(play.name, level, play.pitch);
+      },
+    };
+  };
+  // A looping sound stops when another sound (or tier) is shown, or the Sounds section is left.
+  useEffect(() => {
+    if (!soundBase || !lab || !soundInfo?.loop) return;
+    const sounds = lab.sounds;
+    const names = [soundBase, ...[2, 3, 4].map((t) => `${soundBase}.t${t}`)];
+    return () => names.forEach((n) => sounds.setLoop(n, 0));
+  }, [soundBase, soundTier, lab, soundInfo]);
 
   const previewSettings = () =>
     data && {
@@ -469,6 +509,7 @@ export function ShipArt() {
       tiltLight,
       swing,
       readOnly: READ_ONLY,
+      sound: soundPreview(),
     };
 
   /** Change one Leviathan fin without an undo step (preview drags save one when they start). */
@@ -600,7 +641,7 @@ export function ShipArt() {
     const settings = previewSettings();
     if (previewRef.current && settings) previewRef.current.settings = settings;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossFin, bossStraight, bossBeam, patch, bank, pitch, tiltLight, swing]);
+  }, [data, subject, state, effect, zoom, detail, spin, fly, team, guides, stars, crt, rotation, selected, selectedPoint, selectedGun, selectedHit, boss, bossHead, bossPiece, bossIndex, bossFin, bossStraight, bossBeam, patch, bank, pitch, tiltLight, swing, soundBase, soundTier, soundPlay, lab]);
 
   // Switching subjects, or turning spin/fly off, puts it back in the middle facing right.
   useEffect(() => previewRef.current?.resetPosition(), [subject, effect, spin, fly]);
@@ -804,15 +845,18 @@ export function ShipArt() {
     setSubject(s);
     setEffectBase(null);
     setBoss(null);
+    setSoundBase(null);
   };
-  /** The boss shown (not while an effect is). */
-  const shownBoss = effect ? null : boss;
+  /** The boss shown (not while an effect or a sound is). */
+  const shownBoss = effect || soundBase ? null : boss;
+  /** Something other than the subject is shown (an effect, a boss or a sound). */
+  const other = !!effect || !!shownBoss || !!soundBase;
   const stateLabel = (s: string) => kind.states.find((k) => k.id === s)?.label ?? label(s);
 
   /** One list of sprites in the rollout menu. */
   const subjectList = (list: string[]) =>
     list.filter(matchesFilter).map((s) => (
-      <button key={s} className={'sa-ship' + (!effect && !shownBoss && subject === s ? ' on' : '')} onClick={() => pickSubject(s)}>
+      <button key={s} className={'sa-ship' + (!other && subject === s ? ' on' : '')} onClick={() => pickSubject(s)}>
         {shortName(s)}
       </button>
     ));
@@ -822,7 +866,9 @@ export function ShipArt() {
       <header className="sa-top">
         <h1>ShipArt</h1>
         <div className="sa-group">
-          {shownBoss ? (
+          {soundBase ? (
+            <span className="sa-note">Sound: {soundBase}</span>
+          ) : shownBoss ? (
             <>
               Head
               {(
@@ -912,7 +958,7 @@ export function ShipArt() {
             Guides
           </button>
         </div>
-        {kind.section === 'ships' && !effect && !shownBoss && (
+        {kind.section === 'ships' && !other && (
           <div className="sa-group sa-tilt" title="3D volume prototype: the ship banked (along its length) and pitched (along its width) as a 3D hull">
             3D
             <label title="Bank: roll along its length (right side down for +). Double-click: 0">
@@ -1022,6 +1068,7 @@ export function ShipArt() {
                   setEffectBase(e);
                   setEffectTier(1);
                   setBoss(null);
+                  setSoundBase(null);
                 }}
               >
                 {e.replace(/^(vfx|boss)\./, '')}
@@ -1043,6 +1090,7 @@ export function ShipArt() {
                 onClick={() => {
                   setBoss('leviathan');
                   setEffectBase(null);
+                  setSoundBase(null);
                   // It's big: at 1× the whole figure eight fits.
                   setZoom(1);
                 }}
@@ -1053,7 +1101,44 @@ export function ShipArt() {
           </div>
         )}
 
-        {data && !effect && !shownBoss && (
+        <button className="sa-rollout" onClick={() => setOpen({ ...open, sounds: !open.sounds })}>
+          {open.sounds ? '▾' : '▸'} Sounds
+        </button>
+        {open.sounds && (
+          <div className="sa-rollout-body">
+            {!lab && <div className="sa-note">Loading sounds…</div>}
+            {/* The Leviathan's sounds only on the dev copy, like the rest of it (a surprise for the teammate). */}
+            {lab &&
+              soundList(lab.entries, !READ_ONLY).map(({ group, sounds }) => {
+                const shown = sounds.filter((n) => matchesFilter(n) || matchesFilter(group));
+                return (
+                  shown.length > 0 && (
+                    <div key={group}>
+                      <div className="sa-rollout-group">{group}</div>
+                      {shown.map((n) => (
+                        <button
+                          key={n}
+                          className={'sa-ship' + (soundBase === n ? ' on' : '')}
+                          onClick={() => {
+                            setSoundBase(n);
+                            setEffectBase(null);
+                            setBoss(null);
+                            pickSoundTier(1);
+                            setSoundPlay((p) => p + 1);
+                          }}
+                        >
+                          {n.replace(/^sfx\./, '')}
+                          {lab.replacements.some((r) => r.name === n || r.name.startsWith(n + '.t')) && ' ●'}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                );
+              })}
+          </div>
+        )}
+
+        {data && !other && (
           <fieldset disabled={READ_ONLY}>
             <h2>Base image</h2>
             {kind.mountStates.map((s) => (
@@ -1105,8 +1190,11 @@ export function ShipArt() {
             </button>
           </div>
         )}
+        {soundBase && soundInfo?.label && <div className="sa-sound-label">{soundInfo.label}</div>}
         <div className="sa-hint">
-          {shownBoss
+          {soundBase
+            ? 'Play replays the moment the sound belongs to (in the game\'s own art) · Tier buttons: as played for bigger ships'
+            : shownBoss
             ? 'Click a piece to pick it · Drag its image to move it around its pivot (the cross on its path) · Drag the gold square to size its hit circle · Fly off or Lay straight to hold it still'
             : effect
             ? 'Looping effects play on and on; play-once effects replay after a short pause'
@@ -1132,7 +1220,10 @@ export function ShipArt() {
           }
         />
       )}
-      {assets && data && !effect && !shownBoss && (
+      {soundBase && lab && (
+        <SoundPanel lab={lab} base={soundBase} tier={soundTier} onTier={pickSoundTier} onPlay={() => setSoundPlay((p) => p + 1)} canWrite={!READ_ONLY} />
+      )}
+      {assets && data && !other && (
         <VfxPanel
           assets={assets}
           data={data}
@@ -1153,6 +1244,7 @@ export function ShipArt() {
 
       <aside className="sa-right">
         {effect && <div className="sa-note sa-effect-note">Effects have no mounts. Their flipbook and image are in the purple panel.</div>}
+        {soundBase && <div className="sa-note sa-effect-note">Sounds: everything is in the green panel. Drop audio files on it to try them out.</div>}
         {shownBoss && assets && data && (
           <fieldset disabled={READ_ONLY}>
             <LeviathanPanel
@@ -1183,7 +1275,7 @@ export function ShipArt() {
             />
           </fieldset>
         )}
-        <fieldset disabled={READ_ONLY} hidden={!!effect || !!shownBoss}>
+        <fieldset disabled={READ_ONLY} hidden={other}>
           {kind.points.length > 0 && (
             <>
               <h2>Points</h2>

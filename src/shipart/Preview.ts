@@ -10,13 +10,14 @@ import type { Assets } from '../engine/assets';
 import { PixelRenderer, type RotationMode } from '../engine/renderer';
 import { CONFIG, SHIP_TYPES } from '../game/config';
 import { Particles } from '../game/particles';
-import { drawBeam, drawLayoutArt, finGeometry, setDetailSteps, tierSprite } from '../game/render';
+import { drawBeam, drawLayoutArt, finGeometry, setDetailSteps, tierArt, tierSprite } from '../game/render';
 import { fileSprite, shipPointToWorld, worldToShipPoint, type ArtLayout, type ArtLayoutsFile, type Mount } from '../game/artLayout';
 import { tierOf, type ArtKind } from '../game/artKinds';
 import { layoutGunsOrDefault } from '../game/guns';
 import type { Team } from '../game/world';
 import { LeviathanPreview, type BossHead } from './bossPreview';
 import { bossPieceSprite, type BossPiece } from './LeviathanPanel';
+import type { SoundScene } from './soundInfo';
 
 export interface PreviewSettings {
   data: ArtLayoutsFile;
@@ -64,6 +65,17 @@ export interface PreviewSettings {
   tiltLight: boolean;
   swing: boolean;
   readOnly: boolean;
+  /** A sound's scene to show instead (ShipArt → Sounds): `play` is bumped to play it once; `cue` starts the sound, `loop` sets a looping sound's level. */
+  sound: SoundPreview | null;
+}
+
+/** A sound's scene in the preview (see PreviewSettings.sound). */
+export interface SoundPreview {
+  scene: SoundScene;
+  tier: number;
+  play: number;
+  cue: () => void;
+  loop: (level: number) => void;
 }
 
 /** What the mouse is dragging. */
@@ -132,6 +144,10 @@ export class Preview {
   private angle = 0;
   private drag: Drag | null = null;
   private boss = new LeviathanPreview();
+  /** The sound scene: which play it's showing, seconds into it, and whether its sound has started. */
+  private soundPlay = 0;
+  private soundT = Infinity;
+  private soundCued = true;
   private assets: Assets;
   private events: PreviewEvents;
   settings: PreviewSettings;
@@ -238,6 +254,8 @@ export class Preview {
     }
     this.stateTime += dt;
     if (st.boss) return this.frameBoss(dt);
+    if (st.sound) return this.frameSound(dt, st.sound);
+    if (this.soundT !== Infinity) this.stopSound();
     // The missile sequence starts over (back in the middle) once its burst has played.
     const sequence = st.kind.id === 'missile' && st.state === 'sequence';
     if (sequence && this.stateTime >= SEQ.restart) {
@@ -329,6 +347,90 @@ export class Preview {
     this.boss.draw(r, this.assets, this.time);
     r.end();
     this.drawGuides();
+  }
+
+  /** A sound's scene (ShipArt → Sounds): played once per press of Play, otherwise held at its start. */
+  private frameSound(dt: number, snd: SoundPreview) {
+    const st = this.settings;
+    const r = this.renderer;
+    const { scene, tier } = snd;
+    if (snd.play !== this.soundPlay) {
+      this.soundPlay = snd.play;
+      this.soundT = 0;
+      this.soundCued = false;
+      this.particles.clear();
+    } else if (this.soundT !== Infinity) this.soundT += dt;
+    const playing = this.soundT < scene.length;
+    const T = playing ? this.soundT : 0;
+    if (playing && !this.soundCued && T >= scene.cue) {
+      this.soundCued = true;
+      snd.cue();
+    }
+    snd.loop(playing && scene.loopUntil !== undefined && T >= scene.cue && T < scene.loopUntil ? 1 : 0);
+    if (!playing) this.soundT = Infinity;
+    r.camX = r.camY = 0;
+    r.setZoom(st.zoom, true);
+    r.detailStep = CONFIG.tiers.sizePerTier;
+    r.setDetail(1, true);
+    setDetailSteps(0);
+    r.rotation = st.rotation;
+    r.begin(dt);
+    if (st.stars) {
+      r.drawTiled(this.assets.get('bg.stars-far'), 0.3);
+      r.drawTiled(this.assets.get('bg.stars-near'), 0.6);
+    }
+    const suffix = tier > 1 ? `.t${tier}` : '';
+    const art = (name: string, enemy = false) => {
+      const a = tierArt(this.assets, name.replace('{t}', ''), tier, '', false);
+      if (!this.assets.has(a.name)) return null;
+      // Ships and the Leviathan in their own colours; shots and effects in the team's.
+      const own = /^(ship|boss)\./.test(a.name) || a.name.startsWith('ui.loot');
+      const team = CONFIG.teamColors[enemy ? 'enemy' : 'player'];
+      return { sprite: own ? this.assets.get(a.name) : this.assets.getRecolored(a.name, team, CONFIG.teamColors), scale: a.scale };
+    };
+    this.particles.update(playing ? dt : 0);
+    this.particles.draw(r, this.assets);
+    for (const it of scene.items) {
+      if ('ship' in it) {
+        const from = it.from ?? 0;
+        if (T < from || (it.until !== undefined && T >= it.until)) continue;
+        const name = it.ship.replace('{t}', suffix);
+        if (!this.assets.has(name)) continue;
+        const age = T - from;
+        const x = it.x + (it.vx ?? 0) * age;
+        const y = it.y + (it.vy ?? 0) * age;
+        const angle = it.angle ?? 0;
+        const state = it.state ?? 'idle';
+        const layout = st.data.ships[name];
+        if (playing) this.particles.emitMounts(st.data, layout, state, x, y, angle, dt, it.vx ?? 0, it.vy ?? 0);
+        drawLayoutArt(r, this.assets, layout, name, x, y, angle, state, null, this.time, it.alpha ?? 1);
+      } else if ('fx' in it) {
+        const age = T - it.at;
+        const a = art(it.fx);
+        if (age < 0 || !a) continue;
+        const length = a.sprite.fps > 0 && !a.sprite.loop ? a.sprite.frames.length / a.sprite.fps : 1;
+        if (it.until !== undefined ? T >= it.until : age >= length) continue;
+        r.drawSprite(a.sprite, it.x + (it.vx ?? 0) * age, it.y + (it.vy ?? 0) * age, it.angle ?? 0, age, 1, false, a.scale * (it.scale ?? 1));
+      } else if ('shot' in it) {
+        const age = T - it.at;
+        const a = art(it.shot, it.enemy);
+        if (age < 0 || T >= it.until || !a) continue;
+        r.drawSprite(a.sprite, it.x + Math.cos(it.angle) * it.speed * age, it.y + Math.sin(it.angle) * it.speed * age, it.angle, age, 1, false, a.scale);
+      } else {
+        const age = T - it.at;
+        const a = art(it.beam);
+        if (age < 0 || T >= it.until || !a) continue;
+        drawBeam(r, a.sprite, it.x, it.y, it.angle, it.length, (it.width ?? 1) * a.scale, age);
+      }
+    }
+    r.end();
+    this.overlay.getContext('2d')!.clearRect(0, 0, this.overlay.width, this.overlay.height);
+  }
+
+  /** Leaving the sound scenes: its looping sound stops. */
+  private stopSound() {
+    this.soundT = Infinity;
+    this.soundCued = true;
   }
 
   /** Ships: the 3D tilt now (Swing rocks it: bank and pitch on different rhythms), or none. */

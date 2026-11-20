@@ -8,6 +8,8 @@
 //                          (frame-01.png, frame-02.png...) and returns their paths
 //   POST /__shipart/screen-effect  writes the screen effect preset designated as the live
 //                          default to public/assets/screen-effect.json (game/screenEffect.ts)
+//   POST /__shipart/sound?name=sfx.x&ext=wav  writes a replacement sound into public/assets/sfx/
+//                          and points its manifest entry at it (ShipArt → Sounds)
 //   GET  /__shipart/info   the project folder's Windows path, if it's shared from Windows into
 //                          the container (so ShipArt can offer "Copy folder path"). Worked out
 //                          while running, never written to a file: it contains the user's name.
@@ -69,16 +71,48 @@ function entryLine(entry: Record<string, unknown>) {
 
 /** Replace the lines of these sprite entries in manifest.json, keeping everything else as it is. */
 function patchManifest(assetsDir: string, sprites: Record<string, Record<string, unknown>>) {
+  patchManifestSection(assetsDir, 'sprites', sprites);
+}
+
+/** The same for entries of any section ("sprites", "sounds"): each entry's line is found within its section. */
+function patchManifestSection(assetsDir: string, section: string, entries: Record<string, Record<string, unknown>>) {
   const path = join(assetsDir, 'manifest.json');
   let text = readFileSync(path, 'utf8');
-  for (const [name, entry] of Object.entries(sprites)) {
+  // Entries are looked for after the section's own heading.
+  const from = text.indexOf(`"${section}":`);
+  if (from < 0) throw new Error(`no "${section}" section in manifest.json`);
+  for (const [name, entry] of Object.entries(entries)) {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const line = new RegExp(`^(\\s*"${escaped}":\\s*)\\{.*\\}(,?)\\s*$`, 'm');
-    if (!line.test(text)) throw new Error(`no entry named ${name} in manifest.json`);
-    text = text.replace(line, (_m, start: string, comma: string) => `${start}${entryLine(entry)}${comma}`);
+    const rest = text.slice(from);
+    if (!line.test(rest)) throw new Error(`no entry named ${name} in manifest.json`);
+    text = text.slice(0, from) + rest.replace(line, (_m, start: string, comma: string) => `${start}${entryLine(entry)}${comma}`);
   }
   JSON.parse(text); // never write a broken file
   writeFileSync(path, text);
+}
+
+/**
+ * Write a replacement for sound `name` ("sfx.explosion.t3") with extension `ext` and point its
+ * manifest entry at it. A file only this sound uses is replaced in place (an old file of another
+ * type is removed); a file other sounds share too (sfx.warp uses dash.wav) is left alone and the
+ * sound gets its own file, named after it ("sfx/warp.wav"). Returns the new file path.
+ */
+function writeSound(assetsDir: string, name: string, ext: string, data: Buffer) {
+  if (!/^sfx\.[a-z0-9.-]+$/i.test(name)) throw new Error('not a sound name');
+  if (!/^(wav|mp3|ogg|m4a|aac|flac|webm|opus)$/.test(ext)) throw new Error(`.${ext} files aren't supported`);
+  const path = join(assetsDir, 'manifest.json');
+  const manifest = JSON.parse(readFileSync(path, 'utf8'));
+  const entry = manifest.sounds?.[name];
+  if (!entry) throw new Error(`no sound named ${name} in manifest.json`);
+  const shared = Object.entries(manifest.sounds).some(([n, e]) => n !== name && (e as { file: string }).file === entry.file);
+  const file = shared ? `sfx/${name.replace(/^sfx\./, '').replace(/\./g, '-')}.${ext}` : entry.file.replace(/\.[^./]+$/, `.${ext}`);
+  const target = resolve(assetsDir, file);
+  if (!target.startsWith(resolve(assetsDir, 'sfx'))) throw new Error('bad file name');
+  writeFileSync(target, data);
+  if (file !== entry.file) patchManifestSection(assetsDir, 'sounds', { [name]: { ...entry, file } });
+  if (!shared && file !== entry.file) rmSync(join(assetsDir, entry.file), { force: true });
+  return file;
 }
 
 /** The files in a zip archive (folders skipped). Handles normal and "stored" (uncompressed) entries. */
@@ -184,6 +218,30 @@ export function shipArtPlugin(): Plugin {
           res.setHeader('Content-Type', 'application/json');
           try {
             res.end(JSON.stringify(importZip(assetsDir, name, Buffer.concat(chunks))));
+          } catch (e) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: (e as Error).message }));
+          }
+        });
+      });
+      server.middlewares.use('/__shipart/sound', (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end('POST only');
+          return;
+        }
+        const q = new URL(req.url ?? '', 'http://x').searchParams;
+        const chunks: Buffer[] = [];
+        let size = 0;
+        req.on('data', (chunk: Buffer) => {
+          size += chunk.length;
+          if (size > 50_000_000) req.destroy(); // no sound effect is this big
+          chunks.push(chunk);
+        });
+        req.on('end', () => {
+          res.setHeader('Content-Type', 'application/json');
+          try {
+            res.end(JSON.stringify({ file: writeSound(assetsDir, q.get('name') ?? '', (q.get('ext') ?? '').toLowerCase(), Buffer.concat(chunks)) }));
           } catch (e) {
             res.statusCode = 400;
             res.end(JSON.stringify({ error: (e as Error).message }));

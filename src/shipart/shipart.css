@@ -487,3 +487,75 @@
 .sa-tilt input[type='range'] {
   width: 80px;
 }
+
+/* Sounds section (SoundPanel.tsx): a green-tinted panel in the purple panel's place. */
+.sa-sound {
+  background: rgba(30, 90, 70, 0.2);
+  border-left-color: #2f8a6a;
+}
+.sa-sound h2 {
+  color: #8fe8c4;
+}
+.sa-sound-use {
+  margin: 4px 0 8px;
+  line-height: 1.4;
+}
+.sa-sound .sa-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin: 6px 0;
+}
+.shipart button.sa-sound-play {
+  background: #2f8a6a;
+  border-color: #8fe8c4;
+  font-weight: bold;
+}
+.sa-sound-version {
+  margin: 0 0 6px;
+  line-height: 1.4;
+}
+.sa-sound-badge {
+  margin-left: 6px;
+  padding: 0 4px;
+  color: #0a0c18;
+  background: #8fe8c4;
+}
+.sa-sound-drop {
+  margin: 4px 0 6px;
+  padding: 14px 10px;
+  border: 2px dashed #2f8a6a;
+  line-height: 1.4;
+  text-align: center;
+  cursor: pointer;
+}
+.sa-sound-drop.on {
+  border-color: #8fe8c4;
+  background: rgba(143, 232, 196, 0.12);
+}
+.shipart button.sa-link {
+  padding: 0 4px;
+  background: none;
+  border: none;
+  opacity: 0.7;
+}
+.sa-sound-status {
+  margin-top: 10px;
+  color: #8fe8c4;
+  line-height: 1.4;
+}
+/* Menu and message sounds: their words shown over the preview. */
+.sa-sound-label {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  padding: 10px 18px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffe9a8;
+  background: rgba(10, 12, 24, 0.75);
+  border: 1px solid #8a7440;
+  pointer-events: none;
+  text-align: center;
+}

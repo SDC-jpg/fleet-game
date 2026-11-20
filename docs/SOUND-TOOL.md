@@ -1,4 +1,4 @@
-# Sound tool (plan, agreed 2026-11-19, not built yet)
+# Sound tool (plan agreed 2026-11-19, built 2026-11-20)
 
 A Sounds section in ShipArt for the teammate: see where each sound is used, play it with
 a visual example, and try replacement audio. Requested by the user for their teammate.
@@ -68,6 +68,15 @@ Drag and drop always works. The flow:
 
 The live site can't save files for everyone; that's why ShipArt is view-only there and why
 replacements travel as a zip through the user.
+
+## As built (2026-11-20)
+
+- All three steps below, in one go. Visual examples are short scripted scenes (`scene` in
+  `src/shipart/soundInfo.ts`) drawn with the game's art, not the full game rules.
+- On the dev copy, dropped files and zips go into the same browser list first (so you can
+  listen), then **Write into the game files** copies them into `public/assets/sfx/` and the
+  manifest.
+- The Leviathan's sounds are listed only on the dev copy while it's a secret.
 
 ## Build order
 
