@@ -3,7 +3,7 @@
 // CONFIG.leviathan.orbs / wounds / parasites. Art: boss.leviathan.* (purple placeholders).
 // It's a beast: its balls and blood hurt ships of either side (never itself or its parasites).
 
-import { clamp, randRange, turnToward, wrapAngle } from '../engine/math';
+import { clamp, randRange, wrapAngle } from '../engine/math';
 import { CONFIG } from './config';
 import { flashPiece, type LeviathanBody } from './leviathan';
 import { pointHitsShip } from './hitShape';
@@ -22,6 +22,10 @@ export interface Orb {
   /** Its own wander timing. */
   phase: number;
   age: number;
+  /** Its spot in the loose cloud around the Leviathan's middle (angle, distance), and which way that spot circles (1 or −1). */
+  homeAngle: number;
+  homeDistance: number;
+  homeTurn: number;
 }
 
 /** A blood shot from a wound (CONFIG.leviathan.wounds). */
@@ -64,27 +68,69 @@ export function updateOrbSpawning(state: GameState, ship: Ship, body: LeviathanB
   const i = Math.min(n - 1, Math.max(1, Math.floor(randRange(0.2, 0.7) * n)));
   const p = body.pieces[i];
   flashPiece(body, i, CONFIG.leviathan.flash.wound * 0.6);
-  state.orbs.push({ owner: ship, x: p.x, y: p.y, vx: 0, vy: 0, pulseIn: O.pulseEvery, phase: Math.random() * Math.PI * 2, age: 0 });
+  state.orbs.push({
+    owner: ship,
+    x: p.x,
+    y: p.y,
+    vx: 0,
+    vy: 0,
+    pulseIn: O.pulseEvery,
+    phase: Math.random() * Math.PI * 2,
+    age: 0,
+    homeAngle: Math.random() * Math.PI * 2,
+    // Spread evenly over the cloud's area (not bunched in the middle).
+    homeDistance: Math.sqrt(O.cloud[0] ** 2 + Math.random() * (O.cloud[1] ** 2 - O.cloud[0] ** 2)),
+    homeTurn: Math.random() < 0.5 ? 1 : -1,
+  });
   addSound(state, 'sfx.leviathan-orb', p, 1);
 }
 
-/** Balls drift toward your fleet, wandering, and pulse; they vanish when their Leviathan dies. */
+/**
+ * Balls keep to a loose cloud around their Leviathan (each its own spot, slowly circling), so the
+ * cloud grows denser as the fight goes on; a ball homes in on any ship of yours that comes near it,
+ * wandering a little. They pulse, and vanish when their Leviathan dies.
+ */
 function updateOrbs(state: GameState, dt: number) {
   const O = CONFIG.leviathan.orbs;
   state.orbs = state.orbs.filter((o) => !o.owner.dead && state.ships.includes(o.owner));
-  const flagship = controlledShip(state);
   for (const o of state.orbs) {
     o.age += dt;
-    // Toward your flagship, its heading wandering either side.
-    let want = Math.atan2(o.vy, o.vx);
-    if (flagship && flagship.team !== o.owner.team) {
-      want = Math.atan2(flagship.y - o.y, flagship.x - o.x) + O.wander * Math.sin(o.age * O.wanderSpeed * Math.PI * 2 + o.phase);
+    const wander = O.wander * Math.sin(o.age * O.wanderSpeed * Math.PI * 2 + o.phase);
+    const body = o.owner.leviathan;
+    const mid = body ? body.pieces[Math.floor(body.pieces.length / 2)] : o.owner;
+    // Your nearest ship within reach (only while the ball is within its leash of the Leviathan).
+    let prey: Ship | null = null;
+    let best = O.attractRange ** 2;
+    const leashed = (o.x - mid.x) ** 2 + (o.y - mid.y) ** 2 > O.leash ** 2;
+    if (!leashed) for (const s of state.playerFleet.members) {
+      if (s.dead || s.merge || s.absorbed) continue;
+      const d = (s.x - o.x) ** 2 + (s.y - o.y) ** 2;
+      if (d < best) {
+        best = d;
+        prey = s;
+      }
     }
-    const speed = Math.hypot(o.vx, o.vy);
-    const heading = speed > 1 ? turnToward(Math.atan2(o.vy, o.vx), want, 2 * dt) : want;
-    const v = speed + clamp(O.speed - speed, -O.speed * dt, O.speed * dt);
-    o.vx = Math.cos(heading) * v;
-    o.vy = Math.sin(heading) * v;
+    let wantVx: number;
+    let wantVy: number;
+    if (prey) {
+      // Homing in, its heading wandering either side.
+      const a = Math.atan2(prey.y - o.y, prey.x - o.x) + wander;
+      wantVx = Math.cos(a) * O.speed;
+      wantVy = Math.sin(a) * O.speed;
+    } else {
+      // Back to its spot in the cloud around the Leviathan's middle (fast if it's fallen behind).
+      o.homeAngle += O.cloudTurn * o.homeTurn * dt;
+      const r = o.homeDistance * (1 + 0.15 * Math.sin(o.age * 0.7 + o.phase));
+      const dx = mid.x + Math.cos(o.homeAngle) * r - o.x;
+      const dy = mid.y + Math.sin(o.homeAngle) * r - o.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const v = Math.min(O.followSpeed, d * 3);
+      wantVx = (dx / d) * v;
+      wantVy = (dy / d) * v;
+    }
+    const k = Math.min(1, O.steer * dt);
+    o.vx += (wantVx - o.vx) * k;
+    o.vy += (wantVy - o.vy) * k;
     o.x += o.vx * dt;
     o.y += o.vy * dt;
     o.pulseIn -= dt;

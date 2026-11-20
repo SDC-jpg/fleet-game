@@ -597,9 +597,21 @@ export const CONFIG = {
       /** "Combat" = your flagship within this distance of its head. */
       combatRange: 1100,
       /** Most balls at once. */
-      max: 20,
-      /** How fast a ball drifts toward your fleet (pixels per second; your ships fly 150). */
+      max: 40,
+      /** How fast a ball homes in on a ship of yours (pixels per second; your ships fly 150). */
       speed: 140,
+      /** A ball homes in on your nearest ship within this distance; otherwise it keeps to its spot in the cloud. */
+      attractRange: 380,
+      /** ...but only while it's within this distance of the Leviathan's middle: fly away from the beast and its balls fall back to the cloud. */
+      leash: 600,
+      /** The cloud around the Leviathan's middle: each ball's spot is between these distances from it (game pixels). */
+      cloud: [120, 420] as [number, number],
+      /** How fast the spots circle the Leviathan (radians per second). */
+      cloudTurn: 0.25,
+      /** Fastest a ball flies back to its spot (faster than the Leviathan catching up, 450, so the cloud keeps up). */
+      followSpeed: 500,
+      /** How quickly a ball changes speed and direction (higher = snappier). */
+      steer: 3,
       /** How much its path wanders either side of straight at you (radians). */
       wander: 0.9,
       /** How quickly the wander changes (cycles per second). */
