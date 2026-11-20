@@ -419,8 +419,10 @@ export function ShipArt() {
   }, []);
 
   /** Every effect (each "vfx.*" sprite, tier versions grouped under one name). */
+  // (The Leviathan's effects and the Bosses section are only on the dev copy for now: the teammate's
+  // view-only ShipArt doesn't show them, so they meet it by surprise in the game; the user, 2026-11-20.)
   const effects = useMemo(
-    () => (assets ? [...new Set(assets.names().filter((n) => n.startsWith('vfx.') || BOSS_EFFECTS.includes(n)).map(effectBaseOf))].sort() : []),
+    () => (assets ? [...new Set(assets.names().filter((n) => n.startsWith('vfx.') || (!READ_ONLY && BOSS_EFFECTS.includes(n))).map(effectBaseOf))].sort() : []),
     [assets],
   );
   /** The tier versions of the effect shown, and the one being shown. */
@@ -995,10 +997,12 @@ export function ShipArt() {
           </div>
         )}
 
+        {!READ_ONLY && (
         <button className="sa-rollout" onClick={() => setOpen({ ...open, bosses: !open.bosses })}>
           {open.bosses ? '▾' : '▸'} Bosses
         </button>
-        {open.bosses && (
+        )}
+        {!READ_ONLY && open.bosses && (
           <div className="sa-rollout-body">
             {'leviathan'.includes(filter.toLowerCase()) && (
               <button

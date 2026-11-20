@@ -63,6 +63,12 @@ import {
  * VITE_TEST_KEYS=true (the online GitHub Pages version sets this).
  */
 export const TEST_KEYS_ENABLED = import.meta.env.DEV || import.meta.env.VITE_TEST_KEYS === 'true';
+/**
+ * The Leviathan's test keys (B, N, C, P, Z) and page options (?intro, ?boss): only on the dev copy,
+ * not on the live site, so the teammate meets it by surprise like a player (the user, 2026-11-20).
+ * Also hidden on the live site: its ShipArt entries and its tuning-page section.
+ */
+export const SECRET_TEST_KEYS = import.meta.env.DEV;
 
 /** Browser storage key for the elite test switch. */
 const ELITES_SETTING = 'fleet-game.elites';
@@ -429,7 +435,7 @@ export class Game {
     loadEquipment(state);
     // Dev only, for screenshots: "?intro=7" starts the Leviathan's entrance already 7 s in;
     // "?boss=dying" brings one in next to you and destroys it at once (its death plays).
-    if (TEST_KEYS_ENABLED) {
+    if (SECRET_TEST_KEYS) {
       const q = new URLSearchParams(location.search);
       const intro = q.get('intro');
       if (intro !== null) {
@@ -878,21 +884,7 @@ export class Game {
     if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
     if (i.wasPressed('KeyH')) testSpawnSwarm(s, this.spawnDistance());
     if (i.wasPressed('KeyV')) testSpawnVariants(s, this.spawnDistance());
-    // B: the Leviathan's full entrance, then the fight. Shift+B: straight in.
-    if (i.wasPressed('KeyB')) {
-      if (i.isDown('ShiftLeft', 'ShiftRight')) testSpawnLeviathan(s, this.spawnDistance());
-      else if (!s.bossIntro) startBossIntro(s);
-    }
-    if (i.wasPressed('KeyN')) for (const l of s.ships) if (l.leviathan && !l.leviathan.attack) l.leviathan.beamIn = 0;
-    // C: ram now. P: an energy ball now. Z: a wound now (1/20 of its health, on a piece in its middle, so parasites come out).
-    if (i.wasPressed('KeyC')) for (const l of s.ships) if (l.leviathan && !l.leviathan.ram) l.leviathan.ramIn = 0;
-    if (i.wasPressed('KeyP')) for (const l of s.ships) if (l.leviathan) l.leviathan.orbIn = 0;
-    if (i.wasPressed('KeyZ'))
-      for (const l of s.ships)
-        if (l.leviathan) {
-          const p = l.leviathan.pieces[Math.floor(l.leviathan.pieces.length / 2)];
-          damageShip(s, l, l.stats.maxHp / CONFIG.leviathan.wounds.count + 1, 'test', p);
-        }
+    if (SECRET_TEST_KEYS) this.handleLeviathanKeys();
     if (i.wasPressed('KeyR')) {
       const flagship = controlledShip(s);
       if (flagship) sendReinforcements(s, flagship, this.spawnDistance());
@@ -911,6 +903,27 @@ export class Game {
       saveSetting(ROTATION_SETTING, this.renderer.rotation);
     }
     if (i.wasPressed('KeyX')) testDestroyFleet(s);
+  }
+
+  /** The Leviathan's test keys (dev copy only: SECRET_TEST_KEYS). */
+  private handleLeviathanKeys() {
+    const i = this.input;
+    const s = this.state;
+    // B: the Leviathan's full entrance, then the fight. Shift+B: straight in.
+    if (i.wasPressed('KeyB')) {
+      if (i.isDown('ShiftLeft', 'ShiftRight')) testSpawnLeviathan(s, this.spawnDistance());
+      else if (!s.bossIntro) startBossIntro(s);
+    }
+    if (i.wasPressed('KeyN')) for (const l of s.ships) if (l.leviathan && !l.leviathan.attack) l.leviathan.beamIn = 0;
+    // C: ram now. P: an energy ball now. Z: a wound now (1/20 of its health, on a piece in its middle, so parasites come out).
+    if (i.wasPressed('KeyC')) for (const l of s.ships) if (l.leviathan && !l.leviathan.ram) l.leviathan.ramIn = 0;
+    if (i.wasPressed('KeyP')) for (const l of s.ships) if (l.leviathan) l.leviathan.orbIn = 0;
+    if (i.wasPressed('KeyZ'))
+      for (const l of s.ships)
+        if (l.leviathan) {
+          const p = l.leviathan.pieces[Math.floor(l.leviathan.pieces.length / 2)];
+          damageShip(s, l, l.stats.maxHp / CONFIG.leviathan.wounds.count + 1, 'test', p);
+        }
   }
 
   /** How fast game time runs (slow motion while your last ship's final blow lands). */

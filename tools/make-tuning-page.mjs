@@ -106,10 +106,15 @@ for (const type of unwrap(shipTypes.decl.initializer).properties) {
   });
 }
 
+// Settings kept off the published page for now: the Leviathan, so the teammate meets it by
+// surprise like a player (the user, 2026-11-20). Take it out of this list to show it again.
+const HIDDEN = ['leviathan'];
+
 // CONFIG: an object setting is its own section; plain settings go under the last `// ==` heading.
 let flat = null;
 for (const prop of unwrap(findVariable('CONFIG').decl.initializer).properties) {
   const name = nameOf(prop);
+  if (HIDDEN.includes(name)) continue;
   const value = unwrap(prop.initializer);
   const marker = sectionMarker(prop);
   if (marker) {

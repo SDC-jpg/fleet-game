@@ -4,7 +4,7 @@ import { Sounds } from './engine/sound';
 import { CONFIG } from './game/config';
 import { loadArtLayouts } from './game/artLayout';
 import { ROTATION_LABELS } from './engine/renderer';
-import { Game, TEST_KEYS_ENABLED, type HudInfo } from './game/Game';
+import { Game, TEST_KEYS_ENABLED, SECRET_TEST_KEYS, type HudInfo } from './game/Game';
 import type { HistoryPoint } from './game/world';
 import { CardScreen } from './CardScreen';
 import { BottomHud } from './BottomHud';
@@ -69,7 +69,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div>
               Test keys: = / - add/remove ship · ] add 16 ships · T add a next-tier ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
-              screen · X end run · L level up · J all skills · I drop 3 matching items · Y drop the next Merge Module · E spawn elite · H spawn swarm · V variants · B Leviathan (Shift+B: no intro) · N its beam now · C ram · P energy ball · Z wound it · R reinforcements · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · F formation ({hud.formationMode === 'fill' ? 'Fill' : 'Original'}) · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
+              screen · X end run · L level up · J all skills · I drop 3 matching items · Y drop the next Merge Module · E spawn elite · H spawn swarm · V variants · {SECRET_TEST_KEYS && 'B Leviathan (Shift+B: no intro) · N its beam now · C ram · P energy ball · Z wound it · '}R reinforcements · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · F formation ({hud.formationMode === 'fill' ? 'Fill' : 'Original'}) · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
             </div>
           )}
         </div>

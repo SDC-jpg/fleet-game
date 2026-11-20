@@ -5,23 +5,14 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-20
-- The Leviathan's warning words now type out in a pixel font, part of the picture like everything else.
+- Bug fixes and small improvements.
 
 ## 2026-11-19
-- The Leviathan roars, mouth open, as it first comes into view and now and then during the fight, and it catches up fast if you try to leave it behind.
-- From wave 30, a Leviathan can now come for you: the chance grows each wave until it appears. Watch the sky: it announces itself.
-- The Leviathan's death is now a spectacle: time slows as the final blow lands, then purple explosions tear along its body with pulses of light and shockwaves.
-- While a Leviathan is on the field, the camera pulls back so the whole fight fits on screen.
-- The Leviathan (test key B) now fights: its body knocks ships aside and hurts them, it rams your fleet after a roar, it lets go of crackling energy balls that drift after you and pulse, and every heavy wound sprays glowing blood and parasites that latch onto your ships and slow your fleet (dash to shake them off). Hit its head or tail for blood without parasites.
-- The Leviathan is tougher, can't be pushed around or stopped (Freeze only slows it), and hurts enemy ships too.
-- The Leviathan's beam and charge ball (test keys B and N) now have a soft blue glow.
 - Missiles (yours and the enemy's) now burn for 4 seconds instead of 2 and turn more slowly, so they fly wider, longer arcs.
 - Enemy missile ships open fire from twice as far away.
 - Mines now wait 12 seconds before fizzling out (was 6).
 
 ## 2026-11-18
-- The Leviathan (test key B) now has fins that flow and trail behind it as it swims.
-- First look at the Leviathan, a giant space serpent boss whose body curls and follows its head, which turns sideways and opens its jaws as it turns. For now it only appears with the test key B, circles you and lunges, and can be shot anywhere along its body (one health bar at the top of the screen); it doesn't attack yet.
 - Purple (energy) and orange (explosive) enemy squadrons are bigger: when one comes, half of the wave is that kind (was a third).
 - Ships are now hit by their actual shape instead of a round area: shots, missiles and beams that pass between a ship's wings miss. Small ships (both yours and the enemy's) are noticeably harder to hit.
 

@@ -23,3 +23,20 @@ About half a T1 ship; weak, can be shot like normal enemies. They latch onto you
 
 ## Art
 All new Leviathan effects are **purple** placeholders (flat style), listed in ShipArt Effects.
+
+## Release notes held back (secret on the live site, the user's wish 2026-11-20)
+
+The user wants their teammate to meet the Leviathan by surprise, like a player. These changelog
+lines were taken out before the push of 2026-11-20 (the Discord post would have shown them). Put
+them back (or a summary) when the user reveals it:
+
+- The Leviathan's warning words now type out in a pixel font, part of the picture like everything else.
+- The Leviathan roars, mouth open, as it first comes into view and now and then during the fight, and it catches up fast if you try to leave it behind.
+- From wave 30, a Leviathan can now come for you: the chance grows each wave until it appears. Watch the sky: it announces itself.
+- The Leviathan's death is now a spectacle: time slows as the final blow lands, then purple explosions tear along its body with pulses of light and shockwaves.
+- While a Leviathan is on the field, the camera pulls back so the whole fight fits on screen.
+- The Leviathan (test key B) now fights: its body knocks ships aside and hurts them, it rams your fleet after a roar, it lets go of crackling energy balls that drift after you and pulse, and every heavy wound sprays glowing blood and parasites that latch onto your ships and slow your fleet (dash to shake them off). Hit its head or tail for blood without parasites.
+- The Leviathan is tougher, can't be pushed around or stopped (Freeze only slows it), and hurts enemy ships too.
+- The Leviathan's beam and charge ball (test keys B and N) now have a soft blue glow.
+- The Leviathan (test key B) now has fins that flow and trail behind it as it swims.
+- First look at the Leviathan, a giant space serpent boss whose body curls and follows its head, which turns sideways and opens its jaws as it turns. For now it only appears with the test key B, circles you and lunges, and can be shot anywhere along its body (one health bar at the top of the screen); it doesn't attack yet.
