@@ -42,6 +42,10 @@ export interface RunSnapshot {
   skilledElites?: number;
   /** Reinforcements already sent this run (CONFIG.reinforcements). */
   reinforcementsUsed?: number;
+  /** The Leviathan: its encounter is over this run; the saved wave is its wave (interrupted during its entrance or fight: it comes again); the chance built up for the next wave. */
+  leviathanCame?: boolean;
+  leviathanWave?: boolean;
+  leviathanChance?: number;
   eliteDue: boolean;
 }
 
@@ -74,6 +78,7 @@ export function saveRun(state: GameState) {
     elitesSpawned: state.elitesSpawned,
     skilledElites: state.skilledElites,
     reinforcementsUsed: state.reinforcementsUsed,
+    ...leviathanSnapshot(state),
     eliteDue: state.eliteDue,
   };
   try {
@@ -105,6 +110,17 @@ export function clearRun() {
   }
 }
 
+/** What the snapshot keeps about the Leviathan (see RunSnapshot). */
+function leviathanSnapshot(state: GameState) {
+  const ongoing = state.bossIntro !== null || state.ships.some((s) => s.leviathan);
+  return {
+    // "Came" only once it's over; interrupted meanwhile, the saved wave is its wave.
+    leviathanCame: state.leviathanCame && !ongoing,
+    leviathanWave: ongoing,
+    leviathanChance: state.leviathanChance,
+  };
+}
+
 /** Turn a fresh game into the saved run, at the start of its saved wave with an empty field. */
 export function restoreRun(state: GameState, snap: RunSnapshot) {
   state.level = snap.level;
@@ -123,6 +139,10 @@ export function restoreRun(state: GameState, snap: RunSnapshot) {
   state.elitesSpawned = snap.elitesSpawned;
   state.skilledElites = snap.skilledElites ?? 0;
   state.reinforcementsUsed = snap.reinforcementsUsed ?? 0;
+  state.leviathanCame = snap.leviathanCame ?? false;
+  state.leviathanChance = snap.leviathanChance ?? 0;
+  // Interrupted during its entrance or fight: the replayed wave is its wave again (it comes again from the start).
+  state.nextLeviathan = snap.leviathanWave ?? false;
   state.eliteDue = snap.eliteDue;
   // The saved wave comes again shortly (its start is added to the graph again then).
   state.wave = snap.wave - 1;
