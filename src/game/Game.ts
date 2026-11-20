@@ -14,6 +14,7 @@ import { renderGame, setDetailSteps, tierArt, tierSprite, type ViewOptions } fro
 import { setGunLayouts, shipArtBase } from './guns';
 import { setHitLayouts } from './hitShape';
 import { beamOrigin, setLeviathanLayout } from './leviathan';
+import { introText, startBossIntro, updateBossIntro } from './leviathanIntro';
 import { CONFIG, ITEM_STATS, RARITIES, SHIP_TYPES, SKILLS, type FormationMode, type ItemStat, type Rarity, type SkillId } from './config';
 import { xpToNextLevel } from './curves';
 import { applyCard, cancelReplace, describeCard, gainXp, pickCard, replacedBy, testGiveAllSkills, type CardInfo } from './progress';
@@ -136,6 +137,8 @@ export interface HudInfo {
   reinforcementAlert: boolean;
   /** A Leviathan (boss) is alive: its health (0–1). null = none. */
   boss: number | null;
+  /** The Leviathan's entrance words (typed so far, the whole line, how visible), or null. */
+  intro: { text: string; full: string; alpha: number } | null;
   stats: RunStats;
   /** Fleet value at each wave start, for the end-of-run graph. */
   history: HistoryPoint[];
@@ -260,6 +263,8 @@ export class Game {
   private touchAim = -Math.PI / 2;
   /** Real seconds left of the slow-motion moment when your last ship is hit (CONFIG.death), or 0. */
   private slowmo = 0;
+  /** Real seconds left of a Leviathan's final-blow slow motion. */
+  private bossSlowmo = 0;
   /** The run log, filled in when a run ends (null until then). */
   private runs: RunRecord[] | null = null;
   /** An interrupted run found when the game opened: the game waits until you resume it or start anew. */
@@ -424,6 +429,22 @@ export class Game {
     const formation = TEST_KEYS_ENABLED ? loadSetting(FORMATION_SETTING) : null;
     if (formation === 'original' || formation === 'fill') state.formationMode = formation;
     loadEquipment(state);
+    // Dev only, for screenshots: "?intro=7" starts the Leviathan's entrance already 7 s in;
+    // "?boss=dying" brings one in next to you and destroys it at once (its death plays).
+    if (TEST_KEYS_ENABLED) {
+      const q = new URLSearchParams(location.search);
+      const intro = q.get('intro');
+      if (intro !== null) {
+        startBossIntro(state);
+        for (let t = 0; t < Number(intro) && state.bossIntro; t += 1 / 60) updateBossIntro(state, 1 / 60, 800);
+        state.sounds.length = 0;
+      }
+      if (q.get('boss') === 'dying') {
+        testSpawnLeviathan(state, 120);
+        const l = state.ships.find((x) => x.leviathan);
+        if (l) damageShip(state, l, l.hp + 1, 'test', l.leviathan!.pieces[6]);
+      }
+    }
     this.renderer.setZoom(state.zoom, true);
     this.renderer.setDetail(detailFactor(state), true);
     this.renderer.detailStep = CONFIG.tiers.sizePerTier;
@@ -762,6 +783,12 @@ export class Game {
       this.slowmo -= dt;
       if (this.slowmo <= 0) fb.ready = true;
     }
+    const bf = this.state.bossFinal;
+    if (bf && !bf.ready && !fb) {
+      if (this.bossSlowmo <= 0) this.bossSlowmo = CONFIG.leviathan.death.slowmoTime;
+      this.bossSlowmo -= dt;
+      if (this.bossSlowmo <= 0) bf.ready = true;
+    }
     updateGame(this.state, this.readControls(), dt * this.timeScale, this.spawnDistance());
     this.playQueuedSounds();
     this.saveIfChanged();
@@ -853,7 +880,11 @@ export class Game {
     if (i.wasPressed('KeyE')) testSpawnElite(s, this.spawnDistance());
     if (i.wasPressed('KeyH')) testSpawnSwarm(s, this.spawnDistance());
     if (i.wasPressed('KeyV')) testSpawnVariants(s, this.spawnDistance());
-    if (i.wasPressed('KeyB')) testSpawnLeviathan(s, this.spawnDistance());
+    // B: the Leviathan's full entrance, then the fight. Shift+B: straight in.
+    if (i.wasPressed('KeyB')) {
+      if (i.isDown('ShiftLeft', 'ShiftRight')) testSpawnLeviathan(s, this.spawnDistance());
+      else if (!s.bossIntro) startBossIntro(s);
+    }
     if (i.wasPressed('KeyN')) for (const l of s.ships) if (l.leviathan && !l.leviathan.attack) l.leviathan.beamIn = 0;
     // C: ram now. P: an energy ball now. Z: a wound now (1/20 of its health, on a piece in its middle, so parasites come out).
     if (i.wasPressed('KeyC')) for (const l of s.ships) if (l.leviathan && !l.leviathan.ram) l.leviathan.ramIn = 0;
@@ -887,7 +918,10 @@ export class Game {
   /** How fast game time runs (slow motion while your last ship's final blow lands). */
   private get timeScale() {
     const fb = this.state.finalBlow;
-    return fb && !fb.ready ? CONFIG.death.slowmoScale : 1;
+    if (fb && !fb.ready) return CONFIG.death.slowmoScale;
+    // A Leviathan's final blow too (CONFIG.leviathan.death).
+    const bf = this.state.bossFinal;
+    return bf && !bf.ready ? CONFIG.leviathan.death.slowmoScale : 1;
   }
 
   /** The run is over and its end-of-run screen is showing (CONFIG.death.screenDelay after the end). */
@@ -1039,7 +1073,8 @@ export class Game {
       }
       // Slow motion: zoom in a little on the doomed ship (back out as it explodes).
       const slow = this.timeScale < 1;
-      r.setZoom(this.state.zoom * (slow ? CONFIG.death.slowmoZoom : 1), false, slow);
+      const bossSlow = slow && !this.state.finalBlow;
+      r.setZoom(this.state.zoom * (slow ? (bossSlow ? CONFIG.leviathan.death.slowmoZoom : CONFIG.death.slowmoZoom) : 1), false, slow);
       // Detail steps: the whole world drawn smaller, with crisp smaller art (docs/DETAIL-STEPS.md).
       r.setDetail(detailFactor(this.state));
       setDetailSteps(detailSteps(this.state));
@@ -1130,6 +1165,7 @@ export class Game {
       swarmAlert: st.time - st.swarmAlertTime < CONFIG.swarm.alertSeconds,
       reinforcementAlert: st.time - st.reinforcementAlertTime < CONFIG.reinforcements.alertSeconds,
       boss: ((b) => (b ? b.hp / b.stats.maxHp : null))(st.ships.find((b) => b.leviathan && !b.dead)),
+      intro: introText(st.bossIntro),
       stats: { ...st.stats },
       history: st.history,
       invincible: st.invincible,

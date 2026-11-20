@@ -12,6 +12,7 @@ import { DEFAULT_FIN_IMAGE, type ArtLayoutsFile, type HitCircle, type LeviathanB
 import type { GameState, Ship } from './world';
 import { addEffect, addSound, controlledShip, damageShip, findNearestEnemy } from './world';
 import { rayHitsShip } from './hitShape';
+import type { LeviathanDying } from './leviathanDeath';
 
 export type PieceKind = LeviathanPieceKind;
 
@@ -61,6 +62,10 @@ export interface LeviathanBody {
   orbIn: number;
   /** Wounds so far (each 1/CONFIG.leviathan.wounds.count of its health). */
   wounds: number;
+  /** The piece the last blow hit (its death spreads out from there), or null. */
+  lastHit: number | null;
+  /** Its death in progress (leviathanDeath.ts), or null. */
+  dying: LeviathanDying | null;
   /** Ships its body hit recently, with seconds until they can be hurt by it again (CONFIG.leviathan.body.cooldown). */
   contact: Map<Ship, number>;
 }
@@ -238,6 +243,8 @@ export function makeLeviathanBody(x: number, y: number, angle: number, L = gameL
     contact: new Map(),
     orbIn: CONFIG.leviathan.orbs.every,
     wounds: 0,
+    lastHit: null,
+    dying: null,
   };
   placePieces(body, x, y, angle);
   return body;
@@ -583,6 +590,7 @@ function updateBeamAttack(state: GameState, ship: Ship, body: LeviathanBody, fla
 export function updateBodyHits(state: GameState, ship: Ship, dt: number) {
   const K = CONFIG.leviathan.body;
   const body = ship.leviathan!;
+  if (ship.dead) return;
   for (const [s, left] of body.contact) {
     if (left - dt <= 0 || s.dead) body.contact.delete(s);
     else body.contact.set(s, left - dt);

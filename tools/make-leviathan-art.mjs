@@ -226,6 +226,93 @@ const ART = {
         return img;
       }),
     ),
+  // Intro: distant purple lightning, 4 different bolts (one frame each; the game picks one).
+  'bosses/leviathan/lightning.png': () =>
+    strip(
+      [0, 1, 2, 3].map((f) => {
+        const img = new Img(80, 160);
+        const r = rng(201 + f * 13);
+        const bolt = (x, y, a, len, width, depth) => {
+          for (let s = 0; s < len; s++) {
+            const nx = x + Math.cos(a) * 6;
+            const ny = y + Math.sin(a) * 6;
+            for (let w = 0; w < width; w++) line(img, x + w, y, nx + w, ny, width > 1 ? CORE : LIGHT);
+            if (depth < 2 && r() < 0.18) bolt(nx, ny, a + (r() < 0.5 ? -0.7 : 0.7), Math.floor(len / 2), 1, depth + 1);
+            x = nx;
+            y = ny;
+            a = Math.PI / 2 + (r() - 0.5) * 1.1;
+          }
+        };
+        bolt(40 + (r() - 0.5) * 20, 0, Math.PI / 2, 26, 2, 0);
+        img.outline(MID);
+        return img;
+      }),
+    ),
+  // Intro: the rift tearing open (6 frames, play once; the game plays it backwards to close it).
+  'bosses/leviathan/rift.png': () =>
+    strip(
+      [0, 1, 2, 3, 4, 5].map((f) => {
+        const img = new Img(100, 260);
+        const open = (f + 1) / 6;
+        const r = rng(301);
+        // A jagged vertical tear: its width at each row, widest in the middle.
+        const offs = [];
+        let o = 0;
+        for (let y = 0; y < 260; y++) {
+          o += (r() - 0.5) * 2;
+          o *= 0.97;
+          offs.push(o);
+        }
+        for (let y = 0; y < 260; y++) {
+          const k = Math.sin((y / 259) * Math.PI);
+          const half = Math.max(0, 33 * open * k ** 1.3);
+          const cx = 50 + offs[y] * 3 * k;
+          for (let x = Math.floor(cx - half - 3); x <= cx + half + 3; x++) {
+            const d = Math.abs(x + 0.5 - cx);
+            if (d <= half * 0.45) img.set(x, y, CORE);
+            else if (d <= half * 0.8) img.set(x, y, LIGHT);
+            else if (d <= half) img.set(x, y, MID);
+            else if (d <= half + 3 && half > 1) img.set(x, y, DARK);
+          }
+        }
+        img.outline();
+        return img;
+      }),
+    ),
+  // Death: a purple explosion (8 frames, play once).
+  'bosses/leviathan/explosion.png': () =>
+    strip(
+      [0, 1, 2, 3, 4, 5, 6, 7].map((f) => {
+        const img = new Img(64, 64);
+        const k = f / 7;
+        const r = rng(401);
+        const R = 6 + k * 24;
+        if (f < 6) disc(img, 32, 32, R * (1 - k * 0.5), f < 2 ? CORE : f < 4 ? LIGHT : MID);
+        if (f < 4) disc(img, 32, 32, R * 0.55, CORE);
+        // Puffs around the edge.
+        for (let i = 0; i < 9; i++) {
+          const a = r() * Math.PI * 2;
+          const d = R * (0.7 + r() * 0.4);
+          const pr = (3 + r() * 4) * (1 - k * 0.6);
+          disc(img, 32 + Math.cos(a) * d, 32 + Math.sin(a) * d, pr, f < 3 ? LIGHT : f < 6 ? MID : DARK);
+        }
+        img.outline();
+        return img;
+      }),
+    ),
+  // Death: a shockwave ring racing out (8 frames, play once; drawn big).
+  'bosses/leviathan/shockwave.png': () =>
+    strip(
+      [0, 1, 2, 3, 4, 5, 6, 7].map((f) => {
+        const img = new Img(200, 200);
+        const rad = 12 + f * 12;
+        const w = f < 3 ? 5 : f < 6 ? 3 : 2;
+        ring(img, 100, 100, rad - w, rad, f < 4 ? LIGHT : MID);
+        ring(img, 100, 100, rad - 1, rad, CORE);
+        img.outline();
+        return img;
+      }),
+    ),
 };
 
 let made = 0;

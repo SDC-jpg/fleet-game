@@ -27,7 +27,7 @@ const { Pilot } = await import('./pilot');
 import type { SkillId } from '../../src/game/config';
 import type { GameState } from '../../src/game/world';
 
-type Job = { kind: 'single' | 'career'; group: string; forced?: SkillId | null; cap: number; until?: number; runs?: number; noElites?: boolean };
+type Job = { kind: 'single' | 'career'; group: string; forced?: SkillId | null; cap: number; until?: number; runs?: number; noElites?: boolean; leviathanAt?: number };
 // "list": print every skill that's switched on, by side (for run.mjs), and stop.
 if (process.argv[2] === 'list') {
   const { skillsBySide } = await import('./pilot');
@@ -68,6 +68,8 @@ function playRun(runIndex: number) {
   const waves: { wave: number; time: number; value: number; level: number; tier: number }[] = [];
   let lastWave = 0;
   const started = Date.now();
+  // A Leviathan fight (forced at job.leviathanAt, or by its own spawn rule): when it came, how it ended.
+  let boss: { wave: number; start: number; end: number | null; killed: boolean; value: number; tier: number; hpLeft: number } | null = null;
   while (!state.gameOver && state.time < job.cap) {
     if (state.cards) {
       const i = pilot.pickCard(state, state.cards);
@@ -78,8 +80,20 @@ function playRun(runIndex: number) {
     }
     if (state.finalBlow && !state.finalBlow.ready) state.finalBlow.ready = true;
     if (state.unlocked) state.unlocked = null;
+    if (job.leviathanAt && state.wave === job.leviathanAt - 1 && !boss && !state.bossIntro) state.nextLeviathan = true;
     W.updateGame(state, pilot.controls(state, DT), DT, spawnDistance(state));
     state.sounds.length = 0;
+    const lev = state.ships.find((x) => x.leviathan);
+    if (lev && !boss) boss = { wave: state.wave, start: state.time, end: null, killed: false, value: W.fleetValue(state.playerFleet), tier: state.maxTier, hpLeft: 1 };
+    if (boss && boss.end === null) {
+      if (lev) boss.hpLeft = Math.max(0, lev.hp / lev.stats.maxHp);
+      if (!lev || lev.dead) {
+        boss.end = state.time;
+        boss.killed = true;
+      }
+    }
+    // With a forced fight, the run ends once it's decided.
+    if (job.leviathanAt && boss?.end != null && state.time > boss.end + 2) break;
     if (state.wave !== lastWave) {
       lastWave = state.wave;
       waves.push({ wave: state.wave, time: Math.round(state.time), value: W.fleetValue(state.playerFleet), level: state.level, tier: state.maxTier });
@@ -119,6 +133,7 @@ function playRun(runIndex: number) {
     modes: pilot.modes,
     waves,
     realSeconds: Math.round((Date.now() - started) / 100) / 10,
+    boss: boss && { ...boss, end: boss.end ?? state.time, lost: !boss.killed },
   };
   if (job.kind === 'career') tidyEquipment(state);
   return record;

@@ -127,6 +127,7 @@ export function onLeviathanHit(state: GameState, ship: Ship, at: { x: number; y:
     }
   });
   flashPiece(body, piece, CONFIG.leviathan.flash.hit);
+  body.lastHit = piece;
   if (ship.dead) return;
   const lost = ship.stats.maxHp - Math.max(0, ship.hp);
   const step = ship.stats.maxHp / W.count;

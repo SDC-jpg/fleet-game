@@ -5,8 +5,11 @@ added here since the last version are posted to the Discord build-log channel.
 Keep each change on one line starting with `- `.
 
 ## 2026-11-19
+- From wave 30, a Leviathan can now come for you: the chance grows each wave until it appears. Watch the sky: it announces itself.
+- The Leviathan's death is now a spectacle: time slows as the final blow lands, then purple explosions tear along its body with pulses of light and shockwaves.
+- While a Leviathan is on the field, the camera pulls back so the whole fight fits on screen.
 - The Leviathan (test key B) now fights: its body knocks ships aside and hurts them, it rams your fleet after a roar, it lets go of crackling energy balls that drift after you and pulse, and every heavy wound sprays glowing blood and parasites that latch onto your ships and slow your fleet (dash to shake them off). Hit its head or tail for blood without parasites.
-- The Leviathan has five times the health, can't be pushed around or stopped (Freeze only slows it), and hurts enemy ships too.
+- The Leviathan is tougher, can't be pushed around or stopped (Freeze only slows it), and hurts enemy ships too.
 - The Leviathan's beam and charge ball (test keys B and N) now have a soft blue glow.
 - Missiles (yours and the enemy's) now burn for 4 seconds instead of 2 and turn more slowly, so they fly wider, longer arcs.
 - Enemy missile ships open fire from twice as far away.

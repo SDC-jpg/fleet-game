@@ -562,7 +562,7 @@ export const CONFIG = {
       /** Turn rate during that recovery (lower than cruising: a wide swing). */
       recoverTurnRate: 0.8,
       /** Damage from its head while charging, as a share of the ship's full health (its body's normal hit: body.damage). */
-      headDamage: 0.3,
+      headDamage: 0.1,
       /** Knock from its head while charging (pixels per second). */
       headKnockback: 520,
       /** How bright its head flashes when the warning starts (0–1). */
@@ -593,7 +593,7 @@ export const CONFIG = {
       /** Reach of a pulse from the ball's middle (game pixels; the pulse ring's art is drawn for 70). */
       radius: 70,
       /** Damage per pulse to every ship it reaches, as a share of that ship's full health. */
-      damage: 0.08,
+      damage: 0.025,
     },
     /**
      * Wounds: every time it loses 1/count of its health, the blow that did it sprays purple blood
@@ -611,7 +611,7 @@ export const CONFIG = {
       /** Seconds each blood shot flies. */
       bloodLife: 1.4,
       /** Damage per blood shot that hits, as a share of the ship's full health. */
-      bloodDamage: 0.05,
+      bloodDamage: 0.015,
       /** A blood shot's size for hitting ships (game pixels). */
       bloodRadius: 4,
       /** Parasites per wound (a random number between these). */
@@ -646,6 +646,88 @@ export const CONFIG = {
       stunTime: 1.2,
       /** XP for destroying one, as a share of a tier-1 enemy's (there can be hundreds per fight). */
       xp: 0.25,
+    },
+    /**
+     * When it comes: from `fromWave`, each wave adds `chancePerWave` to the chance that the next wave
+     * is a Leviathan (20%, 40%, 60%...) until one comes; that wave's usual enemies don't come (its
+     * intro plays instead). The build-up starts again once it's gone. While one is on the field the
+     * camera is never closer than at a tier-3 fleet.
+     */
+    spawn: {
+      /** Off = it only comes with the test keys. */
+      enabled: true,
+      fromWave: 30,
+      chancePerWave: 0.2,
+    },
+    /**
+     * Its entrance: words typing across the top of the screen, distant purple lightning far beyond the
+     * stars, a flash as a rift tears open there, its silhouette rushing out of it (glowing, then dark),
+     * then it comes for you. Times in seconds from the start.
+     */
+    intro: {
+      text: "The fabric of space grows thin...",
+      /** Letters typed per second. */
+      typeSpeed: 18,
+      /** The words stay until this time, then fade out over textFade. */
+      textUntil: 5,
+      textFade: 1,
+      /** Lightning crackles from this time until the words are gone, one bolt every boltGap seconds (random between the two). */
+      lightningFrom: 0.5,
+      boltGap: [0.12, 0.45] as [number, number],
+      /** Seconds each bolt shows. */
+      boltLife: 0.3,
+      /** How much the distant layer moves with your fleet (0 = not at all, 1 = like your ships; the stars are 0.3 and 0.6). */
+      parallax: 0.03,
+      /** The flash and the rift tearing open. */
+      riftAt: 6.4,
+      /** The whole-screen flash: strength (0–1) and seconds it takes to fade. */
+      flash: 0.65,
+      flashTime: 0.6,
+      /** The rift's size (× its image; on a 1080-tall screen). */
+      riftScale: 1.6,
+      /** Its silhouette comes out this long after the rift opens... */
+      silhouetteAfter: 0.5,
+      /** ...this fast (its own pixels per second)... */
+      silhouetteSpeed: 800,
+      /** ...this big (× its real size; it's far away)... */
+      silhouetteScale: 0.55,
+      /** ...each piece glowing white-purple as it comes out, fading to dark over this many seconds. */
+      glowFade: 0.9,
+      /** The rift closes this long after the tail is out. */
+      closeAfter: 0.6,
+      /** Then, this long after, it enters the fight (from where its silhouette went: up and to the left). */
+      enterAfter: 1.5,
+      /** Silhouette colours: its dark body and the glow. */
+      dark: "#0d0616",
+      glow: "#f0d8ff",
+    },
+    /**
+     * Its death: time slows and the view zooms in a little (like your last ship's), then purple
+     * explosions consume its pieces one after another from the one hit outward, pulses of light run
+     * along the body and shockwaves race out, ending in one last huge shockwave.
+     */
+    death: {
+      /** Slow motion: real seconds, speed of time meanwhile, and zoom in. */
+      slowmoTime: 1.0,
+      slowmoScale: 0.15,
+      slowmoZoom: 1.3,
+      /** Seconds between neighbouring pieces exploding (spreading out from the one hit). */
+      spread: 0.18,
+      /** Explosions per piece, over blastTime seconds, each this big (random between the two). */
+      blasts: 4,
+      blastTime: 0.5,
+      blastScale: [1.3, 2.4] as [number, number],
+      /** A pulse of light runs along the body this often (seconds), crossing each piece this much later. */
+      pulseEvery: 0.3,
+      pulseDelay: 0.025,
+      /** A shockwave from an exploding piece this often (seconds), this big. */
+      shockEvery: 0.45,
+      shockScale: 3.5,
+      /** The last, huge shockwave, and seconds after the last piece before it's over. */
+      finalShockScale: 8,
+      endDelay: 0.6,
+      /** Screen shake strength while it dies (screen pixels). */
+      shake: 6,
     },
     /** Hit flashes on its pieces (drawn as a light silhouette over the piece, fading out). */
     flash: {
@@ -699,7 +781,7 @@ export const CONFIG = {
       /** Width of the part that hurts (game pixels; the art is about 50 thick). */
       width: 44,
       /** Damage each second to every ship it touches, as a share of that ship's full health (0.5 = destroyed in 2 s; shields absorb it first). */
-      damagePerSecond: 0.5,
+      damagePerSecond: 0.15,
       /** Push on its head when the beam fires (pixels per second, fading out). */
       recoil: 160,
       /** How quickly the recoil push fades (per second). */
@@ -735,8 +817,8 @@ export const CONFIG = {
     finSway: 7,
     /** Sways per second. */
     finSwaySpeed: 0.6,
-    /** Health = this × the wave's enemy fleet value × a tier-1 enemy's health (like elites, which use 8). 150 since 2026-11-19 (was 30, the user: × 5). */
-    healthPerFleetValue: 150,
+    /** Health = this × the wave's enemy fleet value × a tier-1 enemy's health (like elites, which use 8). Tuned with bots (2026-11-19) for a fight of a few minutes around wave 30. */
+    healthPerFleetValue: 100,
     /** Frozen (Freeze skill), it's never stopped: it swims, turns and attacks at this share of its normal pace. */
     freezeSlow: 0.5,
     /**
@@ -745,7 +827,7 @@ export const CONFIG = {
      */
     body: {
       /** Damage per hit, as a share of the ship's full health (shields absorb it first). */
-      damage: 0.1,
+      damage: 0.03,
       /** Seconds before the same ship can be hurt by its body again (it's still pushed out meanwhile). */
       cooldown: 0.5,
       /** How hard a hit knocks the ship away from the piece (pixels per second added to its speed). */

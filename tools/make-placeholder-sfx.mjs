@@ -343,6 +343,32 @@ function parasiteShake() {
   });
 }
 
+/** Intro: distant thunder, a crackle with a low rumble after it. */
+function leviathanThunder() {
+  const r = rng(101);
+  const lp = lowpass();
+  const lp2 = lowpass();
+  return render(1.6, (t, k) => {
+    const crack = t < 0.12 ? (r() * 2 - 1) * (1 - t / 0.12) : 0;
+    const rumble = lp(r() * 2 - 1, 180) * 3 * Math.min(1, t * 6) * (1 - k) ** 1.5;
+    return lp2(crack, 3000) * 0.6 + rumble * 0.7;
+  });
+}
+
+/** Intro: the rift tearing open, a deep boom with a rising shimmer. */
+function leviathanRift() {
+  const r = rng(102);
+  const lp = lowpass();
+  const sub = oscillator('sine');
+  const tone = oscillator('saw');
+  return render(2.2, (t, k) => {
+    const boom = sub(sweep(70, 30, k)) * (1 - k) ** 2 * 0.9;
+    const tear = lp(r() * 2 - 1, sweep(400, 5000, Math.min(1, k * 2))) * Math.sin(Math.PI * Math.min(1, k * 1.5)) * 0.5;
+    const shimmer = lp(tone(sweep(200, 900, k)), 1500) * 0.15 * Math.sin(Math.PI * k);
+    return boom + tear + shimmer;
+  });
+}
+
 /** Leviathan's beam (loop): a deep roar with a crackling hiss and a slow throb. */
 function leviathanBeam() {
   const r = rng(92);
@@ -713,6 +739,8 @@ const FILES = {
   'leviathan-charge.wav': leviathanCharge,
   'leviathan-beam.wav': leviathanBeam,
   'leviathan-bump.wav': leviathanBump,
+  'leviathan-thunder.wav': leviathanThunder,
+  'leviathan-rift.wav': leviathanRift,
   'leviathan-roar.wav': leviathanRoar,
   'leviathan-orb.wav': leviathanOrb,
   'leviathan-pulse.wav': leviathanPulse,

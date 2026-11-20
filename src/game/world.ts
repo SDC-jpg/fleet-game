@@ -14,6 +14,8 @@ import { drawCards, gainXp } from './progress';
 import { defaultMergeAllow, dropItem, maybeDropItem, noBonus, unlockSlots, updateLoot, type FleetBonus, type Item, type Loot, type MergeOrder, type QolDrop } from './equipment';
 import { makeEliteSkills, updateEliteSkills, updateSkills } from './skills';
 import type { SkillObj } from './moreSkills';
+import { startBossIntro, updateBossIntro, type BossIntro } from './leviathanIntro';
+import { startLeviathanDeath, updateLeviathanDeath } from './leviathanDeath';
 import { onLeviathanHit, parasiteSlow, updateLeviathanAttacks, updateOrbSpawning, updateParasite, type Blood, type Orb, type ParasiteState } from './leviathanAttacks';
 import { currentLeviathanLayout, followHead, makeLeviathanBody, updateBodyHits, updateFins, updateFlashes, updateLeviathanAI, type LeviathanBody } from './leviathan';
 
@@ -515,6 +517,13 @@ export interface GameState {
   blood: Blood[];
   /** Your fleet was dashing last step (a new dash shakes parasites off). */
   parasitesShaken: boolean;
+  /** The Leviathan's entrance playing (leviathanIntro.ts), or null. */
+  bossIntro: BossIntro | null;
+  /** A Leviathan's final blow: time slows (Game.ts) until `ready`, like finalBlow. */
+  bossFinal: { ship: Ship; ready: boolean } | null;
+  /** The chance the next wave is a Leviathan (it grows each wave from CONFIG.leviathan.spawn.fromWave), and whether it is (decided one wave ahead). */
+  leviathanChance: number;
+  nextLeviathan: boolean;
   /** Whether elites come this run (CONFIG.elite.enabled, or the test key O). */
   elitesEnabled: boolean;
   /** Elites spawned so far this run (each new one gets more skills). */
@@ -671,6 +680,10 @@ export function createGame(effectDuration: (sprite: string, tier: number) => num
     orbs: [],
     blood: [],
     parasitesShaken: false,
+    bossIntro: null,
+    bossFinal: null,
+    leviathanChance: 0,
+    nextLeviathan: false,
     elitesEnabled: CONFIG.elite.enabled,
     formationMode: CONFIG.formationMode,
     elitesSpawned: 0,
@@ -730,6 +743,8 @@ export function zoomFor(state: GameState) {
     const reached = state.maxFleetSize >= (step.minFleet ?? 0) && state.maxTier >= (step.minTier ?? 0);
     if (reached) zoom = Math.min(zoom, step.zoom);
   }
+  // While a Leviathan is on the field, never closer than with a tier-3 fleet.
+  if (state.ships.some((s) => s.leviathan)) for (const step of CONFIG.zoomSteps) if ((step.minTier ?? 0) <= 3) zoom = Math.min(zoom, step.zoom);
   return zoom;
 }
 
@@ -1024,6 +1039,7 @@ export function updateGame(state: GameState, controls: Controls, dt: number, spa
   promoteFlagship(state);
   if (state.gameOver) return;
   updateWaves(state, dt, spawnDistance);
+  if (state.bossIntro) updateBossIntro(state, dt, spawnDistance);
   maybeSendReinforcements(state, spawnDistance);
   // A level-up shows its cards after a short delay, so the kill that caused it can play out first.
   if (!state.cards && state.pendingLevels > 0) {
@@ -1280,6 +1296,8 @@ function chevronSpot(spot: { x: number; y: number }, past: LeaderSample) {
 
 function updateEnemyLeader(state: GameState, ship: Ship, dt: number) {
   if (ship.leviathan) {
+    // Dying: its death plays out instead (leviathanDeath.ts).
+    if (ship.leviathan.dying) return updateLeviathanDeath(state, ship, dt);
     updateOrbSpawning(state, ship, ship.leviathan, dt);
     return updateLeviathanAI(state, ship, dt);
   }
@@ -1898,12 +1916,16 @@ function removeDeadShips(state: GameState) {
       continue;
     }
     if (fb?.ship === s) state.finalBlow = null;
+    // A Leviathan's death plays out first (leviathanDeath.ts); it's removed when that's over.
+    if (s.leviathan) {
+      if (!s.leviathan.dying) startLeviathanDeath(state, s);
+      if (!s.leviathan.dying!.done) continue;
+      if (state.bossFinal?.ship === s) state.bossFinal = null;
+    }
     // The ship you fly gets a bigger, unique explosion with flying debris.
     if (s.fleet === state.playerFleet && s.fleet.leader === s) flagshipExplosion(state, s);
     else if (s.leviathan) {
-      // A Leviathan bursts all along its body.
-      for (const p of s.leviathan.pieces) addEffect(state, 'vfx.explosion', p.x, p.y, Math.random() * Math.PI * 2, 3);
-      addSound(state, 'sfx.flagship-explosion', s, 1, 1, true);
+      // (Its death already played out: leviathanDeath.ts.)
     } else if (s.parasite) {
       // A parasite pops in a purple splash.
       addEffect(state, 'boss.leviathan.blood-hit', s.x, s.y, Math.random() * Math.PI * 2, 1, 1.5);
@@ -1981,7 +2003,8 @@ function removeDeadShips(state: GameState) {
       if (fleet === state.playerFleet && fleet.leader) addSound(state, 'sfx.command', s, 1, 1, true);
     }
   }
-  state.ships = state.ships.filter((s) => !s.dead || s === state.finalBlow?.ship);
+  // (A dying Leviathan stays until its death has played out.)
+  state.ships = state.ships.filter((s) => !s.dead || s === state.finalBlow?.ship || (s.leviathan?.dying && !s.leviathan.dying.done));
   state.enemyFleets = state.enemyFleets.filter((f) => f.members.length > 0);
 }
 
@@ -2282,7 +2305,9 @@ export function wavePlan(state: GameState, wave: number) {
   const special = eliteSlot && !fleet;
   const swarm = special && CONFIG.swarm.enabled && state.nextSwarm;
   const elite = special && !swarm && state.elitesEnabled;
-  return { fleet, eliteSlot, swarm, elite };
+  // A Leviathan wave brings nothing else (its entrance plays instead); decided one wave ahead.
+  if (state.nextLeviathan && wave === state.wave + 1) return { fleet: false, eliteSlot, swarm: false, elite: false, leviathan: true };
+  return { fleet, eliteSlot, swarm, elite, leviathan: false };
 }
 
 function updateWaves(state: GameState, dt: number, spawnDistance: number) {
@@ -2299,7 +2324,15 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
   if (!center) return;
 
   const room = CONFIG.maxEnemies - state.ships.filter((s) => s.team === 'enemy').length;
-  const plan = wavePlan(state, state.wave);
+  // (wavePlan is asked one wave ahead for the HUD; here the wave has just begun.)
+  const plan = state.nextLeviathan ? { ...wavePlan(state, state.wave + 1), leviathan: true } : wavePlan(state, state.wave);
+  rollLeviathan(state);
+  if (plan.leviathan) {
+    // The Leviathan's wave: its entrance instead of the usual enemies (an elite due waits for the next wave).
+    state.eliteDue = plan.eliteSlot;
+    startBossIntro(state);
+    return;
+  }
   const firstNewId = state.nextId;
   const fleetWave = plan.fleet;
 
@@ -2320,6 +2353,24 @@ function updateWaves(state: GameState, dt: number, spawnDistance: number) {
     for (let i = 0; i < count; i++) spawnEnemyFleet(state, center, spawnDistance, 1, room);
   }
   addVariantSquadron(state, state.ships.filter((s) => s.id >= firstNewId && s.team === 'enemy' && !s.elite));
+}
+
+/**
+ * Is the next wave a Leviathan? From CONFIG.leviathan.spawn.fromWave the chance grows each wave
+ * (chancePerWave: 20%, 40%...) until one comes; none while one is coming or on the field.
+ */
+function rollLeviathan(state: GameState) {
+  const S = CONFIG.leviathan.spawn;
+  const busy = state.bossIntro !== null || state.ships.some((s) => s.leviathan);
+  if (state.nextLeviathan) {
+    // This wave is the one: start over.
+    state.nextLeviathan = false;
+    state.leviathanChance = 0;
+    return;
+  }
+  if (!S.enabled || busy || state.wave + 1 < S.fromWave) return;
+  state.leviathanChance = Math.min(1, state.leviathanChance + S.chancePerWave);
+  state.nextLeviathan = Math.random() < state.leviathanChance;
 }
 
 /** The enemy variant a wave's squadron is (CONFIG.variants), or null for none this wave. */
@@ -2554,9 +2605,13 @@ export function testSpawnElite(state: GameState, spawnDistance: number) {
  * Health like an elite's: it follows the wave's enemy fleet value (CONFIG.leviathan).
  */
 function spawnLeviathan(state: GameState, near: Ship, distance: number) {
+  spawnLeviathanFrom(state, near, distance, Math.random() * Math.PI * 2);
+}
+
+/** A Leviathan coming in from direction `a` (radians from `near`), `distance` away, heading at it. */
+export function spawnLeviathanFrom(state: GameState, near: Ship, distance: number, a: number) {
   const L = CONFIG.leviathan;
   const headRadius = currentLeviathanLayout().hitRadius.head;
-  const a = Math.random() * Math.PI * 2;
   const fleet = newFleet('enemy');
   const x = near.x + Math.cos(a) * (distance + headRadius);
   const y = near.y + Math.sin(a) * (distance + headRadius);

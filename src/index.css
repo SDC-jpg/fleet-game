@@ -1464,6 +1464,22 @@ body {
   top: 0;
   pointer-events: none;
 }
+.boss-intro {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 22vh;
+  text-align: center;
+  font-size: clamp(18px, 3.2vh, 40px);
+  letter-spacing: 0.08em;
+  color: #eadcff;
+  text-shadow: 0 0 8px #9a4dff, 0 0 18px #6a1fd0;
+  pointer-events: none;
+  z-index: 5;
+}
+.boss-intro-rest {
+  visibility: hidden;
+}
 .glow-canvas {
   position: fixed;
   left: 0;

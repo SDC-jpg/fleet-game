@@ -48,6 +48,8 @@ const skills = [...bySide.left, ...bySide.right, ...bySide.passive];
 const groups = (arg('groups', '') || ['baseline', ...skills].join(',')).split(',');
 // --no-elites: elites switched off (as test key O), to see what they change.
 const noElites = process.argv.includes('--no-elites');
+// --leviathan-at 30: every run gets a Leviathan at that wave (the run ends when the fight is decided).
+const leviathanAt = Number(arg('leviathan-at', 0)) || undefined;
 
 const deadline = Date.now() + minutes * 60_000;
 let running = 0;
@@ -70,7 +72,8 @@ function launch(job, onExit) {
       appendFileSync(results, line + '\n');
       done++;
       const r = JSON.parse(line);
-      log(`${r.group}${r.kind === 'career' ? ` run ${r.run}` : ''}: wave ${r.wave}, tier ${r.maxTier}, best value ${r.bestValue}, gearscore ${r.gearEnd}${r.capped ? ' (capped)' : ''} [${r.realSeconds}s]`);
+      const b = r.boss ? ` · Leviathan: ${r.boss.killed ? 'killed' : `lost (${Math.round(r.boss.hpLeft * 100)}% left)`} in ${Math.round(r.boss.end - r.boss.start)}s` : '';
+      log(`${r.group}${r.kind === 'career' ? ` run ${r.run}` : ''}: wave ${r.wave}, tier ${r.maxTier}, best value ${r.bestValue}, gearscore ${r.gearEnd}${r.capped ? ' (capped)' : ''}${b} [${r.realSeconds}s]`);
     }
   });
   child.on('exit', () => {
@@ -82,7 +85,7 @@ function launch(job, onExit) {
 // Careers: each a bot of its own, playing run after run until the deadline.
 // (When one finishes its runs, its bot takes single runs like the others.)
 for (let c = 1; c <= Math.min(careers, workers); c++)
-  launch({ kind: 'career', group: `career-${c}`, cap, until: deadline, runs: careerRuns }, () => {
+  launch({ kind: 'career', group: `career-${c}`, cap, until: deadline, runs: careerRuns, leviathanAt }, () => {
     fill();
     check();
   });
@@ -90,7 +93,7 @@ for (let c = 1; c <= Math.min(careers, workers); c++)
 function fill() {
   while (running < workers && Date.now() < deadline) {
     const group = groups[next++ % groups.length];
-    launch({ kind: 'single', group: noElites ? `${group}-no-elites` : group, forced: group === 'baseline' ? null : group, cap, noElites }, () => {
+    launch({ kind: 'single', group: noElites ? `${group}-no-elites` : group, forced: group === 'baseline' ? null : group, cap, noElites, leviathanAt }, () => {
       fill();
       check();
     });

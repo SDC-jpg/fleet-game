@@ -145,6 +145,11 @@ export class PixelRenderer {
     return this.scale * this.detail;
   }
 
+  /** For things drawn in screen pixels (a distant background layer): screen pixels per game pixel and per buffer pixel, and the screen's height in pixels. */
+  get scales() {
+    return { screen: this.screenScale, buffer: this.bufferScale, height: this.screen.height };
+  }
+
   /** Visible area in game pixels. */
   get viewWidth() {
     return this.screen.width / this.screenScale;

@@ -352,6 +352,14 @@ image = the pulse's reach, play once), `blood.png` (a blood shot, looping) and `
 ship, facing right, 2 frames). Its hit flash is a light purple silhouette of the piece itself (no
 image). Sounds: `sfx.leviathan-bump`, `-roar` (before a ram), `-orb`, `-pulse`, `-wound`,
 `sfx.parasite-latch`, `sfx.parasite-shake`, placeholders.
+**Its entrance and death** (purple placeholders too): `lightning.png` (4 different distant bolts,
+one frame each), `rift.png` (the tear in space opening over 6 frames; it closes by playing them
+backwards), `explosion.png` (its death: purple explosions consuming each piece) and
+`shockwave.png` (rings racing out, drawn big). Its silhouette in the entrance is its own pieces
+in one dark colour, each glowing as it comes out of the rift (colours in CONFIG.leviathan.intro).
+Sounds: `sfx.leviathan-thunder`, `sfx.leviathan-rift`. To look at them without waiting: the page
+address `?intro=7` starts the entrance 7 seconds in, `?boss=dying` plays its death at once (dev
+server only).
 **Gradients** colour the body from head to tail, like a Photoshop gradient overlay: colour stops
 on a bar (click to add, drag to move, drag down off the bar to remove; each with its own colour,
 opacity and location), a blend mode (Multiply, Screen, Color Dodge, Linear Dodge (Add), Soft

@@ -12,6 +12,8 @@ import { gunsOf, shipArtBase } from './guns';
 import { controlledShip, drawnAsSymbol, isMergePart, symbolTierMax, type GameState, type Ship, type Team } from './world';
 import { HALF_SIDE_HEAD_SPRITE, MOUTH_OPEN_HEAD_SPRITE, PIECE_SPRITES, beamOrigin, beamThickness, SIDE_HEAD_SPRITE, finPiece, finRoot, type LeviathanBody, type LeviathanPiece, type PieceKind } from './leviathan';
 import { orbTell } from './leviathanAttacks';
+import { pieceGone } from './leviathanDeath';
+import { riftOpening, type BossIntro } from './leviathanIntro';
 import { shownGradients, tintedSprite, type RowT } from './gradientTint';
 
 /**
@@ -86,7 +88,7 @@ export interface ViewOptions {
  * The starfield, dimmed and colour-shifted: blue while the commander view is on, red during
  * Time Dilation (its stars smeared like a long exposure).
  */
-function drawBackground(r: PixelRenderer, assets: Assets, view: ViewOptions | undefined) {
+function drawBackground(r: PixelRenderer, assets: Assets, view: ViewOptions | undefined, intro: BossIntro | null = null) {
   const C = CONFIG.commander;
   const T = CONFIG.timeDilation;
   const blue = view?.blue ?? 0;
@@ -97,6 +99,8 @@ function drawBackground(r: PixelRenderer, assets: Assets, view: ViewOptions | un
   // A black base first, so the colour shifts below tint the stars instead of filling empty space.
   if (shift > 0) r.fillView('#000000', 1);
   for (const [name, parallax] of [['bg.stars-far', 0.3], ['bg.stars-near', 0.6]] as const) {
+    // The Leviathan's entrance plays far away, beyond the stars (over the far layer, which is a solid image, under the near stars).
+    if (intro && name === 'bg.stars-near') drawIntroLayer(r, assets, intro);
     const sprite = assets.get(name);
     // Smear: fainter copies behind, along your movement.
     for (let i = smear; i >= 1; i--)
@@ -123,8 +127,55 @@ function symbolSprite(assets: Assets, artBase: string, tier: number) {
   return assets.get(`ui.hud.${side}.t1`);
 }
 
+/**
+ * The Leviathan's entrance on its distant layer (leviathanIntro.ts): lightning, the rift, and its
+ * silhouette rushing out. Measured in screen pixels on a 1080-tall screen from the middle of the
+ * screen, moving only a little with your fleet.
+ */
+function drawIntroLayer(r: PixelRenderer, assets: Assets, it: BossIntro) {
+  const I = CONFIG.leviathan.intro;
+  const { screen, buffer, height } = r.scales;
+  const unit = height / 1080;
+  const ws = r.worldScale;
+  const v = r.view;
+  const cx = v.x + v.w / 2;
+  const cy = v.y + v.h / 2;
+  // Layer pixels → world position now (with the small parallax), and art size → drawSprite scale.
+  const shiftX = (cx - it.originX) * screen * I.parallax;
+  const shiftY = (cy - it.originY) * screen * I.parallax;
+  const at = (lx: number, ly: number) => ({ x: cx + (lx * unit - shiftX) / screen, y: cy + (ly * unit - shiftY) / screen });
+  const size = (k: number) => (k * unit) / (buffer * ws);
+  const bolt = assets.get('boss.leviathan.lightning');
+  for (const b of it.bolts) {
+    const p = at(b.x, b.y);
+    const fade = 1 - b.age / I.boltLife;
+    r.drawSprite(bolt, p.x, p.y, 0, b.frame / Math.max(1, bolt.fps), fade * (Math.random() < 0.2 ? 0.5 : 1), false, size(b.scale), b.flip);
+  }
+  const open = riftOpening(it);
+  if (open > 0) {
+    const rift = assets.get('boss.leviathan.rift');
+    const p = at(it.riftX, it.riftY);
+    // Its frames go from shut to open.
+    const frame = Math.min(rift.frames.length - 1, Math.floor(open * rift.frames.length));
+    r.drawSprite(rift, p.x, p.y, 0, frame / Math.max(1, rift.fps), Math.min(1, open * 2), false, size(I.riftScale));
+  }
+  // Its silhouette: pieces that are out of the rift, glowing as they come out, then dark.
+  if (it.body) {
+    const k = I.silhouetteScale;
+    it.body.pieces.forEach((piece, i) => {
+      if (it.out[i] < 0) return;
+      const art = leviathanPieceArt(assets, it.body!, piece.kind).sprite;
+      const p = at(it.riftX + piece.x * k, it.riftY + piece.y * k);
+      const s = size(k * piece.scale);
+      r.drawAttached(silhouette(art, I.dark), p.x, p.y, piece.angle, 0, 0, Math.PI / 2, it.t, 1, s);
+      const glow = 1 - (it.t - it.out[i]) / I.glowFade;
+      if (glow > 0) r.drawAttached(silhouette(art, I.glow), p.x, p.y, piece.angle, 0, 0, Math.PI / 2, it.t, glow, s);
+    });
+  }
+}
+
 export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, extras: ArtExtras) {
-  drawBackground(r, assets, extras.view);
+  drawBackground(r, assets, extras.view, state.bossIntro);
   const view = extras.view;
   const symbolMax = symbolTierMax(state);
 
@@ -322,6 +373,11 @@ export function renderGame(state: GameState, r: PixelRenderer, assets: Assets, e
     const fx = tierSpriteScaled(assets, e.sprite, e.tier);
     r.drawSprite(fx.sprite, x, y, e.angle, e.age, 1, false, e.scale * fx.scale);
   }
+
+  // The Leviathan's entrance: a flash over everything as the rift tears open.
+  const it = state.bossIntro;
+  const I = CONFIG.leviathan.intro;
+  if (it && it.t >= I.riftAt && it.t < I.riftAt + I.flashTime) r.fillView(I.glow, I.flash * (1 - (it.t - I.riftAt) / I.flashTime));
 
   // Arrows at the screen edge pointing to things you can't see.
   const wreckArrow = assets.get('ui.arrow.wreck');
@@ -542,6 +598,8 @@ export function drawLeviathan(r: PixelRenderer, assets: Assets, body: LeviathanB
     fins.set(p, [...(fins.get(p) ?? []), i]);
   });
   body.pieces.forEach((p, index) => {
+    // Consumed by its death (leviathanDeath.ts): gone, fins too.
+    if (pieceGone(body, index)) return;
     const own = fins.get(p) ?? [];
     for (const i of own) if (!body.layout.fins[i].front) drawFin(r, assets, body, i, time, tint);
     const art = leviathanPieceArt(assets, body, p.kind);

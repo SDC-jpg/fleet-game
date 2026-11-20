@@ -69,7 +69,7 @@ export default function App() {
           {TEST_KEYS_ENABLED && (
             <div>
               Test keys: = / - add/remove ship · ] add 16 ships · T add a next-tier ship · G invincible {hud.invincible ? '(ON)' : '(off)'} · K destroy enemies on
-              screen · X end run · L level up · J all skills · I drop 3 matching items · Y drop the next Merge Module · E spawn elite · H spawn swarm · V variants · B Leviathan · N its beam now · C ram · P energy ball · Z wound it · R reinforcements · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · F formation ({hud.formationMode === 'fill' ? 'Fill' : 'Original'}) · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
+              screen · X end run · L level up · J all skills · I drop 3 matching items · Y drop the next Merge Module · E spawn elite · H spawn swarm · V variants · B Leviathan (Shift+B: no intro) · N its beam now · C ram · P energy ball · Z wound it · R reinforcements · O elites {hud.elitesEnabled ? '(ON)' : '(off)'} · F formation ({hud.formationMode === 'fill' ? 'Fill' : 'Original'}) · U rotation ({ROTATION_LABELS[hud.rotation]}) · {hud.display}
             </div>
           )}
         </div>
@@ -87,6 +87,14 @@ export default function App() {
             {hud.nextWave.elite && <b className="e">E</b>}
             {hud.nextWave.swarm && <b className="s">S</b>}
           </span>
+        </div>
+      )}
+      {/* The Leviathan's entrance: words typing across the top third of the screen. */}
+      {hud && hud.intro && (
+        <div className="boss-intro" style={{ opacity: hud.intro.alpha }}>
+          {/* The whole line takes its room from the start (the untyped rest is invisible), so the words don't shift as they type. */}
+          <span>{hud.intro.text}</span>
+          <span className="boss-intro-rest">{hud.intro.full.slice(hud.intro.text.length)}</span>
         </div>
       )}
       {/* A boss's health (placeholder look, separate so art can replace it). */}
