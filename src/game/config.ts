@@ -978,9 +978,10 @@ export const CONFIG = {
        * fires again while its beam is on keeps the one beam going, with the damage left added). With
        * nothing in the way it reaches `reachScreens` × the screen's diagonal. If what it burns is
        * destroyed, it carries on to whatever is behind. `width` is for a size-1 gun (grows like ship size).
-       * `shieldRadius`: a shielded ship's bubble, × its hit radius.
+       * `shieldRadius`: a shielded ship's bubble, × its hit radius. `enemyDamage`: enemy ships' energy
+       * beams do this many times their normal damage (they hold back at range, CONFIG.enemyTactics).
        */
-      energy: { rate: 2.5, efficiency: 0.6, width: 4, duration: 0.8, reachScreens: 2, shieldRadius: 1.4 },
+      energy: { rate: 2.5, efficiency: 0.6, width: 4, duration: 0.8, reachScreens: 2, shieldRadius: 1.4, enemyDamage: 1.2 },
       /**
        * Small homing missiles (they fly like the Missiles skill's, CONFIG.missiles): `missiles` per
        * shot by default (each gun can set its own in ShipArt), sharing the shot's damage, fanned out

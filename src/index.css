@@ -1341,9 +1341,11 @@ body {
   font-size: 12px;
   color: #ffd8b0;
 }
-/* Long-Range Radar minimap (drawn by Game.drawRadar): see-through, centred above the XP bar. */
+/* Long-Range Radar minimap (drawn by Game.drawRadar): centred above the XP bar, over a dark backing
+   (the game shows through at half brightness, so a bright ship behind it doesn't hide the dots). */
 .radar {
   display: block;
+  background: rgba(0, 0, 0, 0.5);
   margin: 6px auto 4px;
   pointer-events: none;
 }

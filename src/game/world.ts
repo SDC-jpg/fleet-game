@@ -1694,7 +1694,8 @@ function gunSource(ship: Ship, type: WeaponType): DamageSource {
  */
 export function fireEnergyGun(state: GameState, ship: Ship, g: GunSpec, gun: number, error: number) {
   const D = CONFIG.guns.types.energy.duration;
-  const damage = g.damage * (ship.team === 'player' ? state.bonus.damage : 1);
+  // (Enemies' beams hit harder: they hold back at range.)
+  const damage = g.damage * (ship.team === 'player' ? state.bonus.damage : CONFIG.guns.types.energy.enemyDamage);
   const old = state.energyBeams.find((b) => b.ship === ship && b.gun === gun);
   if (old) {
     const left = old.dps * Math.max(0, D - old.age);
